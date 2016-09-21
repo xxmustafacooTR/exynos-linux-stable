@@ -1504,7 +1504,7 @@ struct sched_class {
 	 */
 	struct task_struct * (*pick_next_task) (struct rq *rq,
 						struct task_struct *prev,
-						struct pin_cookie cookie);
+						struct rq_flags *rf);
 	void (*put_prev_task) (struct rq *rq, struct task_struct *p);
 
 #ifdef CONFIG_SMP
