@@ -303,6 +303,7 @@ static int exynos_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	policy->cur = get_freq(domain);
 	policy->cpuinfo.transition_latency = TRANSITION_LATENCY;
+	policy->iowait_boost_enable = false;
 	cpumask_copy(policy->cpus, &domain->cpus);
 
 	pr_info("CPUFREQ domain%d registered\n", domain->id);
