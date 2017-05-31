@@ -24,6 +24,7 @@ obj-$(CONFIG_PINCTRL) += pinctrl.o
 obj-$(CONFIG_DEV_COREDUMP) += devcoredump.o
 obj-$(CONFIG_GENERIC_MSI_IRQ_DOMAIN) += platform-msi.o
 obj-$(CONFIG_ASSISTED_SUPERUSER) += superuser.o
+obj-$(CONFIG_GENERIC_ARCH_TOPOLOGY) += arch_topology.o
 
 ccflags-$(CONFIG_DEBUG_DRIVER) := -DDEBUG
 
