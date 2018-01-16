@@ -738,6 +738,9 @@ struct rq {
 	u64 cum_window_demand;
 #endif /* CONFIG_SCHED_WALT */
 
+#ifdef CONFIG_SCHED_EHMP
+	bool ontime_migrating;
+#endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
@@ -1988,6 +1991,68 @@ extern void nohz_balance_exit_idle(unsigned int cpu);
 #else
 static inline void nohz_balance_exit_idle(unsigned int cpu) { }
 #endif
+
+/*
+ * CPU candidates.
+ *
+ * These are labels to reference CPU candidates for an energy_diff.
+ * Currently we support only two possible candidates: the task's previous CPU
+ * and another candiate CPU.
+ * More advanced/aggressive EAS selection policies can consider more
+ * candidates.
+ */
+#define EAS_CPU_PRV	0
+#define EAS_CPU_NXT	1
+#define EAS_CPU_BKP	2
+#define EAS_CPU_CNT	3
+
+/*
+ * energy_diff - supports the computation of the estimated energy impact in
+ * moving a "task"'s "util_delta" between different CPU candidates.
+ */
+struct energy_env {
+	/* Utilization to move */
+	struct task_struct	*p;
+	int			util_delta;
+
+	/* Mask of CPUs candidates to evaluate */
+	cpumask_t		cpus_mask;
+
+	/* CPU candidates to evaluate */
+	struct {
+
+		/* CPU ID, must be in cpus_mask */
+		int	cpu_id;
+
+		/*
+		 * Index (into sched_group_energy::cap_states) of the OPP the
+		 * CPU needs to run at if the task is placed on it.
+		 * This includes the both active and blocked load, due to
+		 * other tasks on this CPU,  as well as the task's own
+		 * utilization.
+		 */
+		int	cap_idx;
+		int	cap;
+
+		/* Estimated system energy */
+		unsigned int energy;
+
+		/* Estimated energy variation wrt EAS_CPU_PRV */
+		int	nrg_delta;
+
+	} cpu[EAS_CPU_CNT];
+
+	/*
+	 * Index (into energy_env::cpu) of the morst energy efficient CPU for
+	 * the specified energy_env::task
+	 */
+	int			next_idx;
+
+	/* Support data */
+	struct sched_group	*sg_top;
+	struct sched_group	*sg_cap;
+	struct sched_group	*sg;
+};
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 struct irqtime {

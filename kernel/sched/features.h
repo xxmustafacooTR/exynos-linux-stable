@@ -103,3 +103,10 @@ SCHED_FEAT(MIN_CAPACITY_CAPPING, false)
  * OFF: Use whichever of target or backup saves most.
  */
 SCHED_FEAT(FBT_STRICT_ORDER, true)
+
+#ifdef CONFIG_SCHED_EHMP
+SCHED_FEAT(EXYNOS_HMP, true)
+#else
+SCHED_FEAT(EXYNOS_HMP, false)
+#endif
+

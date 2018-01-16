@@ -797,6 +797,67 @@ TRACE_EVENT(sched_tune_tasks_update,
 );
 
 /*
+ * Tracepoint for schedtune_grouputil_update
+ */
+TRACE_EVENT(sched_tune_grouputil_update,
+
+	TP_PROTO(int idx, int total, int accumulated, unsigned long group_util,
+			struct task_struct *heaviest_p, unsigned long biggest_util),
+
+	TP_ARGS(idx, total, accumulated, group_util, heaviest_p, biggest_util),
+
+	TP_STRUCT__entry(
+		__field( int,		idx		)
+		__field( int,		total		)
+		__field( int,		accumulated	)
+		__field( unsigned long,	group_util	)
+		__field( pid_t,		pid		)
+		__array( char,	comm,	TASK_COMM_LEN	)
+		__field( unsigned long,	biggest_util	)
+	),
+
+	TP_fast_assign(
+		__entry->idx		= idx;
+		__entry->total		= total;
+		__entry->accumulated	= accumulated;
+		__entry->group_util	= group_util;
+		__entry->pid		= heaviest_p->pid;
+		memcpy(__entry->comm, heaviest_p->comm, TASK_COMM_LEN);
+		__entry->biggest_util	= biggest_util;
+	),
+
+	TP_printk("idx=%d total=%d accumulated=%d group_util=%lu "
+			"heaviest task(pid=%d comm=%s util=%lu)",
+		__entry->idx, __entry->total, __entry->accumulated, __entry->group_util,
+		__entry->pid, __entry->comm, __entry->biggest_util)
+);
+
+/*
+ * Tracepoint for checking group balancing
+ */
+TRACE_EVENT(sched_tune_check_group_balance,
+
+	TP_PROTO(int idx, int ib_count, bool balancing),
+
+	TP_ARGS(idx, ib_count, balancing),
+
+	TP_STRUCT__entry(
+		__field( int,		idx		)
+		__field( int,		ib_count	)
+		__field( bool,		balancing	)
+	),
+
+	TP_fast_assign(
+		__entry->idx		= idx;
+		__entry->ib_count	= ib_count;
+		__entry->balancing	= balancing;
+	),
+
+	TP_printk("idx=%d imbalance_count=%d balancing=%d",
+		__entry->idx, __entry->ib_count, __entry->balancing)
+);
+
+/*
  * Tracepoint for schedtune_boostgroup_update
  */
 TRACE_EVENT(sched_tune_boostgroup_update,
