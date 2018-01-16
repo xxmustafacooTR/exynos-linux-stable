@@ -1349,6 +1349,25 @@ struct sched_avg {
 	struct util_est			util_est;
 };
 
+#ifdef CONFIG_SCHED_EHMP
+#define NOT_ONTIME		1
+#define ONTIME_MIGRATING	2
+#define ONTIME			4
+
+struct ontime_avg {
+	u64 ontime_migration_time;
+	u64 load_sum;
+	u32 period_contrib;
+	unsigned long load_avg;
+};
+
+struct ontime_entity {
+	struct ontime_avg avg;
+	int flags;
+	int cpu;
+};
+#endif
+
 #ifdef CONFIG_SCHEDSTATS
 struct sched_statistics {
 	u64			wait_start;
@@ -1482,6 +1501,9 @@ struct sched_entity {
 	 * collide with read-mostly values above.
 	 */
 	struct sched_avg	avg ____cacheline_aligned_in_smp;
+#endif
+#ifdef CONFIG_SCHED_EHMP
+	struct ontime_entity		ontime;
 #endif
 };
 
