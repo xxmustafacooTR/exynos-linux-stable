@@ -2823,6 +2823,11 @@ static u32 __accumulate_sum(u64 periods, u32 period_contrib, u32 remainder)
 
 #define cap_scale(v, s) ((v)*(s) >> SCHED_CAPACITY_SHIFT)
 
+#ifdef CONFIG_FREQVAR_TUNE
+extern unsigned long freqvar_boost_vector(int cpu, unsigned long util,
+						struct cfs_rq *cfs_rq);
+#endif
+
 /*
  * Accumulate the three separate parts of the sum; d1 the remainder
  * of the last (incomplete) period, d2 the span of full periods and d3
@@ -2853,7 +2858,11 @@ accumulate_sum(u64 delta, int cpu, struct sched_avg *sa,
 	u32 contrib;
 
 	scale_freq = arch_scale_freq_capacity(NULL, cpu);
+#ifdef CONFIG_FREQVAR_TUNE
+	scale_cpu = freqvar_boost_vector(cpu, sa->util_avg, cfs_rq);
+#else
 	scale_cpu = arch_scale_cpu_capacity(NULL, cpu);
+#endif
 
 	delta += sa->period_contrib;
 	periods = delta / 1024; /* A period is 1024us (~1ms) */
