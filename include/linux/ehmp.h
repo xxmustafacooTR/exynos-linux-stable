@@ -37,8 +37,8 @@ extern int exynos_need_active_balance(enum cpu_idle_type idle,
 extern unsigned long global_boost(void);
 extern int find_second_max_cap(void);
 
-extern int exynos_select_cpu(struct task_struct *p, int prev_cpu,
-					int sync, int sd_flag);
+extern int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
+				bool boosted, bool prefer_idle);
 
 extern void ontime_migration(void);
 extern int ontime_can_migration(struct task_struct *p, int cpu);
