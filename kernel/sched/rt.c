@@ -259,6 +259,93 @@ int alloc_rt_sched_group(struct task_group *tg, struct task_group *parent)
 
 #ifdef CONFIG_SMP
 
+#include "sched-pelt.h"
+
+extern u64 decay_load(u64 val, u64 n);
+
+static u32 __accumulate_pelt_segments_rt(u64 periods, u32 d1, u32 d3)
+{
+	u32 c1, c2, c3 = d3;
+
+	c1 = decay_load((u64)d1, periods);
+
+	c2 = LOAD_AVG_MAX - decay_load(LOAD_AVG_MAX, periods) - 1024;
+
+	return c1 + c2 + c3;
+}
+
+#define cap_scale(v, s) ((v)*(s) >> SCHED_CAPACITY_SHIFT)
+
+static __always_inline u32
+accumulate_sum_rt(u64 delta, int cpu, struct sched_avg *sa,
+	       unsigned long weight, int running)
+{
+	unsigned long scale_freq, scale_cpu;
+	u32 contrib = (u32)delta;
+	u64 periods;
+
+	scale_freq = arch_scale_freq_capacity(NULL, cpu);
+	scale_cpu = arch_scale_cpu_capacity(NULL, cpu);
+
+	delta += sa->period_contrib;
+	periods = delta / 1024;
+
+	if (periods) {
+		sa->load_sum = decay_load(sa->load_sum, periods);
+		sa->util_sum = decay_load((u64)(sa->util_sum), periods);
+
+		delta %= 1024;
+		contrib = __accumulate_pelt_segments_rt(periods,
+				1024 - sa->period_contrib, delta);
+	}
+	sa->period_contrib = delta;
+
+	contrib = cap_scale(contrib, scale_freq);
+	if (weight) {
+		sa->load_sum += weight * contrib;
+	}
+	if (running)
+		sa->util_sum += contrib * scale_cpu;
+
+	return periods;
+}
+
+/*
+ * We can represent the historical contribution to runnable average as the
+ * coefficients of a geometric series, exactly like fair task load.
+ * refer the ___update_load_avg @ fair sched class
+ */
+static __always_inline int
+__update_load_avg(u64 now, int cpu, struct sched_avg *sa,
+	unsigned long weight, int running, struct rt_rq *rt_rq)
+{
+	u64 delta;
+
+	delta = now - sa->last_update_time;
+
+	if ((s64)delta < 0) {
+		sa->last_update_time = now;
+		return 0;
+	}
+
+	delta >>= 10;
+	if (!delta)
+		return 0;
+
+	sa->last_update_time += delta << 10;
+
+	if (!weight)
+		running = 0;
+
+	if (!accumulate_sum_rt(delta, cpu, sa, weight, running))
+		return 0;
+
+	sa->load_avg = div_u64(sa->load_sum, LOAD_AVG_MAX - 1024 + sa->period_contrib);
+	sa->util_avg = sa->util_sum / (LOAD_AVG_MAX - 1024 + sa->period_contrib);
+
+	return 1;
+}
+
 static void pull_rt_task(struct rq *this_rq);
 
 static inline bool need_pull_rt_task(struct rq *rq, struct task_struct *prev)
@@ -1637,6 +1724,24 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 }
 
 #ifdef CONFIG_SMP
+void update_rt_load_avg(u64 now, struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+	struct rq *rq = rq_of_rt_rq(rt_rq);
+	int cpu = cpu_of(rq);
+	/*
+	 * Track task load average for carrying it to new CPU after migrated.
+	 */
+	if (rt_se->avg.last_update_time)
+		__update_load_avg(now, cpu, &rt_se->avg, scale_load_down(NICE_0_LOAD),
+			rt_rq->curr == rt_se, NULL);
+
+	update_rt_rq_load_avg(now, cpu, rt_rq, true);
+	/* TODO
+	 * propagate the rt entity load average ()
+	 * if (rt_entity_is_task(rt_se)) tracing the rt average
+	 */
+}
 
 /* Only try algorithms three times */
 #define RT_MAX_TRIES 3
@@ -2255,6 +2360,10 @@ void __init init_sched_rt_class(void)
 		zalloc_cpumask_var_node(&per_cpu(local_cpu_mask, i),
 					GFP_KERNEL, cpu_to_node(i));
 	}
+}
+#else
+void update_rt_load_avg(u64 now, struct sched_rt_entity *rt_se)
+{
 }
 #endif /* CONFIG_SMP */
 
