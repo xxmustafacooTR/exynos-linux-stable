@@ -1327,6 +1327,38 @@ void dec_rt_tasks(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 	dec_rt_group(rt_se, rt_rq);
 }
 
+#ifdef CONFIG_SMP
+static void
+attach_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
+{
+	rt_se->avg.last_update_time = rt_rq->avg.last_update_time;
+	rt_rq->avg.util_avg += rt_se->avg.util_avg;
+	rt_rq->avg.util_sum += rt_se->avg.util_sum;
+	rt_rq->avg.load_avg += rt_se->avg.load_avg;
+	rt_rq->avg.load_sum += rt_se->avg.load_sum;
+	/* Need to do something about
+	 * propagate_avg of rt_rq, rt_rq_util_change()
+	 */
+}
+
+static void
+detach_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
+{
+	sub_positive(&rt_rq->avg.util_avg, rt_se->avg.util_avg);
+	sub_positive(&rt_rq->avg.util_sum, rt_se->avg.util_sum);
+	sub_positive(&rt_rq->avg.load_avg, rt_se->avg.load_avg);
+	sub_positive(&rt_rq->avg.load_sum, rt_se->avg.load_sum);
+	/* Need to do something about
+	 * propagate_avg of rt_rq, rt_rq_util_change()
+	 */
+}
+#else
+static inline void
+attach_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se) {}
+static inline void
+detach_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se) {}
+#endif
+
 /*
  * Change rt_se->run_list location unless SAVE && !MOVE
  *
@@ -1578,6 +1610,58 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 out:
 	return cpu;
 }
+
+static void attach_task_rt_rq(struct task_struct *p)
+{
+	struct sched_rt_entity *rt_se = &p->rt;
+	struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+	u64 now = rq_clock_task(rq_of_rt_rq(rt_rq));
+
+	update_rt_load_avg(now, rt_se);
+	attach_entity_load_avg(rt_rq, rt_se);
+}
+
+static void detach_task_rt_rq(struct task_struct *p)
+{
+	struct sched_rt_entity *rt_se = &p->rt;
+	struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+	u64 now = rq_clock_task(rq_of_rt_rq(rt_rq));
+
+	update_rt_load_avg(now, rt_se);
+	detach_entity_load_avg(rt_rq, rt_se);
+}
+
+#ifdef CONFIG_RT_GROUP_SCHED
+static void task_set_group_rt(struct task_struct *p)
+{
+	set_task_rq(p, task_cpu(p));
+}
+
+static void task_move_group_rt(struct task_struct *p)
+{
+	detach_task_rt_rq(p);
+	set_task_rq(p, task_cpu(p));
+
+#ifdef CONFIG_SMP
+	/* Tell se's cfs_rq has been changed -- migrated */
+	p->se.avg.last_update_time = 0;
+#endif
+	attach_task_rt_rq(p);
+}
+
+static void task_change_group_rt(struct task_struct *p, int type)
+{
+	switch (type) {
+	case TASK_SET_GROUP:
+		task_set_group_rt(p);
+		break;
+
+	case TASK_MOVE_GROUP:
+		task_move_group_rt(p);
+		break;
+	}
+}
+#endif
 
 static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 {
@@ -2577,6 +2661,9 @@ const struct sched_class rt_sched_class = {
 	.update_curr		= update_curr_rt,
 #ifdef CONFIG_SCHED_WALT
 	.fixup_cumulative_runnable_avg = walt_fixup_cumulative_runnable_avg,
+#endif
+#ifdef CONFIG_RT_GROUP_SCHED
+	.task_change_group	= task_change_group_rt,
 #endif
 };
 
