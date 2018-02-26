@@ -214,6 +214,7 @@ int alloc_rt_sched_group(struct task_group *tg, struct task_group *parent)
 		init_rt_rq(rt_rq);
 		rt_rq->rt_runtime = tg->rt_bandwidth.rt_runtime;
 		init_tg_rt_entry(tg, rt_rq, rt_se, i, parent->rt_se[i]);
+		init_rt_entity_runnable_average(rt_se);
 	}
 
 	return 1;
@@ -1690,6 +1691,30 @@ static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 	resched_curr(rq);
 }
 
+/* Give new sched_entity start runnable values to heavy its load in infant time */
+void init_rt_entity_runnable_average(struct sched_rt_entity *rt_se)
+{
+	struct sched_avg *sa = &rt_se->avg;
+
+	sa->last_update_time = 0;
+
+	sa->period_contrib = 1023;
+
+	/*
+	 * Tasks are intialized with zero load.
+	 * Load is not actually used by RT, but can be inherited into fair task.
+	 */
+	sa->load_avg = 0;
+	sa->load_sum = 0;
+	/*
+	 * At this point, util_avg won't be used in select_task_rq_rt anyway
+	 */
+	sa->util_avg = 0;
+	sa->util_sum = 0;
+	/* when this task enqueue'ed, it will contribute to its cfs_rq's load_avg */
+}
+#else
+void init_rt_entity_runnable_average(struct sched_rt_entity *rt_se) { }
 #endif /* CONFIG_SMP */
 
 /*
