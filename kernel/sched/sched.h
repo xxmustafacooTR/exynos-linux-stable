@@ -536,6 +536,7 @@ struct rt_rq {
 
 	struct sched_avg avg;
 	struct sched_rt_entity *curr;
+	atomic_long_t removed_util_avg;
 #endif /* CONFIG_SMP */
 	int rt_queued;
 

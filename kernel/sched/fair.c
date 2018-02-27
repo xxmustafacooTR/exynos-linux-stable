@@ -3371,8 +3371,19 @@ update_cfs_rq_load_avg(u64 now, struct cfs_rq *cfs_rq, bool update_freq)
 int update_rt_rq_load_avg(u64 now, int cpu, struct rt_rq *rt_rq, int running)
 {
 	int ret;
+	struct sched_avg *sa = &rt_rq->avg;
 
-	ret = ___update_load_avg(now, cpu, &rt_rq->avg, 0, running, NULL, rt_rq);
+	if (atomic_long_read(&rt_rq->removed_util_avg)) {
+		long r = atomic_long_xchg(&rt_rq->removed_util_avg, 0);
+		sub_positive(&sa->util_avg, r);
+		sub_positive(&sa->util_sum, r * LOAD_AVG_MAX);
+	}
+
+	/* TODO:
+	 * Do something on removed_load_avg
+	 * Do propagate_avg for removed_load/util_avg
+	 */
+	ret = ___update_load_avg(now, cpu, sa, 0, running, NULL, rt_rq);
 
 	return ret;
 }

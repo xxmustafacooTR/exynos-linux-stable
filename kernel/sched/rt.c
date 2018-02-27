@@ -96,6 +96,7 @@ void init_rt_rq(struct rt_rq *rt_rq)
 	rt_rq->rt_nr_migratory = 0;
 	rt_rq->overloaded = 0;
 	plist_head_init(&rt_rq->pushable_tasks);
+	atomic_long_set(&rt_rq->removed_util_avg, 0);
 #endif /* CONFIG_SMP */
 	/* We start is dequeued state, because no RT tasks are queued */
 	rt_rq->rt_queued = 0;
@@ -1330,7 +1331,7 @@ void dec_rt_tasks(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 
 #ifdef CONFIG_SMP
 static void
-attach_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
+attach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 {
 	rt_se->avg.last_update_time = rt_rq->avg.last_update_time;
 	rt_rq->avg.util_avg += rt_se->avg.util_avg;
@@ -1343,7 +1344,7 @@ attach_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 }
 
 static void
-detach_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
+detach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 {
 	sub_positive(&rt_rq->avg.util_avg, rt_se->avg.util_avg);
 	sub_positive(&rt_rq->avg.util_sum, rt_se->avg.util_sum);
@@ -1355,9 +1356,9 @@ detach_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 }
 #else
 static inline void
-attach_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se) {}
+attach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se) {}
 static inline void
-detach_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se) {}
+detach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se) {}
 #endif
 
 /*
@@ -1416,9 +1417,8 @@ static void __enqueue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flag
 
 	update_rt_load_avg(rq_clock_task(rq_of_rt_rq(rt_rq)), rt_se);
 
-	/* TODO:
-	 * Need to attach entity load average for rt entity is task
-	 */
+	if (rt_entity_is_task(rt_se) && !rt_se->avg.last_update_time)
+		attach_rt_entity_load_avg(rt_rq, rt_se);
 
 	inc_rt_tasks(rt_se, rt_rq);
 }
@@ -1612,6 +1612,62 @@ out:
 	return cpu;
 }
 
+#ifndef CONFIG_64BIT
+static inline u64 rt_rq_last_update_time(struct rt_rq *rt_rq)
+{
+	u64 last_update_time_copy;
+	u64 last_update_time;
+
+	do {
+		last_update_time_copy = rt_rq->load_last_update_time_copy;
+		smp_rmb();
+		last_update_time = rt_rq->avg.last_update_time;
+	} while (last_update_time != last_update_time_copy);
+
+	return last_update_time;
+}
+#else
+static inline u64 rt_rq_last_update_time(struct rt_rq *rt_rq)
+{
+	return rt_rq->avg.last_update_time;
+}
+#endif
+
+/*
+ * Synchronize entity load avg of dequeued entity without locking
+ * the previous rq.
+ */
+void sync_rt_entity_load_avg(struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+	u64 last_update_time;
+
+	last_update_time = rt_rq_last_update_time(rt_rq);
+	update_rt_load_avg(last_update_time, rt_se);
+}
+
+/*
+ * Task first catches up with rt_rq, and then subtract
+ * itself from the rt_rq (task must be off the queue now).
+ */
+static void remove_rt_entity_load_avg(struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+
+	/*
+	 * tasks cannot exit without having gone through wake_up_new_task() ->
+	 * post_init_entity_util_avg() which will have added things to the
+	 * rt_rq, so we can remove unconditionally.
+	 *
+	 * Similarly for groups, they will have passed through
+	 * post_init_entity_util_avg() before unregister_sched_fair_group()
+	 * calls this.
+	 */
+
+	sync_rt_entity_load_avg(rt_se);
+	atomic_long_add(rt_se->avg.util_avg, &rt_rq->removed_util_avg);
+}
+
 static void attach_task_rt_rq(struct task_struct *p)
 {
 	struct sched_rt_entity *rt_se = &p->rt;
@@ -1619,7 +1675,7 @@ static void attach_task_rt_rq(struct task_struct *p)
 	u64 now = rq_clock_task(rq_of_rt_rq(rt_rq));
 
 	update_rt_load_avg(now, rt_se);
-	attach_entity_load_avg(rt_rq, rt_se);
+	attach_rt_entity_load_avg(rt_rq, rt_se);
 }
 
 static void detach_task_rt_rq(struct task_struct *p)
@@ -1629,7 +1685,30 @@ static void detach_task_rt_rq(struct task_struct *p)
 	u64 now = rq_clock_task(rq_of_rt_rq(rt_rq));
 
 	update_rt_load_avg(now, rt_se);
-	detach_entity_load_avg(rt_rq, rt_se);
+	detach_rt_entity_load_avg(rt_rq, rt_se);
+}
+
+static void migrate_task_rq_rt(struct task_struct *p)
+{
+	/*
+	 * We are supposed to update the task to "current" time, then its up to date
+	 * and ready to go to new CPU/cfs_rq. But we have difficulty in getting
+	 * what current time is, so simply throw away the out-of-date time. This
+	 * will result in the wakee task is less decayed, but giving the wakee more
+	 * load sounds not bad.
+	 */
+	remove_rt_entity_load_avg(&p->rt);
+
+	/* Tell new CPU we are migrated */
+	p->rt.avg.last_update_time = 0;
+
+	/* We have migrated, no longer consider this task hot */
+	p->se.exec_start = 0;
+}
+
+static void task_dead_rt(struct task_struct *p)
+{
+	remove_rt_entity_load_avg(&p->rt);
 }
 
 #ifdef CONFIG_RT_GROUP_SCHED
@@ -2478,6 +2557,7 @@ static void rq_offline_rt(struct rq *rq)
  */
 static void switched_from_rt(struct rq *rq, struct task_struct *p)
 {
+	detach_task_rt_rq(p);
 	/*
 	 * If there are other RT tasks then we will reschedule
 	 * and the scheduling of the other RT tasks will handle
@@ -2668,6 +2748,8 @@ const struct sched_class rt_sched_class = {
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_rt,
 
+	.migrate_task_rq		= migrate_task_rq_rt,
+	.task_dead				= task_dead_rt,
 	.set_cpus_allowed       = set_cpus_allowed_common,
 	.rq_online              = rq_online_rt,
 	.rq_offline             = rq_offline_rt,
