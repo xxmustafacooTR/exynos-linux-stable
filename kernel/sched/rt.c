@@ -2588,6 +2588,9 @@ void update_rt_load_avg(u64 now, struct sched_rt_entity *rt_se)
 
 unsigned int sched_switch_to_rt_load_ratio = 0;
 
+extern void
+copy_sched_avg(struct sched_avg *from, struct sched_avg *to, unsigned int ratio);
+
 /*
  * When switching a task to RT, we may overload the runqueue
  * with RT tasks. In this case we try to push them off to
@@ -2595,6 +2598,8 @@ unsigned int sched_switch_to_rt_load_ratio = 0;
  */
 static void switched_to_rt(struct rq *rq, struct task_struct *p)
 {
+	/* Copy fair sched avg into rt sched avg */
+	copy_sched_avg(&p->se.avg, &p->rt.avg, 100);
 	/*
 	 * If we are already running, then there's nothing
 	 * that needs to be done. But if we are not running
