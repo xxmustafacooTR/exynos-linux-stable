@@ -406,6 +406,16 @@ extern void sched_move_task(struct task_struct *tsk);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
 
+#ifdef CONFIG_RT_GROUP_SCHED
+#ifdef CONFIG_SMP
+extern void set_task_rq_rt(struct sched_rt_entity *rt_se,
+			    struct rt_rq *prev, struct rt_rq *next);
+#else /* !CONFIG_SMP */
+static inline void set_task_rq_rt(struct sched_rt_entity *rt_se,
+				struct rt_rq *prev, struct rt_rq *next) { }
+#endif /* CONFIG_SMP */
+#endif /* CONFIG_RT_GROUP_SCHED */
+
 #ifdef CONFIG_SMP
 extern void set_task_rq_fair(struct sched_entity *se,
 			     struct cfs_rq *prev, struct cfs_rq *next);
@@ -551,6 +561,9 @@ struct rt_rq {
 
 	struct rq *rq;
 	struct task_group *tg;
+#ifndef CONFIG_64BIT
+		u64 load_last_update_time_copy;
+#endif
 #endif
 };
 
