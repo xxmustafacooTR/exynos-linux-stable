@@ -11236,7 +11236,25 @@ static void attach_task_cfs_rq(struct task_struct *p)
 		se->vruntime += cfs_rq->min_vruntime;
 }
 
+<<<<<<< HEAD
 unsigned int sched_switch_to_fair_load_ratio = 0;
+=======
+#ifdef CONFIG_SMP
+void copy_sched_avg(struct sched_avg *from, struct sched_avg *to, unsigned int ratio)
+{
+	if (ratio < 0)
+		ratio = 0;
+
+	to->last_update_time = from->last_update_time;
+	to->util_avg = (from->util_avg * ratio) / 100;
+	to->util_sum = (from->util_sum * ratio) / 100;
+	to->load_avg = (from->load_avg * ratio) / 100;
+	to->load_sum = (from->load_sum * ratio) / 100;
+}
+#else
+void copy_sched_avg(struct sched_avg *from, struct sched_avg *to, unsigned int ratio) { }
+#endif
+>>>>>>> 2adb277d2b16 ([COMMON] sched/{fair,rt}: copy sched avg data across switches between class)
 
 static void switched_from_fair(struct rq *rq, struct task_struct *p)
 {
@@ -11245,6 +11263,11 @@ static void switched_from_fair(struct rq *rq, struct task_struct *p)
 
 static void switched_to_fair(struct rq *rq, struct task_struct *p)
 {
+	/*
+	 * Need to scale the applying ratio while migrating.
+	 * - Copy rt sched avg into fair sched avg
+	 */
+	copy_sched_avg(&p->rt.avg, &p->se.avg, 100);
 	attach_task_cfs_rq(p);
 
 	if (task_on_rq_queued(p)) {
