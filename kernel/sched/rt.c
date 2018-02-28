@@ -1342,6 +1342,7 @@ attach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 #ifdef CONFIG_RT_GROUP_SCHED
 	rt_rq->propagate_avg = 1;
 #endif
+	rt_rq_util_change(rt_rq);
 }
 
 static void
@@ -1354,6 +1355,7 @@ detach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 #ifdef CONFIG_RT_GROUP_SCHED
 	rt_rq->propagate_avg = 1;
 #endif
+	rt_rq_util_change(rt_rq);
 }
 #else
 static inline void
@@ -1995,6 +1997,13 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 }
 
 #ifdef CONFIG_SMP
+
+void rt_rq_util_change(struct rt_rq *rt_rq)
+{
+	if (&this_rq()->rt == rt_rq)
+		cpufreq_update_util(rt_rq->rq, SCHED_CPUFREQ_RT);
+}
+
 #ifdef CONFIG_RT_GROUP_SCHED
 /* Take into account change of utilization of a child task group */
 static inline void
