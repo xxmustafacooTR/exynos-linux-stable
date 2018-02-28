@@ -2772,8 +2772,14 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 static void set_curr_task_rt(struct rq *rq)
 {
 	struct task_struct *p = rq->curr;
+	struct sched_rt_entity *rt_se = &p->rt;
 
 	p->se.exec_start = rq_clock_task(rq);
+
+	for_each_sched_rt_entity(rt_se) {
+		struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+		rt_rq->curr = rt_se;
+	}
 
 	/* The running task is never eligible for pushing */
 	dequeue_pushable_task(rq, p);
