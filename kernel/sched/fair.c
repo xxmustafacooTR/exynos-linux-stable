@@ -3370,7 +3370,7 @@ update_cfs_rq_load_avg(u64 now, struct cfs_rq *cfs_rq, bool update_freq)
 
 int update_rt_rq_load_avg(u64 now, int cpu, struct rt_rq *rt_rq, int running)
 {
-	int ret;
+	int decayed, removed_util = 0;
 	struct sched_avg *sa = &rt_rq->avg;
 
 	if (atomic_long_read(&rt_rq->removed_load_avg)) {
@@ -3386,19 +3386,23 @@ int update_rt_rq_load_avg(u64 now, int cpu, struct rt_rq *rt_rq, int running)
 		long r = atomic_long_xchg(&rt_rq->removed_util_avg, 0);
 		sub_positive(&sa->util_avg, r);
 		sub_positive(&sa->util_sum, r * LOAD_AVG_MAX);
+		removed_util = 1;
 #ifdef CONFIG_RT_GROUP_SCHED
 		rt_rq->propagate_avg = 1;
 #endif
 	}
 
-	ret = ___update_load_avg(now, cpu, sa, 0, running, NULL, rt_rq);
+	decayed = ___update_load_avg(now, cpu, sa, 0, running, NULL, rt_rq);
 
 #ifndef CONFIG_64BIT
 	smp_wmb();
 	rt_rq->load_last_update_time_copy = sa->last_update_time;
 #endif
 
-	return ret;
+	if (running && (decayed || removed_util))
+		rt_rq_util_change(rt_rq);
+
+	return decayed;
 }
 
 /*
