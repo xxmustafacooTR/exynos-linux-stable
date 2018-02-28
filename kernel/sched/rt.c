@@ -97,6 +97,7 @@ void init_rt_rq(struct rt_rq *rt_rq)
 	rt_rq->overloaded = 0;
 	plist_head_init(&rt_rq->pushable_tasks);
 	atomic_long_set(&rt_rq->removed_util_avg, 0);
+	atomic_long_set(&rt_rq->removed_load_avg, 0);
 #endif /* CONFIG_SMP */
 	/* We start is dequeued state, because no RT tasks are queued */
 	rt_rq->rt_queued = 0;
@@ -1338,9 +1339,9 @@ attach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 	rt_rq->avg.util_sum += rt_se->avg.util_sum;
 	rt_rq->avg.load_avg += rt_se->avg.load_avg;
 	rt_rq->avg.load_sum += rt_se->avg.load_sum;
-	/* Need to do something about
-	 * propagate_avg of rt_rq, rt_rq_util_change()
-	 */
+#ifdef CONFIG_RT_GROUP_SCHED
+	rt_rq->propagate_avg = 1;
+#endif
 }
 
 static void
@@ -1350,9 +1351,9 @@ detach_rt_entity_load_avg(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
 	sub_positive(&rt_rq->avg.util_sum, rt_se->avg.util_sum);
 	sub_positive(&rt_rq->avg.load_avg, rt_se->avg.load_avg);
 	sub_positive(&rt_rq->avg.load_sum, rt_se->avg.load_sum);
-	/* Need to do something about
-	 * propagate_avg of rt_rq, rt_rq_util_change()
-	 */
+#ifdef CONFIG_RT_GROUP_SCHED
+	rt_rq->propagate_avg = 1;
+#endif
 }
 #else
 static inline void
@@ -1716,6 +1717,7 @@ static void remove_rt_entity_load_avg(struct sched_rt_entity *rt_se)
 	 */
 
 	sync_rt_entity_load_avg(rt_se);
+	atomic_long_add(rt_se->avg.load_avg, &rt_rq->removed_load_avg);
 	atomic_long_add(rt_se->avg.util_avg, &rt_rq->removed_util_avg);
 }
 
@@ -1993,6 +1995,93 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 }
 
 #ifdef CONFIG_SMP
+#ifdef CONFIG_RT_GROUP_SCHED
+/* Take into account change of utilization of a child task group */
+static inline void
+update_tg_rt_util(struct rt_rq *cfs_rq, struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *grt_rq = rt_se->my_q;
+	long delta = grt_rq->avg.util_avg - rt_se->avg.util_avg;
+
+	/* Nothing to update */
+	if (!delta)
+		return;
+
+	/* Set new sched_rt_entity's utilization */
+	rt_se->avg.util_avg = grt_rq->avg.util_avg;
+	rt_se->avg.util_sum = rt_se->avg.util_avg * LOAD_AVG_MAX;
+
+	/* Update parent rt_rq utilization */
+	add_positive(&cfs_rq->avg.util_avg, delta);
+	cfs_rq->avg.util_sum = cfs_rq->avg.util_avg * LOAD_AVG_MAX;
+}
+
+
+/* Take into account change of load of a child task group */
+static inline void
+update_tg_rt_load(struct rt_rq *rt_rq, struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *grt_rq = rt_se->my_q;
+	long delta = grt_rq->avg.load_avg - rt_se->avg.load_avg;
+
+	/*
+	 * TODO: Need to consider the TG group update
+	 * for RT RQ
+	 */
+
+	/* Nothing to update */
+	if (!delta)
+		return;
+
+	/* Set new sched_rt_entity's load */
+	rt_se->avg.load_avg = grt_rq->avg.load_avg;
+	rt_se->avg.load_sum = rt_se->avg.load_avg * LOAD_AVG_MAX;
+
+	/* Update parent cfs_rq load */
+	add_positive(&rt_rq->avg.load_avg, delta);
+	rt_rq->avg.load_sum = rt_rq->avg.load_avg * LOAD_AVG_MAX;
+
+	/*
+	 * TODO: If the sched_entity is already enqueued, should we have to update the
+	 * runnable load avg.
+	 */
+}
+
+static inline int test_and_clear_tg_rt_propagate(struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *rt_rq = rt_se->my_q;
+
+	if (!rt_rq->propagate_avg)
+		return 0;
+
+	rt_rq->propagate_avg = 0;
+	return 1;
+}
+
+/* Update task and its cfs_rq load average */
+static inline int propagate_entity_rt_load_avg(struct sched_rt_entity *rt_se)
+{
+	struct rt_rq *rt_rq;
+
+	if (rt_entity_is_task(rt_se))
+		return 0;
+
+	if (!test_and_clear_tg_rt_propagate(rt_se))
+		return 0;
+
+	rt_rq = rt_rq_of_se(rt_se);
+
+	rt_rq->propagate_avg = 1;
+
+	update_tg_rt_util(rt_rq, rt_se);
+	update_tg_rt_load(rt_rq, rt_se);
+
+	return 1;
+}
+#else
+static inline int propagate_entity_rt_load_avg(struct sched_rt_entity *rt_se) { };
+#endif
+
 void update_rt_load_avg(u64 now, struct sched_rt_entity *rt_se)
 {
 	struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
@@ -2006,10 +2095,7 @@ void update_rt_load_avg(u64 now, struct sched_rt_entity *rt_se)
 			rt_rq->curr == rt_se, NULL);
 
 	update_rt_rq_load_avg(now, cpu, rt_rq, true);
-	/* TODO
-	 * propagate the rt entity load average ()
-	 * if (rt_entity_is_task(rt_se)) tracing the rt average
-	 */
+	propagate_entity_rt_load_avg(rt_se);
 }
 
 /* Only try algorithms three times */

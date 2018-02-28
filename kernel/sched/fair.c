@@ -3373,16 +3373,24 @@ int update_rt_rq_load_avg(u64 now, int cpu, struct rt_rq *rt_rq, int running)
 	int ret;
 	struct sched_avg *sa = &rt_rq->avg;
 
+	if (atomic_long_read(&rt_rq->removed_load_avg)) {
+		long r = atomic_long_xchg(&rt_rq->removed_load_avg, 0);
+		sub_positive(&sa->load_avg, r);
+		sub_positive(&sa->load_sum, r * LOAD_AVG_MAX);
+#ifdef CONFIG_RT_GROUP_SCHED
+		rt_rq->propagate_avg = 1;
+#endif
+	}
+
 	if (atomic_long_read(&rt_rq->removed_util_avg)) {
 		long r = atomic_long_xchg(&rt_rq->removed_util_avg, 0);
 		sub_positive(&sa->util_avg, r);
 		sub_positive(&sa->util_sum, r * LOAD_AVG_MAX);
+#ifdef CONFIG_RT_GROUP_SCHED
+		rt_rq->propagate_avg = 1;
+#endif
 	}
 
-	/* TODO:
-	 * Do something on removed_load_avg
-	 * Do propagate_avg for removed_load/util_avg
-	 */
 	ret = ___update_load_avg(now, cpu, sa, 0, running, NULL, rt_rq);
 
 #ifndef CONFIG_64BIT
