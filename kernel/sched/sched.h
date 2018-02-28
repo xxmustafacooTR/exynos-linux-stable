@@ -547,6 +547,7 @@ struct rt_rq {
 	struct sched_avg avg;
 	struct sched_rt_entity *curr;
 	atomic_long_t removed_util_avg;
+	atomic_long_t removed_load_avg;
 #endif /* CONFIG_SMP */
 	int rt_queued;
 
@@ -561,6 +562,7 @@ struct rt_rq {
 
 	struct rq *rq;
 	struct task_group *tg;
+	unsigned long propagate_avg;
 #ifndef CONFIG_64BIT
 		u64 load_last_update_time_copy;
 #endif
