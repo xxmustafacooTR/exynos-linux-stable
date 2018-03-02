@@ -587,6 +587,90 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 	TP_printk("cpu=%d", __entry->cpu)
 );
 
+/*
+ * Tracepoint for accounting sched averages for fair tasks.
+ */
+TRACE_EVENT(sched_load_avg_task,
+
+	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg),
+
+	TP_ARGS(tsk, avg),
+
+	TP_STRUCT__entry(
+		__array( char,	comm,	TASK_COMM_LEN		)
+		__field( pid_t,	pid				)
+		__field( int,	cpu				)
+		__field( unsigned long,	load_avg		)
+		__field( unsigned long,	util_avg		)
+		__field( u64,		load_sum		)
+		__field( u32,		util_sum		)
+		__field( u32,		period_contrib		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid			= tsk->pid;
+		__entry->cpu			= task_cpu(tsk);
+		__entry->load_avg		= avg->load_avg;
+		__entry->util_avg		= avg->util_avg;
+		__entry->load_sum		= avg->load_sum;
+		__entry->util_sum		= avg->util_sum;
+		__entry->period_contrib		= avg->period_contrib;
+	),
+	TP_printk("fair: comm=%s pid=%d cpu=%d load_avg=%lu util_avg=%lu "
+			"load_sum=%llu util_sum=%u period_contrib=%u",
+		  __entry->comm,
+		  __entry->pid,
+		  __entry->cpu,
+		  __entry->load_avg,
+		  __entry->util_avg,
+		  (u64)__entry->load_sum,
+		  (u32)__entry->util_sum,
+		  (u32)__entry->period_contrib)
+);
+
+/*
+ * Tracepoint for accounting sched averages for tasks.
+ */
+TRACE_EVENT(sched_rt_load_avg_task,
+
+	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg),
+
+	TP_ARGS(tsk, avg),
+
+	TP_STRUCT__entry(
+		__array( char,	comm,	TASK_COMM_LEN		)
+		__field( pid_t,	pid				)
+		__field( int,	cpu				)
+		__field( unsigned long,	load_avg		)
+		__field( unsigned long,	util_avg		)
+		__field( u64,		load_sum		)
+		__field( u32,		util_sum		)
+		__field( u32,		period_contrib		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid			= tsk->pid;
+		__entry->cpu			= task_cpu(tsk);
+		__entry->load_avg		= avg->load_avg;
+		__entry->util_avg		= avg->util_avg;
+		__entry->load_sum		= avg->load_sum;
+		__entry->util_sum		= avg->util_sum;
+		__entry->period_contrib		= avg->period_contrib;
+	),
+	TP_printk("rt: comm=%s pid=%d cpu=%d load_avg=%lu util_avg=%lu "
+			"load_sum=%llu util_sum=%u period_contrib=%u",
+		  __entry->comm,
+		  __entry->pid,
+		  __entry->cpu,
+		  __entry->load_avg,
+		  __entry->util_avg,
+		  (u64)__entry->load_sum,
+		  (u32)__entry->util_sum,
+		  (u32)__entry->period_contrib)
+);
+
 TRACE_EVENT(sched_contrib_scale_f,
 
 	TP_PROTO(int cpu, unsigned long freq_scale_factor,
