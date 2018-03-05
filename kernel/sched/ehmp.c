@@ -206,233 +206,286 @@ int exynos_need_active_balance(enum cpu_idle_type idle, struct sched_domain *sd,
 	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries + 2);
 }
 
-/**********************************************************************
- * load balance_trigger			                              *
- **********************************************************************/
+/****************************************************************/
+/*			Load Balance Trigger			*/
+/****************************************************************/
+#define DISABLE_OU		-1
+#define DEFAULT_OU_RATIO	80
+
 struct lbt_overutil {
-	/*
-	 * overutil_ratio means
-	 * N < 0  : disable user_overutilized
-	 * N == 0 : Always overutilized
-	 * N > 0  : overutil_cap = org_capacity * overutil_ratio / 100
-	 */
-	unsigned long overutil_cap;
-	int overutil_ratio;
+	bool			top;
+	struct cpumask		cpus;
+	unsigned long		capacity;
+	int			ratio;
 };
+DEFINE_PER_CPU(struct lbt_overutil *, lbt_overutil);
 
-DEFINE_PER_CPU(struct lbt_overutil, ehmp_bot_overutil);
-DEFINE_PER_CPU(struct lbt_overutil, ehmp_top_overutil);
-#define DISABLE_OU	-1
-
-bool cpu_overutilized(int cpu)
-{
-	struct lbt_overutil *ou = &per_cpu(ehmp_top_overutil, cpu);
-
-	/*
-	 * If top overutil is disabled, use main stream condition
-	 * in the fair.c
-	 */
-	if (ou->overutil_ratio == DISABLE_OU)
-		return (capacity_of(cpu) * 1024) < (cpu_util(cpu) * 1280);
-
-	return cpu_util(cpu) > ou->overutil_cap;
-}
-
-static bool inline lbt_top_overutilized(int cpu)
-{
-//	struct rq *rq = cpu_rq(cpu);
-//	return sched_feat(ENERGY_AWARE) && rq->rd->overutilized;
-	return sched_feat(ENERGY_AWARE);
-}
-
-static bool inline lbt_bot_overutilized(int cpu)
-{
-	struct lbt_overutil *ou = &per_cpu(ehmp_bot_overutil, cpu);
-
-	/* if bot overutil is disabled, return false */
-	if (ou->overutil_ratio == DISABLE_OU)
-		return false;
-
-	return cpu_util(cpu) > ou->overutil_cap;
-}
-
-static void inline lbt_update_overutilized(int cpu,
-			unsigned long capacity, bool top)
-{
-	struct lbt_overutil *ou;
-	ou = top ? &per_cpu(ehmp_top_overutil, cpu) :
-			&per_cpu(ehmp_bot_overutil, cpu);
-
-	if (ou->overutil_ratio == DISABLE_OU)
-		ou->overutil_cap = 0;
-	else
-		ou->overutil_cap = (capacity * ou->overutil_ratio) / 100;
-}
-
-void ehmp_update_overutilized(int cpu, unsigned long capacity)
-{
-	lbt_update_overutilized(cpu, capacity, true);
-	lbt_update_overutilized(cpu, capacity, false);
-}
-
-static bool lbt_is_same_group(int src_cpu, int dst_cpu)
-{
-	struct sched_domain *sd  = rcu_dereference(per_cpu(sd_ea, src_cpu));
-	struct sched_group *sg;
-
-	if (!sd)
-		return false;
-
-	sg = sd->groups;
-	return cpumask_test_cpu(dst_cpu, sched_group_cpus(sg));
-}
-
-static bool lbt_overutilized(int src_cpu, int dst_cpu)
-{
-	bool top_overutilized, bot_overutilized;
-
-	/* src and dst are in the same domain, check top_overutilized */
-	top_overutilized = lbt_top_overutilized(src_cpu);
-	if (!lbt_is_same_group(src_cpu, dst_cpu))
-		return top_overutilized;
-
-	/* check bot overutilized */
-	bot_overutilized = lbt_bot_overutilized(src_cpu);
-	return bot_overutilized || top_overutilized;
-}
-
-static ssize_t _show_overutil(char *buf, bool top)
+static inline int get_topology_depth(void)
 {
 	struct sched_domain *sd;
-	struct sched_group *sg;
-	struct lbt_overutil *ou;
-	int cpu, ret = 0;
 
-	rcu_read_lock();
-
-	sd = rcu_dereference(per_cpu(sd_ea, 0));
-	if (!sd) {
-		rcu_read_unlock();
-		return ret;
+	for_each_domain(0, sd) {
+		if (sd->parent == NULL)
+			return sd->level;
 	}
 
-	sg = sd->groups;
-	do {
-		for_each_cpu_and(cpu, sched_group_cpus(sg), cpu_active_mask) {
-			ou = top ? &per_cpu(ehmp_top_overutil, cpu) :
-						&per_cpu(ehmp_bot_overutil, cpu);
-			ret += sprintf(buf + ret, "cpu%d ratio:%3d cap:%4lu\n",
-					cpu, ou->overutil_ratio, ou->overutil_cap);
+	return -1;
+}
 
+static inline int get_last_level(struct lbt_overutil *ou)
+{
+	int level;
+
+	for (level = 0; &ou[level] != NULL; level++) {
+		if (ou[level].top == true)
+			return level;
+	}
+
+	return -1;
+}
+
+/****************************************************************/
+/*			External APIs				*/
+/****************************************************************/
+bool cpu_overutilized(int cpu)
+{
+	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
+	int level = get_last_level(ou);
+
+	if (level < 0)
+		return (capacity_of(cpu) * DEFAULT_OU_RATIO) < (cpu_util(cpu) * 100);
+
+	return cpu_util(cpu) > ou[level].capacity;
+}
+
+bool lbt_overutilized(int cpu, int level)
+{
+	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
+
+	if (!ou)
+		return false;
+
+	return cpu_util(cpu) > ou[level].capacity;
+}
+
+void update_lbt_overutil(int cpu, unsigned long capacity)
+{
+	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
+	int level, last = get_last_level(ou);
+
+	for (level = 0; level <= last; level++) {
+		if (ou[level].ratio == DISABLE_OU)
+			continue;
+
+		ou[level].capacity = (capacity * ou[level].ratio) / 100;
+	}
+}
+
+/****************************************************************/
+/*				SYSFS				*/
+/****************************************************************/
+static ssize_t show_overutil_ratio(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct lbt_overutil *ou = per_cpu(lbt_overutil, 0);
+	int level, last = get_last_level(ou);
+	int cpu, ret = 0;
+
+	for (level = 0; level <= last; level++) {
+		ret += sprintf(buf + ret, "[level%d]\n", level);
+
+		for_each_possible_cpu(cpu) {
+			ou = per_cpu(lbt_overutil, cpu);
+
+			if (ou[level].ratio == DISABLE_OU)
+				continue;
+
+			ret += sprintf(buf + ret, "cpu%d ratio:%3d capacity:%4lu\n",
+					cpu, ou[level].ratio, ou[level].capacity);
 		}
-	} while (sg = sg->next, sg != sd->groups);
+	}
 
-	rcu_read_unlock();
 	return ret;
 }
 
-static ssize_t _store_overutil(const char *buf,
-				size_t count, bool top)
+static ssize_t store_overutil_ratio(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
 {
-	struct sched_domain *sd;
-	struct sched_group *sg;
 	struct lbt_overutil *ou;
 	unsigned long capacity;
-	int cpu;
-	const char *cp = buf;
-	int tokenized_data;
+	int cpu, level, ratio;
+	int last;
 
-	rcu_read_lock();
+	if (sscanf(buf, "%d %d %d", &cpu, &level, &ratio) != 3)
+		return -EINVAL;
 
-	sd = rcu_dereference(per_cpu(sd_ea, 0));
-	if (!sd) {
-		rcu_read_unlock();
-		return count;
+	/* Check cpu is possible */
+	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
+		return -EINVAL;
+	ou = per_cpu(lbt_overutil, cpu);
+
+	/* Check level range */
+	last = get_last_level(ou);
+	if (last < 0 || level < 0 || level > last)
+		return -EINVAL;
+
+	/* If ratio is outrage, disable overutil */
+	if (ratio < 0 || ratio > 100)
+		ratio = DEFAULT_OU_RATIO;
+
+	for_each_cpu(cpu, &ou[level].cpus) {
+		ou = per_cpu(lbt_overutil, cpu);
+		if (ou[level].ratio == DISABLE_OU)
+			continue;
+
+		ou[level].ratio = ratio;
+		capacity = capacity_orig_of(cpu);
+		update_lbt_overutil(cpu, capacity);
 	}
 
-	sg = sd->groups;
-	do {
-		if (sscanf(cp, "%d", &tokenized_data) != 1)
-			tokenized_data = -1;
-
-		for_each_cpu_and(cpu, sched_group_cpus(sg), cpu_active_mask) {
-			ou = top ? &per_cpu(ehmp_top_overutil, cpu) :
-					&per_cpu(ehmp_bot_overutil, cpu);
-			ou->overutil_ratio = tokenized_data;
-
-			capacity = arch_scale_cpu_capacity(sd, cpu);
-			ehmp_update_overutilized(cpu, capacity);
-		}
-
-		cp = strpbrk(cp, " :");
-		if (!cp)
-			break;
-		cp++;
-	} while (sg = sg->next, sg != sd->groups);
-
-	rcu_read_unlock();
 	return count;
 }
 
-static ssize_t show_top_overutil(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return _show_overutil(buf, true);
-}
-static ssize_t store_top_overutil(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	return _store_overutil(buf, count, true);
-}
-static ssize_t show_bot_overutil(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return _show_overutil(buf, false);
-}
-static ssize_t store_bot_overutil(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	return _store_overutil(buf, count, false);
-}
+static struct kobj_attribute overutil_ratio_attr =
+__ATTR(overutil_ratio, 0644, show_overutil_ratio, store_overutil_ratio);
 
-static struct kobj_attribute top_overutil_attr =
-__ATTR(top_overutil, 0644, show_top_overutil, store_top_overutil);
-static struct kobj_attribute bot_overutil_attr =
-__ATTR(bot_overutil, 0644, show_bot_overutil, store_bot_overutil);
-
-static int __init init_lbt(void)
+/****************************************************************/
+/*			Initialization				*/
+/****************************************************************/
+static void free_lbt_overutil(void)
 {
-	struct device_node *dn;
-	int top_ou[NR_CPUS] = {-1, }, bot_ou[NR_CPUS] = {-1, };
 	int cpu;
 
-	dn = get_ehmp_node();
-	if (!dn)
-		return 0;
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(lbt_overutil, cpu))
+			kfree(per_cpu(lbt_overutil, cpu));
+	}
+}
 
-	if (of_property_read_u32_array(dn, "top-overutil", top_ou, NR_CPUS) < 0)
-		return 0;
-
-	if (of_property_read_u32_array(dn, "bot-overutil", bot_ou, NR_CPUS) < 0)
-		return 0;
+static int alloc_lbt_overutil(void)
+{
+	int cpu, depth = get_topology_depth();
 
 	for_each_possible_cpu(cpu) {
-		per_cpu(ehmp_top_overutil, cpu).overutil_ratio = top_ou[cpu];
-		per_cpu(ehmp_bot_overutil, cpu).overutil_ratio = bot_ou[cpu];
+		struct lbt_overutil *ou = kzalloc(sizeof(struct lbt_overutil) *
+				(depth + 1), GFP_KERNEL);
+		if (!ou)
+			goto fail_alloc;
+
+		per_cpu(lbt_overutil, cpu) = ou;
+	}
+	return 0;
+
+fail_alloc:
+	free_lbt_overutil();
+	return -ENOMEM;
+}
+
+static int set_lbt_overutil(int level, const char *mask, int ratio)
+{
+	struct lbt_overutil *ou;
+	struct cpumask cpus;
+	bool top, overlap = false;
+	int cpu;
+
+	cpulist_parse(mask, &cpus);
+	cpumask_and(&cpus, &cpus, cpu_possible_mask);
+	if (!cpumask_weight(&cpus))
+		return -ENODEV;
+
+	/* If sibling cpus is same with possible cpus, it is top level */
+	top = cpumask_equal(&cpus, cpu_possible_mask);
+
+	/* If this level is overlapped with prev level, disable this level */
+	if (level > 0) {
+		ou = per_cpu(lbt_overutil, cpumask_first(&cpus));
+		overlap = cpumask_equal(&cpus, &ou[level-1].cpus);
+	}
+
+	for_each_cpu(cpu, &cpus) {
+		ou = per_cpu(lbt_overutil, cpu);
+		cpumask_copy(&ou[level].cpus, &cpus);
+		ou[level].ratio = overlap ? DISABLE_OU : ratio;
+		ou[level].top = top;
 	}
 
 	return 0;
 }
-pure_initcall(init_lbt);
 
-bool ehmp_trigger_lb(int src_cpu, int dst_cpu)
+static int parse_lbt_overutil(struct device_node *dn)
 {
-	/* check overutilized condition */
-	return lbt_overutilized(src_cpu, dst_cpu);
+	struct device_node *lbt, *ou;
+	int level, depth = get_topology_depth();
+	int ret = 0;
+
+	lbt = of_get_child_by_name(dn, "lbt");
+	if (!lbt)
+		return -ENODEV;
+
+	for (level = 0; level <= depth; level++) {
+		char name[20];
+		const char *mask[NR_CPUS];
+		int ratio[NR_CPUS];
+		int i, proplen;
+
+		snprintf(name, sizeof(name), "overutil-level%d", level);
+		ou = of_get_child_by_name(lbt, name);
+		if (!ou) {
+			ret = -ENODEV;
+			goto out;
+		}
+
+		proplen = of_property_count_strings(ou, "cpus");
+		if ((proplen < 0) || (proplen != of_property_count_u32_elems(ou, "ratio"))) {
+			of_node_put(ou);
+			ret = -ENODEV;
+			goto out;
+		}
+
+		of_property_read_string_array(ou, "cpus", mask, proplen);
+		of_property_read_u32_array(ou, "ratio", ratio, proplen);
+		of_node_put(ou);
+
+		for (i = 0; i < proplen; i++) {
+			ret = set_lbt_overutil(level, mask[i], ratio[i]);
+			if (ret)
+				goto out;
+		}
+	}
+
+out:
+	of_node_put(lbt);
+	return ret;
 }
 
+static int __init init_lbt(void)
+{
+	struct device_node *dn;
+	int ret;
+
+	dn = of_find_node_by_path("/cpus/ehmp");
+	if (!dn)
+		return 0;
+
+	ret = alloc_lbt_overutil();
+	if (ret) {
+		pr_err("Failed to allocate lbt_overutil\n");
+		goto out;
+	}
+
+	ret = parse_lbt_overutil(dn);
+	if (ret) {
+		pr_err("Failed to parse lbt_overutil\n");
+		free_lbt_overutil();
+		goto out;
+	}
+
+out:
+	of_node_put(dn);
+	return ret;
+}
+pure_initcall(init_lbt);
 /**********************************************************************
  * Global boost                                                       *
  **********************************************************************/
@@ -1651,8 +1704,7 @@ static struct attribute *ehmp_attrs[] = {
 	&min_residency_attr.attr,
 	&up_threshold_attr.attr,
 	&down_threshold_attr.attr,
-	&top_overutil_attr.attr,
-	&bot_overutil_attr.attr,
+	&overutil_ratio_attr.attr,
 	&prefer_perf_attr.attr,
 	NULL,
 };

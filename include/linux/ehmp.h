@@ -53,8 +53,8 @@ extern void ontime_new_entity_load(struct task_struct *parent,
 extern void ontime_trace_task_info(struct task_struct *p);
 extern void ehmp_update_max_cpu_capacity(int cpu, unsigned long val);
 
-extern void ehmp_update_overutilized(int cpu, unsigned long capacity);
-extern bool ehmp_trigger_lb(int src_cpu, int dst_cpu);
+extern bool lbt_overutilized(int cpu, int level);
+extern void update_lbt_overutil(int cpu, unsigned long capacity);
 
 extern void gb_qos_update_request(struct gb_qos_request *req, u32 new_value);
 
@@ -84,8 +84,8 @@ static inline void ontime_trace_task_info(struct task_struct *p) { }
 
 static inline void ehmp_update_max_cpu_capacity(int cpu, unsigned long val) { }
 
-static inline void ehmp_update_overutilized(int cpu, unsigned long capacity) { }
-static inline bool ehmp_trigger_lb(int src_cpu, int dst_cpu) { return false; }
+static inline bool lbt_overutilized(int cpu, int level) { return false; }
+static inline void update_lbt_overutil(int cpu, unsigned long capacity) { }
 
 static inline void gb_qos_update_request(struct gb_qos_request *req, u32 new_value) { }
 
