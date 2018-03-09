@@ -995,97 +995,131 @@ out:
 	return target_cpu;
 }
 
-/**********************************************************************
- * On-time migration                                                  *
- **********************************************************************/
-static unsigned long up_threshold;
-static unsigned long down_threshold;
-static unsigned int min_residency_us;
+/****************************************************************/
+/*			On-time migration			*/
+/****************************************************************/
+#define TASK_TRACK_COUNT	5
 
-static ssize_t show_min_residency(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return snprintf(buf, 10, "%d\n", min_residency_us);
-}
-
-static ssize_t store_min_residency(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	int input;
-
-	if (!sscanf(buf, "%d", &input))
-		return -EINVAL;
-
-	input = input < 0 ? 0 : input;
-
-	min_residency_us = input;
-
-	return count;
-}
-
-static struct kobj_attribute min_residency_attr =
-__ATTR(min_residency, 0644, show_min_residency, store_min_residency);
-
-static ssize_t show_up_threshold(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return snprintf(buf, 10, "%ld\n", up_threshold);
-}
-
-static ssize_t store_up_threshold(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	long input;
-
-	if (!sscanf(buf, "%ld", &input))
-		return -EINVAL;
-
-	input = input < 0 ? 0 : input;
-	input = input > 1024 ? 1024 : input;
-
-	up_threshold = input;
-
-	return count;
-}
-
-static struct kobj_attribute up_threshold_attr =
-__ATTR(up_threshold, 0644, show_up_threshold, store_up_threshold);
-
-static ssize_t show_down_threshold(struct kobject *kobj,
-                struct kobj_attribute *attr, char *buf)
-{
-        return snprintf(buf, 10, "%ld\n", down_threshold);
-}
-
-static ssize_t store_down_threshold(struct kobject *kobj,
-                struct kobj_attribute *attr, const char *buf,
-                size_t count)
-{
-        long input;
-
-        if (!sscanf(buf, "%ld", &input))
-                return -EINVAL;
-
-        input = input < 0 ? 0 : input;
-        input = input > 1024 ? 1024 : input;
-
-        down_threshold = input;
-
-        return count;
-}
-
-static struct kobj_attribute down_threshold_attr =
-__ATTR(down_threshold, 0644, show_down_threshold, store_down_threshold);
-
+#define ontime_of(p)			(&p->se.ontime)
 #define ontime_flag(p)			(ontime_of(p)->flags)
 #define ontime_migration_time(p)	(ontime_of(p)->avg.ontime_migration_time)
 #define ontime_load_avg(p)		(ontime_of(p)->avg.load_avg)
 
-static inline struct ontime_entity *ontime_of(struct task_struct *p)
+#define cap_scale(v, s)		((v)*(s) >> SCHED_CAPACITY_SHIFT)
+#define mincap_of(__cpu)	(sge_array[__cpu][SD_LEVEL0]->cap_states[0].cap)
+
+/* Structure of ontime migration condition */
+struct ontime_cond {
+	unsigned long		up_threshold;
+	unsigned long		down_threshold;
+	unsigned int		min_residency_us;
+
+	struct cpumask		src_cpus;
+	struct cpumask		dst_cpus;
+
+	struct ontime_cond	*next;
+};
+static struct ontime_cond *ontime_cond;
+
+/* Structure of ontime migration environment */
+struct ontime_env {
+	struct rq		*dst_rq;
+	int			dst_cpu;
+	struct rq		*src_rq;
+	int			src_cpu;
+	struct task_struct	*target_task;
+	int			boost_migration;
+};
+DEFINE_PER_CPU(struct ontime_env, ontime_env);
+
+static unsigned long get_up_threshold(int cpu)
 {
-	return &p->se.ontime;
+	struct ontime_cond *cond = ontime_cond;
+
+	while (cond) {
+		if (cpumask_test_cpu(cpu, &cond->src_cpus))
+			return cond->up_threshold;
+
+		cond = cond->next;
+	}
+
+	return -EINVAL;
+}
+
+static int set_up_threshold(int cpu, unsigned long val)
+{
+	struct ontime_cond *cond = ontime_cond;
+
+	while (cond) {
+		if (cpumask_test_cpu(cpu, &cond->src_cpus)) {
+			cond->up_threshold = val;
+			return 0;
+		}
+
+		cond = cond->next;
+	}
+
+	return -EINVAL;
+}
+
+static unsigned long get_down_threshold(int cpu)
+{
+	struct ontime_cond *cond = ontime_cond;
+
+	while (cond) {
+		if (cpumask_test_cpu(cpu, &cond->dst_cpus))
+			return cond->down_threshold;
+
+		cond = cond->next;
+	}
+
+	return -EINVAL;
+}
+
+static int set_down_threshold(int cpu, unsigned long val)
+{
+	struct ontime_cond *cond = ontime_cond;
+
+	while (cond) {
+		if (cpumask_test_cpu(cpu, &cond->dst_cpus)) {
+			cond->down_threshold = val;
+			return 0;
+		}
+
+		cond = cond->next;
+	}
+
+	return -EINVAL;
+}
+
+static unsigned int get_min_residency(int cpu)
+{
+	struct ontime_cond *cond = ontime_cond;
+
+	while (cond) {
+		if (cpumask_test_cpu(cpu, &cond->dst_cpus))
+			return cond->min_residency_us;
+
+		cond = cond->next;
+	}
+
+	return -EINVAL;
+}
+
+static int set_min_residency(int cpu, int val)
+{
+	struct ontime_cond *cond = ontime_cond;
+
+	while (cond) {
+		if (cpumask_test_cpu(cpu, &cond->dst_cpus)) {
+			cond->min_residency_us = val;
+			return 0;
+		}
+
+		cond = cond->next;
+	}
+
+	return -EINVAL;
 }
 
 static inline void include_ontime_task(struct task_struct *p)
@@ -1103,14 +1137,15 @@ static inline void exclude_ontime_task(struct task_struct *p)
 }
 
 static int
-ontime_select_target_cpu(struct sched_group *sg, const struct cpumask *mask)
+ontime_select_target_cpu(struct cpumask *dst_cpus, const struct cpumask *mask)
 {
 	int cpu;
 	int dest_cpu = -1;
 	unsigned int min_exit_latency = UINT_MAX;
 	struct cpuidle_state *idle;
 
-	for_each_cpu_and(cpu, sched_group_cpus(sg), mask) {
+	rcu_read_lock();
+	for_each_cpu_and(cpu, dst_cpus, mask) {
 		if (!idle_cpu(cpu))
 			continue;
 
@@ -1118,8 +1153,10 @@ ontime_select_target_cpu(struct sched_group *sg, const struct cpumask *mask)
 			continue;
 
 		idle = idle_get_state(cpu_rq(cpu));
-		if (!idle)
+		if (!idle) {
+			rcu_read_unlock();
 			return cpu;
+		}
 
 		if (idle && idle->exit_latency < min_exit_latency) {
 			min_exit_latency = idle->exit_latency;
@@ -1127,11 +1164,11 @@ ontime_select_target_cpu(struct sched_group *sg, const struct cpumask *mask)
 		}
 	}
 
+	rcu_read_unlock();
 	return dest_cpu;
 }
 
-#define TASK_TRACK_COUNT	5
-
+extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
 static struct task_struct *
 ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 						int *boost_migration)
@@ -1146,7 +1183,8 @@ ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 	 * Since current task does not exist in entity list of cfs_rq,
 	 * check first that current task is heavy.
 	 */
-	if (boosted || ontime_load_avg(task_of(se)) >= up_threshold) {
+	p = task_of(se);
+	if (boosted || ontime_load_avg(p) >= get_up_threshold(task_cpu(p))) {
 		heaviest_task = task_of(se);
 		max_util_avg = ontime_load_avg(task_of(se));
 		if (boosted)
@@ -1166,7 +1204,8 @@ ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 			break;
 		}
 
-		if (!boosted && ontime_load_avg(p) < up_threshold)
+		if (!boosted && ontime_load_avg(p) <
+				get_up_threshold(task_cpu(p)))
 			goto next_entity;
 
 		if (ontime_load_avg(p) > max_util_avg &&
@@ -1183,35 +1222,6 @@ next_entity:
 
 	return heaviest_task;
 }
-
-void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
-{
-	struct ontime_entity *ontime;
-
-	if (entity_is_cfs_rq(se))
-		return;
-
-	ontime = &se->ontime;
-
-	ontime->avg.load_sum = ontime_of(parent)->avg.load_sum;
-	ontime->avg.load_avg = ontime_of(parent)->avg.load_avg;
-	ontime->avg.ontime_migration_time = 0;
-	ontime->avg.period_contrib = 1023;
-	ontime->flags = NOT_ONTIME;
-
-	trace_ehmp_ontime_new_entity_load(task_of(se), &ontime->avg);
-}
-
-/* Structure of ontime migration environment */
-struct ontime_env {
-	struct rq		*dst_rq;
-	int			dst_cpu;
-	struct rq		*src_rq;
-	int			src_cpu;
-	struct task_struct	*target_task;
-	int			boost_migration;
-};
-DEFINE_PER_CPU(struct ontime_env, ontime_env);
 
 static int can_migrate(struct task_struct *p, struct ontime_env *env)
 {
@@ -1327,30 +1337,94 @@ success_unlock:
 	return 0;
 }
 
-DEFINE_PER_CPU(struct cpu_stop_work, ontime_migration_work);
+static int ontime_task_wakeup(struct task_struct *p)
+{
+	struct sched_domain *sd;
+	u64 delta;
+	int target_cpu = -1;
 
+	if (ontime_flag(p) & NOT_ONTIME)
+		if (ontime_load_avg(p) < get_up_threshold(task_cpu(p)))
+			return -1;
+
+	if (ontime_flag(p) & ONTIME) {
+		delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
+		delta = delta >> 10;
+
+		if (delta > get_min_residency(task_cpu(p)) &&
+		    ontime_load_avg(p) < get_down_threshold(task_cpu(p))) {
+			exclude_ontime_task(p);
+			return -1;
+		}
+
+		if (idle_cpu(task_cpu(p)))
+			return task_cpu(p);
+	}
+
+	/* caller must hold rcu for sched domain */
+	sd = rcu_dereference(per_cpu(sd_ea, maxcap_cpu));
+	if (!sd)
+		return -1;
+
+	target_cpu = ontime_select_target_cpu(sched_group_cpus(sd->groups), tsk_cpus_allowed(p));
+	if (cpu_selected(target_cpu)) {
+		if (ontime_flag(p) & NOT_ONTIME)
+			include_ontime_task(p);
+	} else {
+		if (ontime_flag(p) & ONTIME)
+			exclude_ontime_task(p);
+	}
+
+	return target_cpu;
+}
+
+static void ontime_update_next_balance(int cpu, struct ontime_avg *oa)
+{
+	if (cpumask_test_cpu(cpu, cpu_coregroup_mask(maxcap_cpu)))
+		return;
+
+	if (oa->load_avg < get_up_threshold(cpu))
+		return;
+
+	/*
+	 * Update the next_balance of this cpu because tick is most likely
+	 * to occur first in currently running cpu.
+	 */
+	cpu_rq(smp_processor_id())->next_balance = jiffies;
+}
+
+extern u64 decay_load(u64 val, u64 n);
+static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
+{
+	u32 c1, c2, c3 = d3;
+
+	c1 = decay_load((u64)d1, periods);
+	c2 = LOAD_AVG_MAX - decay_load(LOAD_AVG_MAX, periods) - 1024;
+
+	return c1 + c2 + c3;
+}
+
+/****************************************************************/
+/*			External APIs				*/
+/****************************************************************/
+void ontime_trace_task_info(struct task_struct *p)
+{
+	trace_ehmp_ontime_load_avg_task(p, &ontime_of(p)->avg, ontime_flag(p));
+}
+
+DEFINE_PER_CPU(struct cpu_stop_work, ontime_migration_work);
 static DEFINE_SPINLOCK(om_lock);
 
 void ontime_migration(void)
 {
-	struct sched_domain *sd;
-	struct sched_group *src_sg, *dst_sg;
+	struct ontime_cond *cond;
 	int cpu;
 
 	if (!spin_trylock(&om_lock))
 		return;
 
-	rcu_read_lock();
-
-	sd = rcu_dereference(per_cpu(sd_ea, 0));
-	if (!sd)
-		goto ontime_migration_exit;
-
-	src_sg = sd->groups;
-
-	do {
-		dst_sg = src_sg->next;
-		for_each_cpu_and(cpu, sched_group_cpus(src_sg), cpu_active_mask) {
+	for (cond = ontime_cond; cond != NULL; cond = cond->next) {
+		for_each_cpu_and(cpu, &cond->src_cpus, cpu_active_mask) {
 			unsigned long flags;
 			struct rq *rq;
 			struct sched_entity *se;
@@ -1397,7 +1471,7 @@ void ontime_migration(void)
 			 * Select cpu to migrate the task to. Return negative number
 			 * if there is no idle cpu in sg.
 			 */
-			dst_cpu = ontime_select_target_cpu(dst_sg, cpu_active_mask);
+			dst_cpu = ontime_select_target_cpu(&cond->dst_cpus, cpu_active_mask);
 			if (dst_cpu < 0) {
 				raw_spin_unlock_irqrestore(&rq->lock, flags);
 				continue;
@@ -1407,7 +1481,7 @@ void ontime_migration(void)
 			 * Pick task to be migrated. Return NULL if there is no
 			 * heavy task in rq.
 			 */
-			p = ontime_pick_heavy_task(se, sched_group_cpus(dst_sg),
+			p = ontime_pick_heavy_task(se, &cond->dst_cpus,
 							&boost_migration);
 			if (!p) {
 				raw_spin_unlock_irqrestore(&rq->lock, flags);
@@ -1435,10 +1509,8 @@ void ontime_migration(void)
 				ontime_migration_cpu_stop, env,
 				&per_cpu(ontime_migration_work, cpu));
 		}
-	} while (src_sg = src_sg->next, src_sg->next != sd->groups);
+	}
 
-ontime_migration_exit:
-	rcu_read_unlock();
 	spin_unlock(&om_lock);
 }
 
@@ -1467,7 +1539,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	 */
 	delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
 	delta = delta >> 10;
-	if (delta <= min_residency_us) {
+	if (delta <= get_min_residency(task_cpu(p))) {
 		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "min residency");
 		return false;
 	}
@@ -1477,7 +1549,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 		goto release;
 	}
 
-	if (ontime_load_avg(p) >= down_threshold) {
+	if (ontime_load_avg(p) >= get_down_threshold(task_cpu(p))) {
 		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "heavy task");
 		return false;
 	}
@@ -1487,74 +1559,6 @@ release:
 	exclude_ontime_task(p);
 
 	return true;
-}
-
-static int ontime_task_wakeup(struct task_struct *p)
-{
-	struct sched_domain *sd;
-	u64 delta;
-	int target_cpu = -1;
-
-	if (ontime_flag(p) & NOT_ONTIME)
-		if (ontime_load_avg(p) < up_threshold)
-			return -1;
-
-	if (ontime_flag(p) & ONTIME) {
-		delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
-		delta = delta >> 10;
-
-		if (delta > min_residency_us &&
-		    ontime_load_avg(p) < down_threshold) {
-			exclude_ontime_task(p);
-			return -1;
-		}
-
-		if (idle_cpu(task_cpu(p)))
-			return task_cpu(p);
-	}
-
-	/* caller must hold rcu for sched domain */
-	sd = rcu_dereference(per_cpu(sd_ea, maxcap_cpu));
-	if (!sd)
-		return -1;
-
-	target_cpu = ontime_select_target_cpu(sd->groups, tsk_cpus_allowed(p));
-	if (cpu_selected(target_cpu)) {
-		if (ontime_flag(p) & NOT_ONTIME)
-			include_ontime_task(p);
-	} else {
-		if (ontime_flag(p) & ONTIME)
-			exclude_ontime_task(p);
-	}
-
-	return target_cpu;
-}
-
-static void ontime_update_next_balance(int cpu, struct ontime_avg *oa)
-{
-	if (cpumask_test_cpu(cpu, cpu_coregroup_mask(maxcap_cpu)))
-		return;
-
-	if (oa->load_avg < up_threshold)
-		return;
-
-	/*
-	 * Update the next_balance of this cpu because tick is most likely
-	 * to occur first in currently running cpu.
-	 */
-	cpu_rq(smp_processor_id())->next_balance = jiffies;
-}
-
-#define cap_scale(v, s) ((v)*(s) >> SCHED_CAPACITY_SHIFT)
-
-static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
-{
-	u32 c1, c2, c3 = d3;
-
-	c1 = decay_load((u64)d1, periods);
-	c2 = LOAD_AVG_MAX - decay_load(LOAD_AVG_MAX, periods) - 1024;
-
-	return c1 + c2 + c3;
 }
 
 /*
@@ -1600,44 +1604,232 @@ void ontime_update_load_avg(u64 delta, int cpu, unsigned long weight, struct sch
 	ontime_update_next_balance(cpu, oa);
 }
 
-void ontime_trace_task_info(struct task_struct *p)
+void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 {
-	trace_ehmp_ontime_load_avg_task(p, &ontime_of(p)->avg, ontime_flag(p));
+	struct ontime_entity *ontime;
+
+	if (entity_is_cfs_rq(se))
+		return;
+
+	ontime = &se->ontime;
+
+	ontime->avg.load_sum = ontime_of(parent)->avg.load_sum;
+	ontime->avg.load_avg = ontime_of(parent)->avg.load_avg;
+	ontime->avg.ontime_migration_time = 0;
+	ontime->avg.period_contrib = 1023;
+	ontime->flags = NOT_ONTIME;
+
+	trace_ehmp_ontime_new_entity_load(task_of(se), &ontime->avg);
 }
 
-static inline unsigned long mincap_of(int cpu)
+/****************************************************************/
+/*				SYSFS				*/
+/****************************************************************/
+static ssize_t show_up_threshold(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
 {
-	return sge_array[cpu][SD_LEVEL0]->cap_states[0].cap;
+	struct ontime_cond *cond = ontime_cond;
+	int ret = 0;
+
+	while (cond) {
+		ret += sprintf(buf + ret, "cpu%*pbl: %ld\n",
+				cpumask_pr_args(&cond->src_cpus),
+				cond->up_threshold);
+
+		cond = cond->next;
+	}
+
+	return ret;
+}
+
+static ssize_t store_up_threshold(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	unsigned long val;
+	int cpu;
+
+	if (sscanf(buf, "%d %lu", &cpu, &val) != 2)
+		return -EINVAL;
+
+	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
+		return -EINVAL;
+
+	val = val > 1024 ? 1024 : val;
+
+	if (set_up_threshold(cpu, val))
+		return -EINVAL;
+
+	return count;
+}
+
+static struct kobj_attribute up_threshold_attr =
+__ATTR(up_threshold, 0644, show_up_threshold, store_up_threshold);
+
+static ssize_t show_down_threshold(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct ontime_cond *cond = ontime_cond;
+	int ret = 0;
+
+	while (cond) {
+		ret += sprintf(buf + ret, "cpu%*pbl: %ld\n",
+				cpumask_pr_args(&cond->dst_cpus),
+				cond->down_threshold);
+
+		cond = cond->next;
+	}
+
+	return ret;
+}
+
+static ssize_t store_down_threshold(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	unsigned long val;
+	int cpu;
+
+	if (sscanf(buf, "%d %lu", &cpu, &val) != 2)
+		return -EINVAL;
+
+	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
+		return -EINVAL;
+
+	val = val > 1024 ? 1024 : val;
+
+	if (set_down_threshold(cpu, val))
+		return -EINVAL;
+
+	return count;
+}
+
+static struct kobj_attribute down_threshold_attr =
+__ATTR(down_threshold, 0644, show_down_threshold, store_down_threshold);
+
+static ssize_t show_min_residency(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct ontime_cond *cond = ontime_cond;
+	int ret = 0;
+
+	while (cond) {
+		ret += sprintf(buf + ret, "cpu%*pbl: %d\n",
+				cpumask_pr_args(&cond->dst_cpus),
+				cond->min_residency_us);
+
+		cond = cond->next;
+	}
+
+	return ret;
+}
+
+static ssize_t store_min_residency(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	int val;
+	int cpu;
+
+	if (sscanf(buf, "%d %d", &cpu, &val) != 2)
+		return -EINVAL;
+
+	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
+		return -EINVAL;
+
+	val = val < 0 ? 0 : val;
+
+	if (set_min_residency(cpu, val))
+		return -EINVAL;
+
+	return count;
+}
+
+static struct kobj_attribute min_residency_attr =
+__ATTR(min_residency, 0644, show_min_residency, store_min_residency);
+
+/****************************************************************/
+/*			initialization				*/
+/****************************************************************/
+static void
+parse_ontime(struct device_node *dn, struct ontime_cond *cond, int step)
+{
+	struct device_node *ontime, *on_step;
+	char name[10];
+	int prop;
+
+	/*
+	 * Initilize default values:
+	 *   up_threshold	= 40% of Source CPU's maximum capacity
+	 *   down_threshold	= 50% of Destination CPU's minimum capacity
+	 *   min_residency	= 8ms
+	 */
+	cond->up_threshold =
+		capacity_orig_of(cpumask_first(&cond->src_cpus)) * 40 / 100;
+	cond->down_threshold =
+		mincap_of(cpumask_first(&cond->dst_cpus)) * 50 / 100;
+	cond->min_residency_us = 8192;
+
+	ontime = of_get_child_by_name(dn, "ontime");
+	if (!ontime)
+		return;
+
+	snprintf(name, sizeof(name), "step%d", step);
+	on_step = of_get_child_by_name(ontime, name);
+	if (!on_step)
+		return;
+
+	of_property_read_u32(on_step, "up-threshold", &prop);
+	cond->up_threshold = prop;
+
+	of_property_read_u32(on_step, "down-threshold", &prop);
+	cond->down_threshold = prop;
+
+	of_property_read_u32(on_step, "min-residency-us", &prop);
+	cond->min_residency_us = prop;
 }
 
 static int __init init_ontime(void)
 {
+	struct cpumask prev_cpus;
+	struct ontime_cond *cond, *last;
 	struct device_node *dn;
-	u32 prop;
+	int cpu, step = 0;
 
-	dn = get_ehmp_node();
+	dn = of_find_node_by_path("/cpus/ehmp");
 	if (!dn)
 		return 0;
 
-	/*
-	 * Initilize default values:
-	 *   up_threshold	= 40% of LITTLE maximum capacity
-	 *   down_threshold	= 50% of big minimum capacity
-	 *   min_residency	= 8ms
-	 */
-	up_threshold = capacity_orig_of(0) * 40 / 100;
-	down_threshold = mincap_of(maxcap_cpu) * 50 / 100;
-	min_residency_us = 8192;
+	cpumask_clear(&prev_cpus);
 
-	of_property_read_u32(dn, "up-threshold", &prop);
-	up_threshold = prop;
+	for_each_possible_cpu(cpu) {
+		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
+			continue;
 
-	of_property_read_u32(dn, "down-threshold", &prop);
-	down_threshold = prop;
+		if (cpumask_empty(&prev_cpus)) {
+			cpumask_copy(&prev_cpus, cpu_coregroup_mask(cpu));
+			continue;
+		}
 
-	of_property_read_u32(dn, "min-residency-us", &prop);
-	min_residency_us = prop;
+		cond = kzalloc(sizeof(struct ontime_cond), GFP_KERNEL);
 
+		cpumask_copy(&cond->dst_cpus, cpu_coregroup_mask(cpu));
+		cpumask_copy(&cond->src_cpus, &prev_cpus);
+
+		parse_ontime(dn, cond, step++);
+
+		cpumask_copy(&prev_cpus, cpu_coregroup_mask(cpu));
+
+		/* Add linked list of ontime_cond at last */
+		cond->next = NULL;
+		if (ontime_cond)
+			last->next = cond;
+		else
+			ontime_cond = cond;
+		last = cond;
+	}
+
+	of_node_put(dn);
 	return 0;
 }
 pure_initcall(init_ontime);
