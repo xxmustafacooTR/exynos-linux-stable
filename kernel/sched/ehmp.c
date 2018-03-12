@@ -1001,6 +1001,7 @@ out:
 #define TASK_TRACK_COUNT	5
 
 #define ontime_of(p)			(&p->se.ontime)
+#define ontime_task_cpu(p)		(ontime_of(p)->cpu)
 #define ontime_flag(p)			(ontime_of(p)->flags)
 #define ontime_migration_time(p)	(ontime_of(p)->avg.ontime_migration_time)
 #define ontime_load_avg(p)		(ontime_of(p)->avg.load_avg)
@@ -1122,9 +1123,10 @@ static int set_min_residency(int cpu, int val)
 	return -EINVAL;
 }
 
-static inline void include_ontime_task(struct task_struct *p)
+static inline void include_ontime_task(struct task_struct *p, int dst_cpu)
 {
 	ontime_flag(p) = ONTIME;
+	ontime_task_cpu(p) = dst_cpu;
 
 	/* Manage time based on clock task of boot cpu(cpu0) */
 	ontime_migration_time(p) = cpu_rq(0)->clock_task;
@@ -1132,6 +1134,7 @@ static inline void include_ontime_task(struct task_struct *p)
 
 static inline void exclude_ontime_task(struct task_struct *p)
 {
+	ontime_task_cpu(p) = 0;
 	ontime_migration_time(p) = 0;
 	ontime_flag(p) = NOT_ONTIME;
 }
@@ -1310,8 +1313,9 @@ static int ontime_migration_cpu_stop(void *data)
 		if (boost_migration) {
 			/* boost task is not classified as ontime task */
 			exclude_ontime_task(p);
-		} else
-			include_ontime_task(p);
+		} else {
+			include_ontime_task(p, dst_cpu);
+		}
 
 		rcu_read_unlock();
 		double_unlock_balance(src_rq, dst_rq);
@@ -1368,8 +1372,9 @@ static int ontime_task_wakeup(struct task_struct *p)
 
 	target_cpu = ontime_select_target_cpu(sched_group_cpus(sd->groups), tsk_cpus_allowed(p));
 	if (cpu_selected(target_cpu)) {
-		if (ontime_flag(p) & NOT_ONTIME)
-			include_ontime_task(p);
+		if (ontime_flag(p) & NOT_ONTIME) {
+			include_ontime_task(p, target_cpu);
+		}
 	} else {
 		if (ontime_flag(p) & ONTIME)
 			exclude_ontime_task(p);
@@ -1528,8 +1533,13 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 		return false;
 	}
 
-	if (cpumask_test_cpu(dst_cpu, cpu_coregroup_mask(maxcap_cpu))) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "ontime on big");
+	if (cpumask_test_cpu(dst_cpu, cpu_coregroup_mask(ontime_task_cpu(p)))) {
+		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "same coregroup");
+		return true;
+	}
+
+	if (capacity_orig_of(dst_cpu) > capacity_orig_of(ontime_task_cpu(p))) {
+		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "bigger cpu");
 		return true;
 	}
 
@@ -1539,7 +1549,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	 */
 	delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
 	delta = delta >> 10;
-	if (delta <= get_min_residency(task_cpu(p))) {
+	if (delta <= get_min_residency(ontime_task_cpu(p))) {
 		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "min residency");
 		return false;
 	}
@@ -1549,7 +1559,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 		goto release;
 	}
 
-	if (ontime_load_avg(p) >= get_down_threshold(task_cpu(p))) {
+	if (ontime_load_avg(p) >= get_down_threshold(ontime_task_cpu(p))) {
 		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "heavy task");
 		return false;
 	}
