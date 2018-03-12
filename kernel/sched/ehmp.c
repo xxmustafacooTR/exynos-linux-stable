@@ -1343,44 +1343,70 @@ success_unlock:
 
 static int ontime_task_wakeup(struct task_struct *p)
 {
-	struct sched_domain *sd;
+	struct ontime_cond *cond;
+	struct cpumask target_mask;
 	u64 delta;
 	int target_cpu = -1;
 
-	if (ontime_flag(p) & NOT_ONTIME)
-		if (ontime_load_avg(p) < get_up_threshold(task_cpu(p)))
-			return -1;
+	/*
+	 * When wakeup task satisfies ontime condition to up migration,
+	 * check there is a possible target cpu.
+	 */
+	if (ontime_load_avg(p) >= get_up_threshold(task_cpu(p))) {
+		cpumask_clear(&target_mask);
 
-	if (ontime_flag(p) & ONTIME) {
+		for (cond = ontime_cond; cond != NULL; cond = cond->next)
+			if (cpumask_test_cpu(task_cpu(p), &cond->src_cpus)) {
+				cpumask_copy(&target_mask, &cond->dst_cpus);
+				break;
+			}
+
+		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
+
+		if (cpu_selected(target_cpu))
+			goto ontime_up;
+	}
+
+	/*
+	 * If wakeup task is not ontime and doesn't satisfy ontime condition,
+	 * it cannot be ontime task.
+	 */
+	if (ontime_flag(p) == NOT_ONTIME)
+		goto ontime_out;
+
+	if (ontime_flag(p) == ONTIME) {
+		/*
+		 * If wakeup task is ontime but doesn't keep ontime condition,
+		 * exclude this task from ontime.
+		 */
 		delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
 		delta = delta >> 10;
 
-		if (delta > get_min_residency(task_cpu(p)) &&
-		    ontime_load_avg(p) < get_down_threshold(task_cpu(p))) {
-			exclude_ontime_task(p);
-			return -1;
-		}
+		if (delta > get_min_residency(ontime_task_cpu(p)) &&
+				ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p)))
+			goto ontime_out;
 
-		if (idle_cpu(task_cpu(p)))
-			return task_cpu(p);
+		/*
+		 * If there is a possible cpu to stay ontime, task will wake up at this cpu.
+		 */
+		cpumask_copy(&target_mask, cpu_coregroup_mask(ontime_task_cpu(p)));
+		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
+
+		if (cpu_selected(target_cpu))
+			goto ontime_stay;
+
+		goto ontime_out;
 	}
 
-	/* caller must hold rcu for sched domain */
-	sd = rcu_dereference(per_cpu(sd_ea, maxcap_cpu));
-	if (!sd)
-		return -1;
+ontime_up:
+	include_ontime_task(p, target_cpu);
 
-	target_cpu = ontime_select_target_cpu(sched_group_cpus(sd->groups), tsk_cpus_allowed(p));
-	if (cpu_selected(target_cpu)) {
-		if (ontime_flag(p) & NOT_ONTIME) {
-			include_ontime_task(p, target_cpu);
-		}
-	} else {
-		if (ontime_flag(p) & ONTIME)
-			exclude_ontime_task(p);
-	}
-
+ontime_stay:
 	return target_cpu;
+
+ontime_out:
+	exclude_ontime_task(p);
+	return -1;
 }
 
 static void ontime_update_next_balance(int cpu, struct ontime_avg *oa)
