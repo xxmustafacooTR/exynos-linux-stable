@@ -334,6 +334,33 @@ TRACE_EVENT(ehmp_ontime_check_migrate,
 		__entry->migrate, __entry->label)
 );
 
+TRACE_EVENT(ehmp_lbt_overutilized,
+
+	TP_PROTO(int cpu, int level, unsigned long util, unsigned long capacity, bool overutilized),
+
+	TP_ARGS(cpu, level, util, capacity, overutilized),
+
+	TP_STRUCT__entry(
+		__field( int,		cpu			)
+		__field( int,		level			)
+		__field( unsigned long,	util			)
+		__field( unsigned long,	capacity		)
+		__field( bool,		overutilized		)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= cpu;
+		__entry->level			= level;
+		__entry->util			= util;
+		__entry->capacity		= capacity;
+		__entry->overutilized		= overutilized;
+	),
+
+	TP_printk("cpu=%d level=%d util=%lu capacity=%lu overutilized=%d",
+		__entry->cpu, __entry->level, __entry->util,
+		__entry->capacity, __entry->overutilized)
+);
+
 #endif /* _TRACE_EHMP_H */
 
 /* This part must be outside protection */

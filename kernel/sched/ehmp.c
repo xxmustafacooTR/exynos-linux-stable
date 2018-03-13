@@ -251,11 +251,18 @@ static inline int get_last_level(struct lbt_overutil *ou)
 bool lbt_overutilized(int cpu, int level)
 {
 	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
+	bool overutilized;
 
 	if (!ou)
 		return false;
 
-	return cpu_util(cpu) > ou[level].capacity;
+	overutilized = (cpu_util(cpu) > ou[level].capacity) ? true : false;
+
+	if (overutilized)
+		trace_ehmp_lbt_overutilized(cpu, level, cpu_util(cpu),
+				ou[level].capacity, overutilized);
+
+	return overutilized;
 }
 
 void update_lbt_overutil(int cpu, unsigned long capacity)
