@@ -334,6 +334,33 @@ TRACE_EVENT(ehmp_ontime_check_migrate,
 		__entry->migrate, __entry->label)
 );
 
+TRACE_EVENT(ehmp_ontime_task_wakeup,
+
+	TP_PROTO(struct task_struct *tsk, int src_cpu, int dst_cpu, char *label),
+
+	TP_ARGS(tsk, src_cpu, dst_cpu, label),
+
+	TP_STRUCT__entry(
+		__array( char,		comm,	TASK_COMM_LEN	)
+		__field( pid_t,		pid			)
+		__field( int,		src_cpu			)
+		__field( int,		dst_cpu			)
+		__array( char,		label,	64		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid			= tsk->pid;
+		__entry->src_cpu		= src_cpu;
+		__entry->dst_cpu		= dst_cpu;
+		strncpy(__entry->label, label, 64);
+	),
+
+	TP_printk("comm=%s pid=%d src_cpu=%d dst_cpu=%d reason=%s",
+		__entry->comm, __entry->pid, __entry->src_cpu,
+		__entry->dst_cpu, __entry->label)
+);
+
 TRACE_EVENT(ehmp_lbt_overutilized,
 
 	TP_PROTO(int cpu, int level, unsigned long util, unsigned long capacity, bool overutilized),
