@@ -1354,6 +1354,8 @@ struct sched_avg {
 #define ONTIME_MIGRATING	2
 #define ONTIME			4
 
+#define ontime_of(p)			(&p->se.ontime)
+
 struct ontime_avg {
 	u64 ontime_migration_time;
 	u64 load_sum;

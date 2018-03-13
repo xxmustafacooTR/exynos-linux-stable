@@ -1000,7 +1000,6 @@ out:
 /****************************************************************/
 #define TASK_TRACK_COUNT	5
 
-#define ontime_of(p)			(&p->se.ontime)
 #define ontime_task_cpu(p)		(ontime_of(p)->cpu)
 #define ontime_flag(p)			(ontime_of(p)->flags)
 #define ontime_migration_time(p)	(ontime_of(p)->avg.ontime_migration_time)
