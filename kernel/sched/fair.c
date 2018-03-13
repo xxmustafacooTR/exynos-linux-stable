@@ -7602,10 +7602,13 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu)
 	sync_entity_load_avg(&p->se);
 
 	/* Find a cpu with sufficient capacity */
-	if (sched_feat(EXYNOS_HMP))
+	if (sched_feat(EXYNOS_HMP)) {
 		next_cpu = exynos_select_cpu(p, &backup_cpu, boosted, prefer_idle);
-	else
+			if (ontime_of(p)->flags == ONTIME)
+				return next_cpu;
+	} else {
 		next_cpu = find_best_target(p, &backup_cpu, boosted, prefer_idle);
+	}
 
 	if (next_cpu == -1) {
 		target_cpu = prev_cpu;
