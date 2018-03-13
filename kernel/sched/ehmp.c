@@ -137,8 +137,6 @@ void exynos_init_entity_util_avg(struct sched_entity *se)
 /**********************************************************************
  * load balance                                                       *
  **********************************************************************/
-bool cpu_overutilized(int cpu);
-
 #define lb_sd_parent(sd) \
 	(sd->parent && sd->parent->groups != sd->parent->groups->next)
 
@@ -183,7 +181,9 @@ int exynos_need_active_balance(enum cpu_idle_type idle, struct sched_domain *sd,
 	unsigned int dst_imb_pct = lb_sd_parent(sd) ? 100 : 1;
 	unsigned long src_cap = capacity_of(src_cpu);
 	unsigned long dst_cap = capacity_of(dst_cpu);
+	int level = sd->level;
 
+	/* dst_cpu is idle */
 	if ((idle != CPU_NOT_IDLE) &&
 	    (cpu_rq(src_cpu)->cfs.h_nr_running == 1)) {
 		if ((check_cpu_capacity(cpu_rq(src_cpu), sd)) &&
@@ -191,15 +191,16 @@ int exynos_need_active_balance(enum cpu_idle_type idle, struct sched_domain *sd,
 			return 1;
 		}
 
+		/* This domain is top and dst_cpu is bigger than src_cpu*/
 		if (!lb_sd_parent(sd) && src_cap < dst_cap)
-			if (cpu_overutilized(src_cpu) || global_boost())
+			if (lbt_overutilized(src_cpu, level) || global_boost())
 				return 1;
 	}
 
 	if ((src_cap * src_imb_pct < dst_cap * dst_imb_pct) &&
 			cpu_rq(src_cpu)->cfs.h_nr_running == 1 &&
-			cpu_overutilized(src_cpu) &&
-			!cpu_overutilized(dst_cpu)) {
+			lbt_overutilized(src_cpu, level) &&
+			!lbt_overutilized(dst_cpu, level)) {
 		return 1;
 	}
 
@@ -247,17 +248,6 @@ static inline int get_last_level(struct lbt_overutil *ou)
 /****************************************************************/
 /*			External APIs				*/
 /****************************************************************/
-bool cpu_overutilized(int cpu)
-{
-	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
-	int level = get_last_level(ou);
-
-	if (level < 0)
-		return (capacity_of(cpu) * DEFAULT_OU_RATIO) < (cpu_util(cpu) * 100);
-
-	return cpu_util(cpu) > ou[level].capacity;
-}
-
 bool lbt_overutilized(int cpu, int level)
 {
 	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
