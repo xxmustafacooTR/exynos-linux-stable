@@ -3969,8 +3969,8 @@ static int decon_initial_display(struct decon_device *decon, bool is_colormap)
 	}
 #endif
 
-	call_panel_ops(dsim, displayon, dsim);
 	decon_reg_start(decon->id, &psr);
+	call_panel_ops(dsim, displayon, dsim);
 	decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
 	if (decon_reg_wait_update_done_and_mask(decon->id, &psr,
 				SHADOW_UPDATE_TIMEOUT) < 0)
