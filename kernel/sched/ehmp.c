@@ -1363,8 +1363,11 @@ static int ontime_task_wakeup(struct task_struct *p)
 
 		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
-		if (cpu_selected(target_cpu))
+		if (cpu_selected(target_cpu)) {
+			trace_ehmp_ontime_task_wakeup(p, task_cpu(p),
+					target_cpu, "up ontime");
 			goto ontime_up;
+		}
 	}
 
 	/*
@@ -1383,8 +1386,11 @@ static int ontime_task_wakeup(struct task_struct *p)
 		delta = delta >> 10;
 
 		if (delta > get_min_residency(ontime_task_cpu(p)) &&
-				ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p)))
+				ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p))) {
+			trace_ehmp_ontime_task_wakeup(p, task_cpu(p), -1,
+					"release ontime");
 			goto ontime_out;
+		}
 
 		/*
 		 * If there is a possible cpu to stay ontime, task will wake up at this cpu.
@@ -1392,9 +1398,13 @@ static int ontime_task_wakeup(struct task_struct *p)
 		cpumask_copy(&target_mask, cpu_coregroup_mask(ontime_task_cpu(p)));
 		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
-		if (cpu_selected(target_cpu))
+		if (cpu_selected(target_cpu)) {
+			trace_ehmp_ontime_task_wakeup(p, task_cpu(p),
+					target_cpu, "stay ontime");
 			goto ontime_stay;
+		}
 
+		trace_ehmp_ontime_task_wakeup(p, task_cpu(p), -1, "banished");
 		goto ontime_out;
 	}
 
