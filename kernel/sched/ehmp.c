@@ -18,6 +18,17 @@
 #include "sched.h"
 #include "tune.h"
 
+/**********************************************************************
+ * extern functions                                                   *
+ **********************************************************************/
+extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
+extern unsigned long boosted_task_util(struct task_struct *task);
+extern unsigned long capacity_curr_of(int cpu);
+extern int find_best_target(struct task_struct *p, int *backup_cpu,
+				   bool boosted, bool prefer_idle);
+extern u64 decay_load(u64 val, u64 n);
+extern int start_cpu(bool boosted);
+
 static unsigned long task_util(struct task_struct *p)
 {
 	return p->se.avg.util_avg;
@@ -31,6 +42,11 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 static inline struct sched_entity *se_of(struct sched_avg *sa)
 {
 	return container_of(sa, struct sched_entity, avg);
+}
+
+static inline int task_fits(struct task_struct *p, long capacity)
+{
+	return capacity * 1024 > boosted_task_util(p) * 1248;
 }
 
 #define entity_is_cfs_rq(se)	(se->my_q)
@@ -56,65 +72,7 @@ static inline struct device_node *get_ehmp_node(void)
 /**********************************************************************
  * task initialization                                                *
  **********************************************************************/
-enum {
-	TYPE_BASE_CFS_RQ_UTIL = 0,
-	TYPE_BASE_INHERIT_PARENT_UTIL,
-	TYPE_MAX_NUM,
-};
-
-static unsigned long init_util_type = TYPE_BASE_CFS_RQ_UTIL;
-static unsigned long init_util_ratio = 25;			/* 25% */
-
-static ssize_t show_initial_util_type(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-        return snprintf(buf, 10, "%ld\n", init_util_type);
-}
-
-static ssize_t store_initial_util_type(struct kobject *kobj,
-                struct kobj_attribute *attr, const char *buf,
-                size_t count)
-{
-        long input;
-
-        if (!sscanf(buf, "%ld", &input))
-                return -EINVAL;
-
-        input = input < 0 ? 0 : input;
-        input = input >= TYPE_MAX_NUM ? TYPE_MAX_NUM - 1 : input;
-
-        init_util_type = input;
-
-        return count;
-}
-
-static ssize_t show_initial_util_ratio(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-        return snprintf(buf, 10, "%ld\n", init_util_ratio);
-}
-
-static ssize_t store_initial_util_ratio(struct kobject *kobj,
-                struct kobj_attribute *attr, const char *buf,
-                size_t count)
-{
-        long input;
-
-        if (!sscanf(buf, "%ld", &input))
-                return -EINVAL;
-
-        init_util_ratio = !!input;
-
-        return count;
-}
-
-static struct kobj_attribute initial_util_type =
-__ATTR(initial_util_type, 0644, show_initial_util_type, store_initial_util_type);
-
-static struct kobj_attribute initial_util_ratio =
-__ATTR(initial_util_ratio, 0644, show_initial_util_ratio, store_initial_util_ratio);
-
-void base_cfs_rq_util(struct sched_entity *se)
+void exynos_init_entity_util_avg(struct sched_entity *se)
 {
 	struct cfs_rq *cfs_rq = se->cfs_rq;
 	struct sched_avg *sa = &se->avg;
@@ -130,39 +88,13 @@ void base_cfs_rq_util(struct sched_entity *se)
 			if (sa->util_avg > cap)
 				sa->util_avg = cap;
 		} else {
-			sa->util_avg = cap_org * init_util_ratio / 100;
+			sa->util_avg = cap_org >> 2;
 		}
 		/*
 		 * If we wish to restore tuning via setting initial util,
 		 * this is where we should do it.
 		 */
 		sa->util_sum = sa->util_avg * LOAD_AVG_MAX;
-	}
-}
-
-void base_inherit_parent_util(struct sched_entity *se)
-{
-	struct sched_avg *sa = &se->avg;
-	struct task_struct *p = current;
-
-	sa->util_avg = p->se.avg.util_avg;
-	sa->util_sum = p->se.avg.util_sum;
-}
-
-void exynos_init_entity_util_avg(struct sched_entity *se)
-{
-	int type = init_util_type;
-
-	switch(type) {
-	case TYPE_BASE_CFS_RQ_UTIL:
-		base_cfs_rq_util(se);
-		break;
-	case TYPE_BASE_INHERIT_PARENT_UTIL:
-		base_inherit_parent_util(se);
-		break;
-	default:
-		pr_info("%s: Not support initial util type %ld\n",
-				__func__, init_util_type);
 	}
 }
 
@@ -173,6 +105,32 @@ bool cpu_overutilized(int cpu);
 
 #define lb_sd_parent(sd) \
 	(sd->parent && sd->parent->groups != sd->parent->groups->next)
+
+struct sched_group *
+exynos_fit_idlest_group(struct sched_domain *sd, struct task_struct *p)
+{
+	struct sched_group *group = sd->groups;
+	struct sched_group *fit_group = NULL;
+	unsigned long fit_capacity = ULONG_MAX;
+
+	do {
+		int i;
+
+		/* Skip over this group if it has no CPUs allowed */
+		if (!cpumask_intersects(sched_group_cpus(group),
+					&p->cpus_allowed))
+			continue;
+
+		for_each_cpu(i, sched_group_cpus(group)) {
+			if (capacity_of(i) < fit_capacity && task_fits(p, capacity_of(i))) {
+				fit_capacity = capacity_of(i);
+				fit_group = group;
+			}
+		}
+	} while (group = group->next, group != sd->groups);
+
+	return fit_group;
+}
 
 static inline int
 check_cpu_capacity(struct rq *rq, struct sched_domain *sd)
@@ -1088,7 +1046,6 @@ ontime_select_target_cpu(struct sched_group *sg, const struct cpumask *mask)
 
 #define TASK_TRACK_COUNT	5
 
-extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
 static struct task_struct *
 ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 						int *boost_migration)
@@ -1504,8 +1461,6 @@ static void ontime_update_next_balance(int cpu, struct ontime_avg *oa)
 
 #define cap_scale(v, s) ((v)*(s) >> SCHED_CAPACITY_SHIFT)
 
-extern u64 decay_load(u64 val, u64 n);
-
 static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
 {
 	u32 c1, c2, c3 = d3;
@@ -1604,11 +1559,6 @@ pure_initcall(init_ontime);
 /**********************************************************************
  * cpu selection                                                      *
  **********************************************************************/
-extern unsigned long boosted_task_util(struct task_struct *task);
-extern unsigned long capacity_curr_of(int cpu);
-extern int find_best_target(struct task_struct *p, int *backup_cpu,
-				   bool boosted, bool prefer_idle);
-extern int start_cpu(bool boosted);
 
 int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
 				bool boosted, bool prefer_idle)
@@ -1668,8 +1618,6 @@ static struct attribute *ehmp_attrs[] = {
 	&top_overutil_attr.attr,
 	&bot_overutil_attr.attr,
 	&prefer_perf_attr.attr,
-	&initial_util_type.attr,
-	&initial_util_ratio.attr,
 	NULL,
 };
 
