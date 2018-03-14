@@ -70,6 +70,42 @@ static inline struct device_node *get_ehmp_node(void)
 #define tsk_cpus_allowed(tsk)	(&(tsk)->cpus_allowed)
 
 /**********************************************************************
+ * Energy diff		                                              *
+ **********************************************************************/
+#define EAS_CPU_PRV	0
+#define EAS_CPU_NXT	1
+#define EAS_CPU_BKP	2
+
+int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
+				int state, int cpus)
+{
+	unsigned int deepest_state_residency = 0;
+	unsigned int next_timer_us = 0;
+	int grp_nr_running = 0;
+	int deepest_state = 0;
+	int i;
+	int estimate_state = 0;
+
+	if (cpu_idx == EAS_CPU_PRV)
+		grp_nr_running++;
+
+	for_each_cpu(i, mask) {
+		grp_nr_running += cpu_rq(i)->nr_running;
+
+		next_timer_us = ktime_to_us(tick_nohz_get_sleep_length_cpu(i));
+		deepest_state_residency = cpuidle_get_target_residency(i, state);
+
+		if (next_timer_us > deepest_state_residency)
+			deepest_state++;
+	}
+
+	if (!grp_nr_running && deepest_state == cpus)
+		estimate_state = state + 1;
+
+	return estimate_state;
+}
+
+/**********************************************************************
  * task initialization                                                *
  **********************************************************************/
 void exynos_init_entity_util_avg(struct sched_entity *se)
