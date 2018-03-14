@@ -30,6 +30,8 @@ struct gb_qos_request {
 };
 
 #ifdef CONFIG_SCHED_EHMP
+extern int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
+				int state, int cpus);
 extern struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
 		struct task_struct *p);
 extern void exynos_init_entity_util_avg(struct sched_entity *se);
@@ -58,6 +60,8 @@ extern void gb_qos_update_request(struct gb_qos_request *req, u32 new_value);
 
 extern void request_kernel_prefer_perf(int grp_idx, int enable);
 #else
+static inline int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
+				int state, int cpus) { return 0; }
 static inline struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
 		struct task_struct *p) { return NULL; }
 static inline void exynos_init_entity_util_avg(struct sched_entity *se) { }
