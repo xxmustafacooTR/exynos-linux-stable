@@ -349,6 +349,27 @@ static ssize_t store_overutil_ratio(struct kobject *kobj,
 static struct kobj_attribute overutil_ratio_attr =
 __ATTR(overutil_ratio, 0644, show_overutil_ratio, store_overutil_ratio);
 
+static struct attribute *lbt_attrs[] = {
+	&overutil_ratio_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group lbt_group = {
+	.attrs = lbt_attrs,
+};
+
+static struct kobject *lbt_kobj;
+
+static int __init lbt_sysfs_init(struct kobject *parent)
+{
+	int ret;
+
+	lbt_kobj = kobject_create_and_add("lbt", parent);
+	ret = sysfs_create_group(lbt_kobj, &lbt_group);
+
+	return ret;
+}
+
 /****************************************************************/
 /*			Initialization				*/
 /****************************************************************/
@@ -1802,6 +1823,29 @@ static ssize_t store_min_residency(struct kobject *kobj,
 static struct kobj_attribute min_residency_attr =
 __ATTR(min_residency, 0644, show_min_residency, store_min_residency);
 
+static struct attribute *ontime_attrs[] = {
+	&min_residency_attr.attr,
+	&up_threshold_attr.attr,
+	&down_threshold_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ontime_group = {
+	.attrs = ontime_attrs,
+};
+
+static struct kobject *ontime_kobj;
+
+static int __init ontime_sysfs_init(struct kobject *parent)
+{
+	int ret;
+
+	ontime_kobj = kobject_create_and_add("ontime", parent);
+	ret = sysfs_create_group(ontime_kobj, &ontime_group);
+
+	return ret;
+}
+
 /****************************************************************/
 /*			initialization				*/
 /****************************************************************/
@@ -1944,10 +1988,6 @@ exit:
  **********************************************************************/
 static struct attribute *ehmp_attrs[] = {
 	&global_boost_attr.attr,
-	&min_residency_attr.attr,
-	&up_threshold_attr.attr,
-	&down_threshold_attr.attr,
-	&overutil_ratio_attr.attr,
 	&prefer_perf_attr.attr,
 	NULL,
 };
@@ -1964,6 +2004,16 @@ static int __init init_sysfs(void)
 
 	ehmp_kobj = kobject_create_and_add("ehmp", kernel_kobj);
 	ret = sysfs_create_group(ehmp_kobj, &ehmp_group);
+	if (ret)
+		return ret;
+
+	ret = ontime_sysfs_init(ehmp_kobj);
+	if (ret)
+		return ret;
+
+	ret = lbt_sysfs_init(ehmp_kobj);
+	if (ret)
+		return ret;
 
 	return 0;
 }
