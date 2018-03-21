@@ -15,8 +15,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ehmp.h>
 
-#include "sched.h"
-#include "tune.h"
+#include "../sched.h"
+#include "../tune.h"
 
 /**********************************************************************
  * extern functions                                                   *

@@ -9,7 +9,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 
-#include "sched.h"
+#include "../sched.h"
 
 /**********************************************************************
  * common APIs                                                        *
