@@ -283,25 +283,33 @@ void update_lbt_overutil(int cpu, unsigned long capacity)
 /****************************************************************/
 /*				SYSFS				*/
 /****************************************************************/
+#define lbt_attr_init(_attr, _name, _mode, _show, _store)		\
+	sysfs_attr_init(&_attr.attr);					\
+	_attr.attr.name = _name;					\
+	_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(_mode);		\
+	_attr.show	= _show;					\
+	_attr.store	= _store;
+
+static struct kobject *lbt_kobj;
+static struct attribute **lbt_attrs;
+static struct kobj_attribute *lbt_kattrs;
+static struct attribute_group lbt_group;
+
 static ssize_t show_overutil_ratio(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	struct lbt_overutil *ou = per_cpu(lbt_overutil, 0);
-	int level, last = get_last_level(ou);
+	int level = attr - lbt_kattrs;
 	int cpu, ret = 0;
 
-	for (level = 0; level <= last; level++) {
-		ret += sprintf(buf + ret, "[level%d]\n", level);
+	for_each_possible_cpu(cpu) {
+		ou = per_cpu(lbt_overutil, cpu);
 
-		for_each_possible_cpu(cpu) {
-			ou = per_cpu(lbt_overutil, cpu);
+		if (ou[level].ratio == DISABLE_OU)
+			continue;
 
-			if (ou[level].ratio == DISABLE_OU)
-				continue;
-
-			ret += sprintf(buf + ret, "cpu%d ratio:%3d capacity:%4lu\n",
-					cpu, ou[level].ratio, ou[level].capacity);
-		}
+		ret += sprintf(buf + ret, "cpu%d ratio:%3d capacity:%4lu\n",
+				cpu, ou[level].ratio, ou[level].capacity);
 	}
 
 	return ret;
@@ -313,21 +321,16 @@ static ssize_t store_overutil_ratio(struct kobject *kobj,
 {
 	struct lbt_overutil *ou;
 	unsigned long capacity;
-	int cpu, level, ratio;
-	int last;
+	int level = attr - lbt_kattrs;
+	int cpu, ratio;
 
-	if (sscanf(buf, "%d %d %d", &cpu, &level, &ratio) != 3)
+	if (sscanf(buf, "%d %d", &cpu, &ratio) != 2)
 		return -EINVAL;
 
 	/* Check cpu is possible */
 	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
 		return -EINVAL;
 	ou = per_cpu(lbt_overutil, cpu);
-
-	/* Check level range */
-	last = get_last_level(ou);
-	if (last < 0 || level < 0 || level > last)
-		return -EINVAL;
 
 	/* If ratio is outrage, disable overutil */
 	if (ratio < 0 || ratio > 100)
@@ -346,28 +349,69 @@ static ssize_t store_overutil_ratio(struct kobject *kobj,
 	return count;
 }
 
-static struct kobj_attribute overutil_ratio_attr =
-__ATTR(overutil_ratio, 0644, show_overutil_ratio, store_overutil_ratio);
+static int alloc_lbt_sysfs(int size)
+{
+	if (size < 0)
+		return -EINVAL;
 
-static struct attribute *lbt_attrs[] = {
-	&overutil_ratio_attr.attr,
-	NULL,
-};
+	lbt_attrs = kzalloc(sizeof(struct attribute *) * (size + 1),
+			GFP_KERNEL);
+	if (!lbt_attrs)
+		goto fail_alloc;
 
-static const struct attribute_group lbt_group = {
-	.attrs = lbt_attrs,
-};
+	lbt_kattrs = kzalloc(sizeof(struct kobj_attribute) * (size),
+			GFP_KERNEL);
+	if (!lbt_kattrs)
+		goto fail_alloc;
 
-static struct kobject *lbt_kobj;
+	return 0;
+
+fail_alloc:
+	kfree(lbt_attrs);
+	kfree(lbt_kattrs);
+
+	pr_err("LBT(%s): failed to alloc sysfs attrs\n", __func__);
+	return -ENOMEM;
+}
 
 static int __init lbt_sysfs_init(struct kobject *parent)
 {
-	int ret;
+	int depth = get_topology_depth();
+	int i;
+
+	if (alloc_lbt_sysfs(depth + 1))
+		goto out;
+
+	for (i = 0; i <= depth; i++) {
+		char buf[20];
+		char *name;
+
+		sprintf(buf, "overutil_ratio_level%d", i);
+		name = kstrdup(buf, GFP_KERNEL);
+		if (!name)
+			goto out;
+
+		lbt_attr_init(lbt_kattrs[i], name, 0644,
+				show_overutil_ratio, store_overutil_ratio);
+		lbt_attrs[i] = &lbt_kattrs[i].attr;
+	}
+
+	lbt_group.attrs = lbt_attrs;
 
 	lbt_kobj = kobject_create_and_add("lbt", parent);
-	ret = sysfs_create_group(lbt_kobj, &lbt_group);
+	if (!lbt_kobj)
+		goto out;
 
-	return ret;
+	if (sysfs_create_group(lbt_kobj, &lbt_group))
+		goto out;
+
+	return 0;
+
+out:
+	free_lbt_sysfs();
+
+	pr_err("LBT(%s): failed to create sysfs node\n", __func__);
+	return -EINVAL;
 }
 
 /****************************************************************/
