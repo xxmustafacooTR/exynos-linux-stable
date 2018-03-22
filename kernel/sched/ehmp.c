@@ -29,9 +29,12 @@ extern int find_best_target(struct task_struct *p, int *backup_cpu,
 extern u64 decay_load(u64 val, u64 n);
 extern int start_cpu(bool boosted);
 
-static unsigned long task_util(struct task_struct *p)
+unsigned long task_util(struct task_struct *p)
 {
-	return p->se.avg.util_avg;
+	if (rt_task(p))
+		return p->rt.avg.util_avg;
+	else
+		return p->se.avg.util_avg;
 }
 
 static inline struct task_struct *task_of(struct sched_entity *se)
@@ -711,7 +714,7 @@ static int check_migration_task(struct task_struct *p)
 	return !p->se.avg.last_update_time;
 }
 
-static unsigned long cpu_util_wake(int cpu, struct task_struct *p)
+unsigned long cpu_util_wake(int cpu, struct task_struct *p)
 {
 	unsigned long util, capacity;
 
