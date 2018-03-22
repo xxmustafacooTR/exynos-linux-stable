@@ -29,7 +29,7 @@ struct gb_qos_request {
 	bool active;
 };
 
-#ifdef CONFIG_SCHED_EHMP
+#ifdef CONFIG_SCHED_EMS
 extern int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
 				int state, int cpus);
 extern struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
@@ -71,8 +71,8 @@ static inline int exynos_need_active_balance(enum cpu_idle_type idle,
 static inline unsigned long global_boost(void) { return 0; }
 static inline int find_second_max_cap(void) { return -EINVAL; }
 
-static inline int exynos_select_cpu(struct task_struct *p, int prev_cpu,
-					int sync, int sd_flag) { return -EINVAL; }
+static inline int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
+				bool boosted, bool prefer_idle) { return -EINVAL; }
 
 static inline void ontime_migration(void) { }
 static inline int ontime_can_migration(struct task_struct *p, int cpu) { return 1; }
@@ -89,5 +89,5 @@ static inline void update_lbt_overutil(int cpu, unsigned long capacity) { }
 
 static inline void gb_qos_update_request(struct gb_qos_request *req, u32 new_value) { }
 
-//extern void request_kernel_prefer_perf(int grp_idx, int enable) { }
-#endif /* CONFIG_SCHED_EHMP */
+static inline void request_kernel_prefer_perf(int grp_idx, int enable) { }
+#endif /* CONFIG_SCHED_EMS */

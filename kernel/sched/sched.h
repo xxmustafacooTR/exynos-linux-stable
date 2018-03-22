@@ -791,7 +791,7 @@ struct rq {
 	u64 cum_window_demand;
 #endif /* CONFIG_SCHED_WALT */
 
-#ifdef CONFIG_SCHED_EHMP
+#ifdef CONFIG_SCHED_EMS
 	bool ontime_migrating;
 #endif
 
