@@ -30,13 +30,14 @@
 #define ontime_load_avg(p)		(ontime_of(p)->avg.load_avg)
 
 #define cap_scale(v, s)		((v)*(s) >> SCHED_CAPACITY_SHIFT)
-#define mincap_of(__cpu)	(sge_array[__cpu][SD_LEVEL0]->cap_states[0].cap)
 
 #define entity_is_cfs_rq(se)	(se->my_q)
 #define entity_is_task(se)	(!se->my_q)
 
 /* Structure of ontime migration condition */
 struct ontime_cond {
+	bool			enabled;
+
 	unsigned long		up_threshold;
 	unsigned long		down_threshold;
 	unsigned int		min_residency;
@@ -740,9 +741,16 @@ int __init ontime_sysfs_init(struct kobject *parent)
 
 	count = 0;
 	while (cond) {
-		count++;
+		/* If ontime is disabled in this step, do not create sysfs node */
+		if (cond->enabled)
+			count++;
+
 		cond = cond->next;
 	}
+
+	/* If ontime is disabled in all step, do not create sysfs node at all */
+	if (count == 0)
+		return 0;
 
 	alloc_ontime_sysfs(count * NUM_OF_ONTIME_NODE);
 
@@ -752,6 +760,10 @@ int __init ontime_sysfs_init(struct kobject *parent)
 	while (cond) {
 		char buf[20];
 		char *name;
+
+		/* If ontime is disabled in this step, do not create sysfs node */
+		if (!cond->enabled)
+			goto skip;
 
 		/* Init up_threshold node */
 		sprintf(buf, "up_threshold_step%d", step);
@@ -783,6 +795,7 @@ int __init ontime_sysfs_init(struct kobject *parent)
 				show_min_residency, store_min_residency);
 		ontime_attrs[i++] = &cond->min_residency_attr.attr;
 
+skip:
 		step++;
 		cond = cond->next;
 	}
@@ -813,37 +826,39 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int step)
 {
 	struct device_node *ontime, *on_step;
 	char name[10];
-	int prop;
-
-	/*
-	 * Initilize default values:
-	 *   up_threshold	= 40% of Source CPU's maximum capacity
-	 *   down_threshold	= 50% of Destination CPU's minimum capacity
-	 *   min_residency	= 8ms
-	 */
-	cond->up_threshold =
-		capacity_orig_of(cpumask_first(&cond->src_cpus)) * 40 / 100;
-	cond->down_threshold =
-		mincap_of(cpumask_first(&cond->dst_cpus)) * 50 / 100;
-	cond->min_residency = 8192;
+	unsigned int prop;
+	int res = 0;
 
 	ontime = of_get_child_by_name(dn, "ontime");
 	if (!ontime)
-		return;
+		goto disable;
 
 	snprintf(name, sizeof(name), "step%d", step);
 	on_step = of_get_child_by_name(ontime, name);
 	if (!on_step)
-		return;
+		goto disable;
 
-	of_property_read_u32(on_step, "up-threshold", &prop);
+	/* If any of ontime parameter isn't, disable ontime of this step */
+	res |= of_property_read_u32(on_step, "up-threshold", &prop);
 	cond->up_threshold = prop;
 
-	of_property_read_u32(on_step, "down-threshold", &prop);
+	res |= of_property_read_u32(on_step, "down-threshold", &prop);
 	cond->down_threshold = prop;
 
-	of_property_read_u32(on_step, "min-residency-us", &prop);
+	res |= of_property_read_u32(on_step, "min-residency-us", &prop);
 	cond->min_residency = prop;
+
+	if (res)
+		goto disable;
+
+	cond->enabled = true;
+	return;
+
+disable:
+	cond->enabled = false;
+	cond->up_threshold = ULONG_MAX;
+	cond->down_threshold = 0;
+	cond->min_residency = 0;
 }
 
 static int __init init_ontime(void)
