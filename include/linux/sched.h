@@ -1668,6 +1668,9 @@ struct task_struct {
 	 */
 	u32 init_load_pct;
 #endif
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	int victim_flag;
+#endif
 
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;

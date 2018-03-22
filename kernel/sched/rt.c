@@ -1601,6 +1601,21 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	     curr->prio <= p->prio)) {
 		int target = find_lowest_rq(p);
 
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+		/*
+		 * Even though the destination CPU is running
+		 * a higher priority task, FluidRT can bother moving it
+		 * when its utilization is very small, and the other CPU is too busy
+		 * to accomodate the p in the point of priority and utilization.
+		 *
+		 * BTW, if the curr has higher priority than p, FluidRT tries to find
+		 * the other CPUs first. In the worst case, curr can be victim, if it
+		 * has very small utilization.
+		 */
+		if (likely(target != -1)) {
+			cpu = target;
+		}
+#else
 		/*
 		 * Don't bother moving it if the destination CPU is
 		 * not running a lower priority task.
@@ -1608,6 +1623,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 		if (target != -1 &&
 		    p->prio < cpu_rq(target)->rt.highest_prio.curr)
 			cpu = target;
+#endif
 	}
 	rcu_read_unlock();
 
@@ -1851,12 +1867,38 @@ void init_rt_entity_runnable_average(struct sched_rt_entity *rt_se)
 void init_rt_entity_runnable_average(struct sched_rt_entity *rt_se) { }
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+static inline void set_victim_flag(struct task_struct *p)
+{
+	p->victim_flag = 1;
+}
+
+static inline void clear_victim_flag(struct task_struct *p)
+{
+	p->victim_flag = 0;
+}
+
+static inline bool test_victim_flag(struct task_struct *p)
+{
+	if (p->victim_flag)
+		return true;
+	else
+		return false;
+}
+#else
+static inline bool test_victim_flag(struct task_struct *p) { return false; }
+static inline void clear_victim_flag(struct task_struct *p) {}
+#endif
 /*
  * Preempt the current task with a newly woken task if needed:
  */
 static void check_preempt_curr_rt(struct rq *rq, struct task_struct *p, int flags)
 {
 	if (p->prio < rq->curr->prio) {
+		resched_curr(rq);
+		return;
+	} else if (test_victim_flag(p)) {
+		requeue_task_rt(rq, p, 1);
 		resched_curr(rq);
 		return;
 	}
@@ -1967,6 +2009,8 @@ pick_next_task_rt(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 	if (p)
 		update_rt_rq_load_avg(rq_clock_task(rq), cpu_of(rq), rt_rq,
 					rq->curr->sched_class == &rt_sched_class);
+
+	clear_victim_flag(p);
 
 	return p;
 }
@@ -2140,10 +2184,246 @@ static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu)
 
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
-unsigned int sched_rt_boost_threshold = 0;
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+unsigned int sched_rt_boost_threshold = 60;
+
+static inline struct cpumask *sched_group_cpus_rt(struct sched_group *sg)
+{
+	return to_cpumask(sg->cpumask);
+}
+
+static inline int weight_from_rtprio(int prio)
+{
+	int idx = (prio >> 1);
+
+	if (!rt_prio(prio))
+		return sched_prio_to_weight[prio - MAX_RT_PRIO];
+
+	if ((idx << 1) == prio)
+		return rtprio_to_weight[idx];
+	else
+		return ((rtprio_to_weight[idx] + rtprio_to_weight[idx+1]) >> 1);
+}
+
+static inline int affordable_cpu(int cpu, unsigned long task_util)
+{
+	/* HACK : Need to change the programming style, too naive */
+	if (cpu_curr(cpu)->state != TASK_INTERRUPTIBLE)
+		return 0;
+
+	if (capacity_of(cpu) <= task_util)
+		return 0;
+
+	if ((capacity_orig_of(cpu) - capacity_of(cpu)) >= task_util)
+		return 0;
+
+	return 1;
+}
+
+extern unsigned long cpu_util_wake(int cpu, struct task_struct *p);
+extern unsigned long task_util(struct task_struct *p);
+
+/*
+ * Must find the victim or recessive (not in lowest_mask)
+ *
+ */
+/* Future-safe accessor for struct task_struct's cpus_allowed. */
+#define rttsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
+
+static int find_victim_rt_rq(struct task_struct *task, struct sched_group *sg, int *best_cpu) {
+	struct cpumask *sg_cpus = sched_group_cpus_rt(sg);
+	int i;
+	unsigned long victim_rtweight, target_rtweight, min_rtweight;
+	unsigned int victim_cpu_cap, min_cpu_cap = arch_scale_cpu_capacity(NULL, task_cpu(task));
+	bool victim_rt = true;
+
+	if (!rt_task(task))
+		return *best_cpu;
+
+	target_rtweight = task->rt.avg.util_avg * weight_from_rtprio(task->prio);
+	min_rtweight = target_rtweight;
+
+	for_each_cpu_and(i, sg_cpus, rttsk_cpus_allowed(task)) {
+		struct task_struct *victim = cpu_rq(i)->curr;
+
+		if (victim->nr_cpus_allowed < 2)
+			continue;
+
+		if (rt_task(victim)) {
+			victim_cpu_cap = arch_scale_cpu_capacity(NULL, i);
+			victim_rtweight = victim->rt.avg.util_avg * weight_from_rtprio(victim->prio);
+
+			if (min_cpu_cap == victim_cpu_cap) {
+				if (victim_rtweight < min_rtweight) {
+					min_rtweight = victim_rtweight;
+					*best_cpu = i;
+					min_cpu_cap = victim_cpu_cap;
+				}
+			} else {
+				/*
+				 * It's necessary to un-cap the cpu capacity when comparing
+				 * utilization of each CPU. This is why the Fluid RT tries to give
+				 * the green light on big CPU to the long-run RT task
+				 * in accordance with the priority.
+				 */
+				if (victim_rtweight * min_cpu_cap < min_rtweight * victim_cpu_cap) {
+					min_rtweight = victim_rtweight;
+					*best_cpu = i;
+					min_cpu_cap = victim_cpu_cap;
+				}
+			}
+		} else {
+			/* If Non-RT CPU is exist, select it first. */
+			*best_cpu = i;
+			victim_rt = false;
+			break;
+		}
+	}
+
+	if (*best_cpu >= 0 && victim_rt) {
+		set_victim_flag(cpu_rq(*best_cpu)->curr);
+	}
+
+	return *best_cpu;
+
+}
+
+static int find_lowest_rq_fluid(struct task_struct *task)
+{
+	int cpu, best_cpu = -1;
+	int prefer_cpu = smp_processor_id();	/* Cache-hot with itself or waker (default). */
+	int boosted = 0;
+	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
+	struct sched_domain *sd;
+	struct sched_group *sg;
+	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX, min_rt_load = ULLONG_MAX;
+	int min_cpu = -1, min_rt_cpu = -1;
+
+	/* Make sure the mask is initialized first */
+	if (unlikely(!lowest_mask))
+		goto out;
+
+	if (task->nr_cpus_allowed == 1)
+		goto out; /* No other targets possible */
+
+	/* update the per-cpu local_cpu_mask (lowest_mask) */
+	cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask);
+
+	/*
+	 *
+	 * Fluid Sched Core selection procedure:
+	 *
+	 * 1. Cache hot : this cpu (waker if wake_list is null)
+	 * 2. idle CPU selection (prev_cpu first)
+	 * 3. recessive task first (prev_cpu first)
+	 * 4. victim task first (prev_cpu first)
+	 */
+
+	/*
+	 * 1. Cache hot : packing the callee and caller,
+	 * 	when there is nothing to run except callee
+	 */
+	if (cpumask_test_cpu(prefer_cpu, lowest_mask) &&
+		affordable_cpu(prefer_cpu, task_util(task))) {
+		best_cpu = prefer_cpu;
+		goto out;
+	}
+
+	prefer_cpu = task_cpu(task);
+
+	/*
+	 * 2. idle CPU selection
+	 */
+	boosted = (task->rt.avg.util_avg > sched_rt_boost_threshold) ? (1) : (0);
+
+	/* TODO: Need to refer the scheduling status of eHMP */
+	for_each_cpu(cpu, cpu_online_mask){
+		if (boosted && cpu < cpumask_first(cpu_coregroup_mask(prefer_cpu)))
+			continue;
+
+		if (idle_cpu(cpu)) {
+			best_cpu = cpu;
+			goto out;
+		}
+	}
+
+	rcu_read_lock();
+
+	sd = boosted ?
+		rcu_dereference(per_cpu(sd_ea, 0)) :
+		rcu_dereference(per_cpu(sd_ea, prefer_cpu));
+
+	if (!sd)
+		goto unlock;
+
+	sg = sd->groups;
+
+	/*
+	 * 3. recessive task first
+	 */
+	do {
+		for_each_cpu_and(cpu, sched_group_span(sg), lowest_mask) {
+
+			cpu_load = cpu_util_wake(cpu, task) + task_util(task);
+
+			if (rt_task(cpu_rq(cpu)->curr)) {
+				if (cpu_load < min_rt_load ||
+					(cpu_load == min_rt_load && cpu == prefer_cpu)) {
+					min_rt_load = cpu_load;
+					min_rt_cpu = cpu;
+				}
+
+				continue;
+			}
+			if (cpu_load < min_load ||
+				(cpu_load == min_load && cpu == prefer_cpu)) {
+				min_load = cpu_load;
+				min_cpu = cpu;
+			}
+
+		}
+
+		/* Fair recessive task : best min-load of non-rt cpu is exist? */
+		if (min_cpu >= 0 &&
+			((capacity_of(min_cpu) >= min_load) || (min_cpu == prefer_cpu))) {
+			best_cpu = min_cpu;
+			goto unlock;
+		}
+
+		/* RT recessive task : best min-load of rt cpu is exist? */
+		if (min_rt_cpu >= 0 &&
+			((capacity_of(min_rt_cpu) >= min_rt_load) || (min_rt_cpu == prefer_cpu))) {
+			best_cpu = min_rt_cpu;
+			goto unlock;
+		}
+
+	} while (sg = sg->next, sg != sd->groups);
+	/* need to check the method for traversing the sg */
+
+	sg = sd->groups;
+
+	/*
+	 * 4. victim task first
+	 */
+	do {
+		if (find_victim_rt_rq(task, sg, &best_cpu) != -1)
+			break;
+	} while (sg = sg->next, sg != sd->groups);
+
+	if (best_cpu < 0)
+		best_cpu = prefer_cpu;
+unlock:
+	rcu_read_unlock();
+out:
+	return best_cpu;
+}
+#endif /* CONFIG_SCHED_USE_FLUID_RT */
 
 static int find_lowest_rq(struct task_struct *task)
 {
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	return find_lowest_rq_fluid(task);
+#else
 	struct sched_domain *sd;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
@@ -2214,6 +2494,7 @@ static int find_lowest_rq(struct task_struct *task)
 	if (cpu < nr_cpu_ids)
 		return cpu;
 	return -1;
+#endif /* CONFIG_SCHED_USE_FLUID_RT */
 }
 
 /* Will lock the rq it finds */
@@ -2231,6 +2512,13 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 
 		lowest_rq = cpu_rq(cpu);
 
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+		/*
+		 * Even though the lowest rq has a task of higher priority,
+		 * FluidRT can expel it (victim task) if it has small utilization,
+		 * or is not current task. Just keep trying.
+		 */
+#else
 		if (lowest_rq->rt.highest_prio.curr <= task->prio) {
 			/*
 			 * Target rq has tasks of equal or higher priority,
@@ -2240,6 +2528,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			lowest_rq = NULL;
 			break;
 		}
+#endif
 
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
@@ -2262,6 +2551,11 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			}
 		}
 
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+		/* task is still rt task */
+		if (likely(rt_task(task)))
+			break;
+#else
 		/* If this rq is still suitable use it. */
 		if (lowest_rq->rt.highest_prio.curr > task->prio)
 			break;
@@ -2269,6 +2563,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 		/* try again */
 		double_unlock_balance(rq, lowest_rq);
 		lowest_rq = NULL;
+#endif
 	}
 
 	return lowest_rq;
