@@ -1079,12 +1079,17 @@ out:
 struct ontime_cond {
 	unsigned long		up_threshold;
 	unsigned long		down_threshold;
-	unsigned int		min_residency_us;
+	unsigned int		min_residency;
 
 	struct cpumask		src_cpus;
 	struct cpumask		dst_cpus;
 
 	struct ontime_cond	*next;
+
+	/* kobject attrbute for sysfs */
+	struct kobj_attribute	up_threshold_attr;
+	struct kobj_attribute	down_threshold_attr;
+	struct kobj_attribute	min_residency_attr;
 };
 static struct ontime_cond *ontime_cond;
 
@@ -1113,22 +1118,6 @@ static unsigned long get_up_threshold(int cpu)
 	return -EINVAL;
 }
 
-static int set_up_threshold(int cpu, unsigned long val)
-{
-	struct ontime_cond *cond = ontime_cond;
-
-	while (cond) {
-		if (cpumask_test_cpu(cpu, &cond->src_cpus)) {
-			cond->up_threshold = val;
-			return 0;
-		}
-
-		cond = cond->next;
-	}
-
-	return -EINVAL;
-}
-
 static unsigned long get_down_threshold(int cpu)
 {
 	struct ontime_cond *cond = ontime_cond;
@@ -1143,52 +1132,19 @@ static unsigned long get_down_threshold(int cpu)
 	return -EINVAL;
 }
 
-static int set_down_threshold(int cpu, unsigned long val)
-{
-	struct ontime_cond *cond = ontime_cond;
-
-	while (cond) {
-		if (cpumask_test_cpu(cpu, &cond->dst_cpus)) {
-			cond->down_threshold = val;
-			return 0;
-		}
-
-		cond = cond->next;
-	}
-
-	return -EINVAL;
-}
-
 static unsigned int get_min_residency(int cpu)
 {
 	struct ontime_cond *cond = ontime_cond;
 
 	while (cond) {
 		if (cpumask_test_cpu(cpu, &cond->dst_cpus))
-			return cond->min_residency_us;
+			return cond->min_residency;
 
 		cond = cond->next;
 	}
 
 	return -EINVAL;
 }
-
-static int set_min_residency(int cpu, int val)
-{
-	struct ontime_cond *cond = ontime_cond;
-
-	while (cond) {
-		if (cpumask_test_cpu(cpu, &cond->dst_cpus)) {
-			cond->min_residency_us = val;
-			return 0;
-		}
-
-		cond = cond->next;
-	}
-
-	return -EINVAL;
-}
-
 static inline void include_ontime_task(struct task_struct *p, int dst_cpu)
 {
 	ontime_flag(p) = ONTIME;
@@ -1744,150 +1700,138 @@ void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 /****************************************************************/
 /*				SYSFS				*/
 /****************************************************************/
-static ssize_t show_up_threshold(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	struct ontime_cond *cond = ontime_cond;
-	int ret = 0;
+#define NUM_OF_ONTIME_NODE	3
 
-	while (cond) {
-		ret += sprintf(buf + ret, "cpu%*pbl: %ld\n",
-				cpumask_pr_args(&cond->src_cpus),
-				cond->up_threshold);
+#define ontime_attr_init(_attr, _name, _mode, _show, _store)		\
+	sysfs_attr_init(&_attr.attr);					\
+	_attr.attr.name = _name;					\
+	_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(_mode);		\
+	_attr.show	= _show;					\
+	_attr.store	= _store;
 
-		cond = cond->next;
-	}
-
-	return ret;
+#define ontime_show(_name)							\
+static ssize_t show_##_name(struct kobject *kobj,				\
+		struct kobj_attribute *attr, char *buf)				\
+{										\
+	struct ontime_cond *cond = container_of(attr, struct ontime_cond,	\
+			_name##_attr);						\
+										\
+	return sprintf(buf, "%u\n", (unsigned int)cond->_name);			\
 }
 
-static ssize_t store_up_threshold(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	unsigned long val;
-	int cpu;
-
-	if (sscanf(buf, "%d %lu", &cpu, &val) != 2)
-		return -EINVAL;
-
-	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
-		return -EINVAL;
-
-	val = val > 1024 ? 1024 : val;
-
-	if (set_up_threshold(cpu, val))
-		return -EINVAL;
-
-	return count;
+#define ontime_store(_name, _type, _max)					\
+static ssize_t store_##_name(struct kobject *kobj,				\
+		struct kobj_attribute *attr, const char *buf,			\
+		size_t count)							\
+{										\
+	unsigned int val;							\
+	struct ontime_cond *cond = container_of(attr, struct ontime_cond,	\
+			_name##_attr);						\
+										\
+	if (!sscanf(buf, "%u", &val))						\
+		return -EINVAL;							\
+										\
+	val = val > _max ? _max : val;						\
+	cond->_name = (_type)val;						\
+										\
+	return count;								\
 }
-
-static struct kobj_attribute up_threshold_attr =
-__ATTR(up_threshold, 0644, show_up_threshold, store_up_threshold);
-
-static ssize_t show_down_threshold(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	struct ontime_cond *cond = ontime_cond;
-	int ret = 0;
-
-	while (cond) {
-		ret += sprintf(buf + ret, "cpu%*pbl: %ld\n",
-				cpumask_pr_args(&cond->dst_cpus),
-				cond->down_threshold);
-
-		cond = cond->next;
-	}
-
-	return ret;
-}
-
-static ssize_t store_down_threshold(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	unsigned long val;
-	int cpu;
-
-	if (sscanf(buf, "%d %lu", &cpu, &val) != 2)
-		return -EINVAL;
-
-	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
-		return -EINVAL;
-
-	val = val > 1024 ? 1024 : val;
-
-	if (set_down_threshold(cpu, val))
-		return -EINVAL;
-
-	return count;
-}
-
-static struct kobj_attribute down_threshold_attr =
-__ATTR(down_threshold, 0644, show_down_threshold, store_down_threshold);
-
-static ssize_t show_min_residency(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	struct ontime_cond *cond = ontime_cond;
-	int ret = 0;
-
-	while (cond) {
-		ret += sprintf(buf + ret, "cpu%*pbl: %d\n",
-				cpumask_pr_args(&cond->dst_cpus),
-				cond->min_residency_us);
-
-		cond = cond->next;
-	}
-
-	return ret;
-}
-
-static ssize_t store_min_residency(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf,
-		size_t count)
-{
-	int val;
-	int cpu;
-
-	if (sscanf(buf, "%d %d", &cpu, &val) != 2)
-		return -EINVAL;
-
-	if (!cpumask_test_cpu(cpu, cpu_possible_mask))
-		return -EINVAL;
-
-	val = val < 0 ? 0 : val;
-
-	if (set_min_residency(cpu, val))
-		return -EINVAL;
-
-	return count;
-}
-
-static struct kobj_attribute min_residency_attr =
-__ATTR(min_residency, 0644, show_min_residency, store_min_residency);
-
-static struct attribute *ontime_attrs[] = {
-	&min_residency_attr.attr,
-	&up_threshold_attr.attr,
-	&down_threshold_attr.attr,
-	NULL,
-};
-
-static const struct attribute_group ontime_group = {
-	.attrs = ontime_attrs,
-};
 
 static struct kobject *ontime_kobj;
+static struct attribute_group ontime_group;
+static struct attribute **ontime_attrs;
+
+ontime_show(up_threshold);
+ontime_show(down_threshold);
+ontime_show(min_residency);
+ontime_store(up_threshold, unsigned long, 1024);
+ontime_store(down_threshold, unsigned long, 1024);
+ontime_store(min_residency, unsigned int, 0xffffffff);
+
+static int alloc_ontime_sysfs(int size)
+{
+	ontime_attrs = kzalloc(sizeof(struct attribute *) * (size + 1),
+			GFP_KERNEL);
+	if (!ontime_attrs)
+		goto fail_alloc;
+
+	return 0;
+
+fail_alloc:
+	pr_err("ONTIME(%s): failed to alloc sysfs attrs\n", __func__);
+	return -ENOMEM;
+}
 
 static int __init ontime_sysfs_init(struct kobject *parent)
 {
-	int ret;
+	struct ontime_cond *cond = ontime_cond;
+	int count, step, i;
+
+	count = 0;
+	while (cond) {
+		count++;
+		cond = cond->next;
+	}
+
+	alloc_ontime_sysfs(count * NUM_OF_ONTIME_NODE);
+
+	i = 0;
+	step = 0;
+	cond = ontime_cond;
+	while (cond) {
+		char buf[20];
+		char *name;
+
+		/* Init up_threshold node */
+		sprintf(buf, "up_threshold_step%d", step);
+		name = kstrdup(buf, GFP_KERNEL);
+		if (!name)
+			goto out;
+
+		ontime_attr_init(cond->up_threshold_attr, name, 0644,
+				show_up_threshold, store_up_threshold);
+		ontime_attrs[i++] = &cond->up_threshold_attr.attr;
+
+		/* Init down_threshold node */
+		sprintf(buf, "down_threshold_step%d", step);
+		name = kstrdup(buf, GFP_KERNEL);
+		if (!name)
+			goto out;
+
+		ontime_attr_init(cond->down_threshold_attr, name, 0644,
+				show_down_threshold, store_down_threshold);
+		ontime_attrs[i++] = &cond->down_threshold_attr.attr;
+
+		/* Init min_residency node */
+		sprintf(buf, "min_residency_step%d", step);
+		name = kstrdup(buf, GFP_KERNEL);
+		if (!name)
+			goto out;
+
+		ontime_attr_init(cond->min_residency_attr, name, 0644,
+				show_min_residency, store_min_residency);
+		ontime_attrs[i++] = &cond->min_residency_attr.attr;
+
+		step++;
+		cond = cond->next;
+	}
+
+	ontime_group.attrs = ontime_attrs;
 
 	ontime_kobj = kobject_create_and_add("ontime", parent);
-	ret = sysfs_create_group(ontime_kobj, &ontime_group);
+	if (!ontime_kobj)
+		goto out;
 
-	return ret;
+	if (sysfs_create_group(ontime_kobj, &ontime_group))
+		goto out;
+
+	return 0;
+
+out:
+	kfree(ontime_attrs);
+
+	pr_err("ONTIME(%s): failed to create sysfs node\n", __func__);
+	return -EINVAL;
 }
 
 /****************************************************************/
@@ -1910,7 +1854,7 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int step)
 		capacity_orig_of(cpumask_first(&cond->src_cpus)) * 40 / 100;
 	cond->down_threshold =
 		mincap_of(cpumask_first(&cond->dst_cpus)) * 50 / 100;
-	cond->min_residency_us = 8192;
+	cond->min_residency = 8192;
 
 	ontime = of_get_child_by_name(dn, "ontime");
 	if (!ontime)
@@ -1928,7 +1872,7 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int step)
 	cond->down_threshold = prop;
 
 	of_property_read_u32(on_step, "min-residency-us", &prop);
-	cond->min_residency_us = prop;
+	cond->min_residency = prop;
 }
 
 static int __init init_ontime(void)
