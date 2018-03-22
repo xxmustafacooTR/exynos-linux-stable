@@ -32,6 +32,18 @@ struct lbt_overutil {
 };
 DEFINE_PER_CPU(struct lbt_overutil *, lbt_overutil);
 
+static inline struct sched_domain *find_sd_by_level(int cpu, int level)
+{
+	struct sched_domain *sd;
+
+	for_each_domain(cpu, sd) {
+		if (sd->level == level)
+			return sd;
+	}
+
+	return NULL;
+}
+
 static inline int get_topology_depth(void)
 {
 	struct sched_domain *sd;
@@ -256,7 +268,44 @@ fail_alloc:
 	return -ENOMEM;
 }
 
-static int set_lbt_overutil(int level, const char *mask, int ratio)
+static void default_lbt_overutil(int level)
+{
+	struct sched_domain *sd;
+	struct lbt_overutil *ou;
+	struct cpumask cpus;
+	bool top;
+	int cpu;
+
+	/* If current level is same with topology depth, it is top level */
+	top = !(get_topology_depth() - level);
+
+	cpumask_clear(&cpus);
+
+	for_each_possible_cpu(cpu) {
+		int c;
+
+		if (cpumask_test_cpu(cpu, &cpus))
+			continue;
+
+		sd = find_sd_by_level(cpu, level);
+		if (!sd) {
+			ou = per_cpu(lbt_overutil, cpu);
+			ou[level].ratio = DISABLE_OU;
+			ou[level].top = top;
+			continue;
+		}
+
+		cpumask_copy(&cpus, sched_domain_span(sd));
+		for_each_cpu(c, &cpus) {
+			ou = per_cpu(lbt_overutil, c);
+			cpumask_copy(&ou[level].cpus, &cpus);
+			ou[level].ratio = DEFAULT_OU_RATIO;
+			ou[level].top = top;
+		}
+	}
+}
+
+static void set_lbt_overutil(int level, const char *mask, int ratio)
 {
 	struct lbt_overutil *ou;
 	struct cpumask cpus;
@@ -266,10 +315,10 @@ static int set_lbt_overutil(int level, const char *mask, int ratio)
 	cpulist_parse(mask, &cpus);
 	cpumask_and(&cpus, &cpus, cpu_possible_mask);
 	if (!cpumask_weight(&cpus))
-		return -ENODEV;
+		return;
 
-	/* If sibling cpus is same with possible cpus, it is top level */
-	top = cpumask_equal(&cpus, cpu_possible_mask);
+	/* If current level is same with topology depth, it is top level */
+	top = !(get_topology_depth() - level);
 
 	/* If this level is overlapped with prev level, disable this level */
 	if (level > 0) {
@@ -283,80 +332,78 @@ static int set_lbt_overutil(int level, const char *mask, int ratio)
 		ou[level].ratio = overlap ? DISABLE_OU : ratio;
 		ou[level].top = top;
 	}
-
-	return 0;
 }
 
-static int parse_lbt_overutil(struct device_node *dn)
+static void parse_lbt_overutil(struct device_node *dn)
 {
 	struct device_node *lbt, *ou;
 	int level, depth = get_topology_depth();
-	int ret = 0;
 
+	/* If lbt node isn't, set by default value (80%) */
 	lbt = of_get_child_by_name(dn, "lbt");
-	if (!lbt)
-		return -ENODEV;
+	if (!lbt) {
+		for (level = 0; level <= depth; level++)
+			default_lbt_overutil(level);
+		return;
+	}
 
 	for (level = 0; level <= depth; level++) {
 		char name[20];
 		const char *mask[NR_CPUS];
+		struct cpumask combi, each;
 		int ratio[NR_CPUS];
 		int i, proplen;
 
 		snprintf(name, sizeof(name), "overutil-level%d", level);
 		ou = of_get_child_by_name(lbt, name);
-		if (!ou) {
-			ret = -ENODEV;
-			goto out;
-		}
+		if (!ou)
+			goto default_setting;
 
 		proplen = of_property_count_strings(ou, "cpus");
 		if ((proplen < 0) || (proplen != of_property_count_u32_elems(ou, "ratio"))) {
 			of_node_put(ou);
-			ret = -ENODEV;
-			goto out;
+			goto default_setting;
 		}
 
 		of_property_read_string_array(ou, "cpus", mask, proplen);
 		of_property_read_u32_array(ou, "ratio", ratio, proplen);
 		of_node_put(ou);
 
+		/*
+		 * If combination of each cpus doesn't correspond with
+		 * cpu_possible_mask, do not use this property
+		 */
+		cpumask_clear(&combi);
 		for (i = 0; i < proplen; i++) {
-			ret = set_lbt_overutil(level, mask[i], ratio[i]);
-			if (ret)
-				goto out;
+			cpulist_parse(mask[i], &each);
+			cpumask_or(&combi, &combi, &each);
 		}
+		if (!cpumask_equal(&combi, cpu_possible_mask))
+			goto default_setting;
+
+		for (i = 0; i < proplen; i++)
+			set_lbt_overutil(level, mask[i], ratio[i]);
+		continue;
+
+default_setting:
+		default_lbt_overutil(level);
 	}
 
-out:
 	of_node_put(lbt);
-	return ret;
 }
 
 static int __init init_lbt(void)
 {
-	struct device_node *dn;
-	int ret;
+	struct device_node *dn = of_find_node_by_path("/cpus/ems");
 
-	dn = of_find_node_by_path("/cpus/ems");
-	if (!dn)
-		return 0;
-
-	ret = alloc_lbt_overutil();
-	if (ret) {
-		pr_err("Failed to allocate lbt_overutil\n");
-		goto out;
+	if (alloc_lbt_overutil()) {
+		pr_err("LBT(%s): failed to allocate lbt_overutil\n", __func__);
+		of_node_put(dn);
+		return -ENOMEM;
 	}
 
-	ret = parse_lbt_overutil(dn);
-	if (ret) {
-		pr_err("Failed to parse lbt_overutil\n");
-		free_lbt_overutil();
-		goto out;
-	}
-
-out:
+	parse_lbt_overutil(dn);
 	of_node_put(dn);
-	return ret;
+	return 0;
 }
 pure_initcall(init_lbt);
