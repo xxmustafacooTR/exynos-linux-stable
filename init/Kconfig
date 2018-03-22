@@ -1464,16 +1464,16 @@ config SCHED_TUNE
 
 	  If unsure, say N.
 
-config SCHED_EHMP
-	bool "Exynos scheduler for Heterogeneous Multi-Processor"
+config SCHED_EMS
+	bool "Exynos Mobile Scheduler"
 	depends on SMP
 	default n
 	help
-	  This option supports Exynos scheduler for HMP architecture. It is
-	  designed to secure the limits of energy aware scheduler. This option
-	  provides features such as independent boosting functinos such as
-	  global boost and on-time migration, and prefer_perf and enhanced
-	  prefer_idle that work in conjunction with SCHEDTUNE.
+	  This option supports Exynos mobile scheduler. It is designed to
+	  secure the limits of energy aware scheduler. This option provides
+	  features such as independent boosting functinos such as on-time migration,
+	  and prefer_perf and enhanced prefer_idle that work in conjunction with
+	  SCHEDTUNE.
 
 	  If unsure, say N.
 

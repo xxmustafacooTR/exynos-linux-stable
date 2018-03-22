@@ -5,7 +5,7 @@
 #include <linux/printk.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
-#include <linux/ehmp.h>
+#include <linux/ems.h>
 
 #include <trace/events/sched.h>
 
@@ -679,7 +679,7 @@ int schedtune_prefer_idle(struct task_struct *p)
 	return prefer_idle;
 }
 
-#ifdef CONFIG_SCHED_EHMP
+#ifdef CONFIG_SCHED_EMS
 static atomic_t kernel_prefer_perf_req[BOOSTGROUPS_COUNT];
 int kernel_prefer_perf(int grp_idx)
 {

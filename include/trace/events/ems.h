@@ -7,10 +7,10 @@
  */
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM ehmp
+#define TRACE_SYSTEM ems
 
-#if !defined(_TRACE_EHMP_H) || defined(TRACE_HEADER_MULTI_READ)
-#define _TRACE_EHMP_H
+#if !defined(_TRACE_EMS_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_EMS_H
 
 #include <linux/sched.h>
 #include <linux/tracepoint.h>
@@ -388,7 +388,7 @@ TRACE_EVENT(ehmp_lbt_overutilized,
 		__entry->capacity, __entry->overutilized)
 );
 
-#endif /* _TRACE_EHMP_H */
+#endif /* _TRACE_EMS_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
