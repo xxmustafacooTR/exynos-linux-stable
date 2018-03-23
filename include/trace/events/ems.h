@@ -16,6 +16,33 @@
 #include <linux/tracepoint.h>
 
 /*
+ * Tracepoint for wakeup balance
+ */
+TRACE_EVENT(ems_wakeup_balance,
+
+	TP_PROTO(struct task_struct *p, int target_cpu, char *state),
+
+	TP_ARGS(p, target_cpu, state),
+
+	TP_STRUCT__entry(
+		__array(	char,		comm,	TASK_COMM_LEN	)
+		__field(	pid_t,		pid			)
+		__field(	int,		target_cpu		)
+		__array(	char,		state,		30	)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->target_cpu	= target_cpu;
+		memcpy(__entry->state, state, 30);
+	),
+
+	TP_printk("comm=%s pid=%d target_cpu=%d state=%s",
+		  __entry->comm, __entry->pid, __entry->target_cpu, __entry->state)
+);
+
+/*
  * Tracepoint for selection of boost cpu
  */
 TRACE_EVENT(ehmp_select_boost_cpu,
