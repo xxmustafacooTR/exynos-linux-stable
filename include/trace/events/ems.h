@@ -43,6 +43,34 @@ TRACE_EVENT(ems_wakeup_balance,
 );
 
 /*
+ * Tracepoint for performance cpu finder
+ */
+TRACE_EVENT(ems_select_perf_cpu,
+
+	TP_PROTO(struct task_struct *p, int best_cpu, int backup_cpu),
+
+	TP_ARGS(p, best_cpu, backup_cpu),
+
+	TP_STRUCT__entry(
+		__array(	char,		comm,	TASK_COMM_LEN	)
+		__field(	pid_t,		pid			)
+		__field(	int,		best_cpu		)
+		__field(	int,		backup_cpu		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->best_cpu	= best_cpu;
+		__entry->backup_cpu	= backup_cpu;
+	),
+
+	TP_printk("comm=%s pid=%d best_cpu=%d backup_cpu=%d",
+		  __entry->comm, __entry->pid, __entry->best_cpu, __entry->backup_cpu)
+);
+
+
+/*
  * Tracepoint for selection of boost cpu
  */
 TRACE_EVENT(ehmp_select_boost_cpu,
