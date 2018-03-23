@@ -794,14 +794,6 @@ static int __init init_sysfs(void)
 	if (ret)
 		return ret;
 
-	ret = ontime_sysfs_init(ehmp_kobj);
-	if (ret)
-		return ret;
-
-	ret = lbt_sysfs_init(ehmp_kobj);
-	if (ret)
-		return ret;
-
 	return 0;
 }
 late_initcall(init_sysfs);
