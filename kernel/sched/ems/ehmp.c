@@ -12,7 +12,6 @@
 #include <linux/ems.h>
 #include <linux/sched_energy.h>
 
-#define CREATE_TRACE_POINTS
 #include <trace/events/ems.h>
 
 #include "../sched.h"
@@ -1343,7 +1342,7 @@ success_unlock:
 	return 0;
 }
 
-static int ontime_task_wakeup(struct task_struct *p)
+int ontime_task_wakeup(struct task_struct *p)
 {
 	struct ontime_cond *cond;
 	struct cpumask target_mask;
