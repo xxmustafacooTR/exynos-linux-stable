@@ -6,10 +6,13 @@
  */
 
 #include <linux/sched.h>
+#include <linux/kobject.h>
+#include <linux/ems.h>
 #include <trace/events/ems.h>
 
 #include "ems.h"
 #include "../sched.h"
+#include "../tune.h"
 
 static inline unsigned long task_util(struct task_struct *p)
 {
@@ -38,10 +41,35 @@ static inline unsigned long cpu_util_wake(int cpu, struct task_struct *p)
 /**********************************************************************
  *                            Prefer Perf                             *
  **********************************************************************/
+/*
+ * If the prefger_perf of the group to which the task belongs is set, the task
+ * is assigned to the performance cpu preferentially.
+ */
 int prefer_perf_cpu(struct task_struct *p)
 {
-	return -1;
+	if (schedtune_prefer_perf(p) <= 0)
+		return -1;
+
+	return select_perf_cpu(p);
 }
+
+int kernel_prefer_perf(int grp_idx);
+static ssize_t show_prefer_perf(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int i, ret = 0;
+
+	/* shows the prefer_perf value of all schedtune groups */
+	for (i = 0; i < STUNE_GROUP_COUNT; i++)
+		ret += snprintf(buf + ret, 10, "%d ", kernel_prefer_perf(i));
+
+	ret += snprintf(buf + ret, 10, "\n");
+
+	return ret;
+}
+
+static struct kobj_attribute prefer_perf_attr =
+__ATTR(kernel_prefer_perf, 0444, show_prefer_perf, NULL);
 
 /**********************************************************************
  *                            Prefer Idle                             *
@@ -156,3 +184,18 @@ int group_balancing(struct task_struct *p)
 {
 	return -1;
 }
+
+/**********************************************************************
+ *                          Sysfs interface                           *
+ **********************************************************************/
+static int __init init_st_addon_sysfs(void)
+{
+	int ret;
+
+	ret = sysfs_create_file(ems_kobj, &prefer_perf_attr.attr);
+	if (ret)
+		pr_err("%s: faile to create sysfs file\n", __func__);
+
+	return 0;
+}
+late_initcall(init_st_addon_sysfs);
