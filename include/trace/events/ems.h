@@ -69,6 +69,27 @@ TRACE_EVENT(ems_select_perf_cpu,
 		  __entry->comm, __entry->pid, __entry->best_cpu, __entry->backup_cpu)
 );
 
+/*
+ * Tracepoint for global boost
+ */
+TRACE_EVENT(ems_global_boost,
+
+	TP_PROTO(char *name, int boost),
+
+	TP_ARGS(name, boost),
+
+	TP_STRUCT__entry(
+		__array(	char,	name,	64	)
+		__field(	int,	boost		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->name, name, 64);
+		__entry->boost		= boost;
+	),
+
+	TP_printk("name=%s global_boost=%d", __entry->name, __entry->boost)
+);
 
 /*
  * Tracepoint for selection of boost cpu

@@ -12,6 +12,7 @@
  */
 
 #include <linux/plist.h>
+#include <linux/sched.h>
 
 #ifdef CONFIG_SCHED_TUNE
 enum stune_group {
