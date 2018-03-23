@@ -11,6 +11,10 @@
  * GNU General Public License for more details.
  */
 
+#define LOAD_AVG_MAX		47742
+#define cpu_selected(cpu)	(cpu >= 0)
+#define tsk_cpus_allowed(tsk)	(&(tsk)->cpus_allowed)
+
 extern struct kobject *ems_kobj;
 
 extern int ontime_task_wakeup(struct task_struct *p);
@@ -30,6 +34,7 @@ static inline int group_balancing(struct task_struct *p) { return -1; }
 extern int
 exynos_wakeup_balance(struct task_struct *p, int sd_flag, int sync);
 extern int __init lbt_sysfs_init(struct kobject *parent);
+extern int __init ontime_sysfs_init(struct kobject *parent);
 #else
 static inline int
 exynos_wakeup_balance(struct task_struct *p, int sd_flag, int sync)
@@ -37,6 +42,10 @@ exynos_wakeup_balance(struct task_struct *p, int sd_flag, int sync)
 	return -1;
 }
 static inline int __init lbt_sysfs_init(struct kobject *parent)
+{
+	return 0;
+}
+static inline int __init ontime_sysfs_init(struct kobject *parent)
 {
 	return 0;
 }
