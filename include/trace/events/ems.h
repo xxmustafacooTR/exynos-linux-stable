@@ -16,6 +16,48 @@
 #include <linux/tracepoint.h>
 
 /*
+ * Tracepoint for selecting eco cpu
+ */
+TRACE_EVENT(ems_select_eco_cpu,
+
+	TP_PROTO(struct task_struct *p, int eco_cpu, int prev_cpu, int best_cpu, int backup_cpu,
+		unsigned int prev_energy, unsigned int best_energy, unsigned int backup_energy),
+
+	TP_ARGS(p, eco_cpu, prev_cpu, best_cpu, backup_cpu,
+			prev_energy, best_energy, backup_energy),
+
+	TP_STRUCT__entry(
+		__array(	char,		comm,	TASK_COMM_LEN	)
+		__field(	pid_t,		pid			)
+		__field(	int,		eco_cpu			)
+		__field(	int,		prev_cpu		)
+		__field(	int,		best_cpu		)
+		__field(	int,		backup_cpu		)
+		__field(	unsigned int,	prev_energy		)
+		__field(	unsigned int,	best_energy		)
+		__field(	unsigned int,	backup_energy		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->eco_cpu	= eco_cpu;
+		__entry->prev_cpu	= prev_cpu;
+		__entry->best_cpu	= best_cpu;
+		__entry->backup_cpu	= backup_cpu;
+		__entry->prev_energy	= prev_energy;
+		__entry->best_energy	= best_energy;
+		__entry->backup_energy	= backup_energy;
+	),
+
+	TP_printk("comm=%s pid=%d eco_cpu=%d prev_cpu=%d best_cpu=%d backup_cpu=%d "
+		  "prev_energy=%u best_energy=%u backup_energy=%u",
+		__entry->comm, __entry->pid,
+		__entry->eco_cpu, __entry->prev_cpu, __entry->best_cpu, __entry->backup_cpu,
+		__entry->prev_energy, __entry->best_energy, __entry->backup_energy)
+);
+
+/*
  * Tracepoint for wakeup balance
  */
 TRACE_EVENT(ems_wakeup_balance,
