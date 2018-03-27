@@ -19,6 +19,7 @@ extern struct kobject *ems_kobj;
 
 extern int ontime_task_wakeup(struct task_struct *p);
 extern int global_boosting(struct task_struct *p);
+extern bool lbt_bring_overutilize(int cpu, struct task_struct *p);
 
 #ifdef CONFIG_SCHED_TUNE
 extern int prefer_perf_cpu(struct task_struct *p);

@@ -68,6 +68,30 @@ static inline int get_last_level(struct lbt_overutil *ou)
 	return -1;
 }
 
+static inline unsigned long task_util(struct task_struct *p)
+{
+	return p->se.avg.util_avg;
+}
+
+static inline int check_migration_task(struct task_struct *p)
+{
+	return !p->se.avg.last_update_time;
+}
+
+static inline unsigned long cpu_util_wake(int cpu, struct task_struct *p)
+{
+	unsigned long util, capacity;
+
+	/* Task has no contribution or is new */
+	if (cpu != task_cpu(p) || check_migration_task(p))
+		return cpu_util(cpu);
+
+	capacity = capacity_orig_of(cpu);
+	util = max_t(long, cpu_util(cpu) - task_util(p), 0);
+
+	return (util >= capacity) ? capacity : util;
+}
+
 /****************************************************************/
 /*			External APIs				*/
 /****************************************************************/
@@ -86,6 +110,23 @@ bool lbt_overutilized(int cpu, int level)
 				ou[level].capacity, overutilized);
 
 	return overutilized;
+}
+
+bool lbt_bring_overutilize(int cpu, struct task_struct *p)
+{
+	struct sched_domain *sd;
+	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
+	unsigned long util_sum = cpu_util_wake(cpu, p) + task_util(p);
+
+	if (!ou)
+		return false;
+
+	for_each_domain(cpu, sd) {
+		if (util_sum > ou[sd->level].capacity)
+			return true;
+	}
+
+	return false;
 }
 
 void update_lbt_overutil(int cpu, unsigned long capacity)
