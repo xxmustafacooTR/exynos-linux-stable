@@ -1347,6 +1347,10 @@ static int ontime_task_wakeup(struct task_struct *p)
 	u64 delta;
 	int target_cpu = -1;
 
+	/* When wakeup task is on ontime migrating, do not ontime wakeup */
+	if (ontime_flag(p) == ONTIME_MIGRATING)
+		return -1;
+
 	/*
 	 * When wakeup task satisfies ontime condition to up migration,
 	 * check there is a possible target cpu.
@@ -1406,6 +1410,9 @@ static int ontime_task_wakeup(struct task_struct *p)
 		trace_ehmp_ontime_task_wakeup(p, task_cpu(p), -1, "banished");
 		goto ontime_out;
 	}
+
+	if (!cpu_selected(target_cpu))
+		goto ontime_out;
 
 ontime_up:
 	include_ontime_task(p, target_cpu);
