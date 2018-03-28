@@ -1713,7 +1713,8 @@ void sync_rt_entity_load_avg(struct sched_rt_entity *rt_se)
 	u64 last_update_time;
 
 	last_update_time = rt_rq_last_update_time(rt_rq);
-	update_rt_load_avg(last_update_time, rt_se);
+	__update_load_avg(last_update_time, cpu_of(rq_of_rt_rq(rt_rq)),
+				&rt_se->avg, 0, 0, NULL);
 }
 
 /*
@@ -2021,8 +2022,6 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 	u64 now = rq_clock_task(rq);
 
 	update_curr_rt(rq);
-
-	update_rt_rq_load_avg(rq_clock_task(rq), cpu_of(rq), &rq->rt, 1);
 
 	/*
 	 * The previous task needs to be made eligible for pushing
@@ -3127,7 +3126,6 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 	u64 now = rq_clock_task(rq);
 
 	update_curr_rt(rq);
-	update_rt_rq_load_avg(now, cpu_of(rq), &rq->rt, 1);
 
 	for_each_sched_rt_entity(rt_se)
 		update_rt_load_avg(now, rt_se);
