@@ -121,6 +121,65 @@ TRACE_EVENT(ehmp_global_boost,
 /*
  * Tracepoint for prefer idle
  */
+TRACE_EVENT(ems_prefer_idle,
+
+	TP_PROTO(struct task_struct *p, int orig_cpu, int target_cpu,
+		unsigned long capacity_orig, unsigned long task_util,
+		unsigned long new_util, int idle),
+
+	TP_ARGS(p, orig_cpu, target_cpu, capacity_orig, task_util, new_util, idle),
+
+	TP_STRUCT__entry(
+		__array(	char,		comm,	TASK_COMM_LEN	)
+		__field(	pid_t,		pid			)
+		__field(	int,		orig_cpu		)
+		__field(	int,		target_cpu		)
+		__field(	unsigned long,	capacity_orig		)
+		__field(	unsigned long,	task_util		)
+		__field(	unsigned long,	new_util		)
+		__field(	int,		idle			)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->orig_cpu	= orig_cpu;
+		__entry->target_cpu	= target_cpu;
+		__entry->capacity_orig	= capacity_orig;
+		__entry->task_util	= task_util;
+		__entry->new_util	= new_util;
+		__entry->idle		= idle;
+	),
+
+	TP_printk("comm=%s pid=%d orig_cpu=%d target_cpu=%d cap_org=%lu task_util=%lu new_util=%lu idle=%d",
+		__entry->comm, __entry->pid, __entry->orig_cpu, __entry->target_cpu,
+		__entry->capacity_orig, __entry->task_util, __entry->new_util, __entry->idle)
+);
+
+TRACE_EVENT(ems_prefer_idle_cpu_select,
+
+	TP_PROTO(struct task_struct *p, int cpu, char *state),
+
+	TP_ARGS(p, cpu, state),
+
+	TP_STRUCT__entry(
+		__array(	char,		comm,	TASK_COMM_LEN	)
+		__field(	pid_t,		pid			)
+		__field(	int,		cpu			)
+		__array(	char,		state,		30	)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->cpu		= cpu;
+		memcpy(__entry->state, state, 30);
+	),
+
+	TP_printk("comm=%s pid=%d target_cpu=%d state=%s",
+		  __entry->comm, __entry->pid, __entry->cpu, __entry->state)
+);
+
 TRACE_EVENT(ehmp_prefer_idle,
 
 	TP_PROTO(struct task_struct *p, int orig_cpu, int target_cpu,
