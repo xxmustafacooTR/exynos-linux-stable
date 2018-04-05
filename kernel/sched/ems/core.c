@@ -5,6 +5,8 @@
  * Park Bumgyu <bumgyu.park@samsung.com>
  */
 
+#include <linux/of.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/ems.h>
 
@@ -33,6 +35,8 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 }
 
 struct energy_table {
+	unsigned int mips;
+	unsigned int coefficient;;
 	struct capacity_state *states;
 	unsigned int nr_states;
 };
@@ -138,6 +142,47 @@ static void find_eco_target(struct eco_env *eenv)
 	eenv->best_cpu = best_cpu;
 	eenv->backup_cpu = backup_cpu;
 }
+
+static int __init init_sched_energy_data(void)
+{
+	struct device_node *cpu_node, *cpu_phandle;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct energy_table *table;
+
+		cpu_node = of_get_cpu_node(cpu, NULL);
+		if (!cpu_node) {
+			pr_warn("CPU device node missing for CPU %d\n", cpu);
+			return -ENODATA;
+		}
+
+		cpu_phandle = of_parse_phandle(cpu_node, "sched-energy-data", 0);
+		if (!cpu_phandle) {
+			pr_warn("CPU device node has no sched-energy-data\n");
+			return -ENODATA;
+		}
+
+		table = &per_cpu(energy_table, cpu);
+		if (of_property_read_u32(cpu_phandle, "capacity-mips", &table->mips)) {
+			pr_warn("No capacity-mips data\n");
+			return -ENODATA;
+		}
+
+		if (of_property_read_u32(cpu_phandle, "power-coefficient", &table->coefficient)) {
+			pr_warn("No power-coefficient data\n");
+			return -ENODATA;
+		}
+
+		of_node_put(cpu_phandle);
+		of_node_put(cpu_node);
+
+		pr_info("cpu%d mips=%d, coefficient=%d\n", cpu, table->mips, table->coefficient);
+	}
+
+	return 0;
+}
+pure_initcall(init_sched_energy_data);
 
 static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 {
