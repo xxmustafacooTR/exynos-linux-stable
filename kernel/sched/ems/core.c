@@ -32,6 +32,13 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 	return (util >= capacity) ? capacity : util;
 }
 
+struct energy_table {
+	struct capacity_state *states;
+	unsigned int nr_states;
+};
+
+DEFINE_PER_CPU(struct energy_table, energy_table);
+
 struct eco_env {
 	struct task_struct *p;
 
@@ -50,6 +57,13 @@ static void find_eco_target(struct eco_env *eenv)
 	int best_cpu = -1;
 	int backup_cpu = -1;
 	int cpu;
+
+	/*
+	 * It is meaningless to find an energy cpu when the energy table is
+	 * not created or has not been created yet.
+	 */
+	if (!per_cpu(energy_table, eenv->prev_cpu).nr_states)
+		return;
 
 	rcu_read_lock();
 
@@ -124,13 +138,6 @@ static void find_eco_target(struct eco_env *eenv)
 	eenv->best_cpu = best_cpu;
 	eenv->backup_cpu = backup_cpu;
 }
-
-struct energy_table {
-	struct capacity_state *states;
-	unsigned int nr_states;
-};
-
-DEFINE_PER_CPU(struct energy_table, energy_table);
 
 static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 {
@@ -274,6 +281,8 @@ select_energy_cpu(struct task_struct *p, int prev_cpu, int sd_flag, int sync)
 	struct eco_env eenv = {
 		.p = p,
 		.prev_cpu = prev_cpu,
+		.best_cpu = -1,
+		.backup_cpu = -1,
 	};
 
 	if (!sched_feat(ENERGY_AWARE))
