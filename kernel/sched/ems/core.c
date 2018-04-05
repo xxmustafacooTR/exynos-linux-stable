@@ -34,15 +34,36 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 	return (util >= capacity) ? capacity : util;
 }
 
+/*
+ * The compute capacity, power consumption at this compute capacity and
+ * frequency of state. The cap and power are used to find the energy
+ * efficiency cpu, and the frequency is used to create the capacity table.
+ */
+struct energy_state {
+	unsigned long cap;
+	unsigned long power;
+	unsigned long frequency;
+};
+
+/*
+ * Each cpu can have its own mips, coefficient and energy table. Generally,
+ * cpus in the same frequency domain have the same mips, coefficient and
+ * energy table.
+ */
 struct energy_table {
 	unsigned int mips;
 	unsigned int coefficient;;
-	struct capacity_state *states;
+
+	struct energy_state *states;
 	unsigned int nr_states;
 };
-
 DEFINE_PER_CPU(struct energy_table, energy_table);
 
+/*
+ * When choosing cpu considering energy efficiency, decide best cpu and
+ * backup cpu according to policy, and then choose cpu which consumes the
+ * least energy including prev cpu.
+ */
 struct eco_env {
 	struct task_struct *p;
 
@@ -183,6 +204,157 @@ static int __init init_sched_energy_data(void)
 	return 0;
 }
 pure_initcall(init_sched_energy_data);
+
+static void
+fill_power_table(struct energy_table *table, int table_size,
+			unsigned long *f_table, unsigned int *v_table,
+			int max_f, int min_f)
+{
+	int i, index = 0;
+	int c = table->coefficient, v;
+	unsigned long f, power;
+
+	/* energy table and frequency table are inverted */
+	for (i = table_size - 1; i >= 0; i--) {
+		if (f_table[i] > max_f || f_table[i] < min_f)
+			continue;
+
+		f = f_table[i] / 1000;	/* KHz -> MHz */
+		v = v_table[i] / 1000;	/* uV -> mV */
+
+		/*
+		 * power = coefficent * frequency * voltage^2
+		 */
+		power = c * f * v * v;
+
+		/*
+		 * Generally, frequency is more than treble figures in MHz and
+		 * voltage is also more then treble figures in mV, so the
+		 * calculated power is larger than 10^9. For convenience of
+		 * calculation, divide the value by 10^9.
+		 */
+		do_div(power, 1000000000);
+		table->states[index].power = power;
+
+		/* save frequency to energy table */
+		table->states[index].frequency = f_table[i];
+		index++;
+	}
+}
+
+static void
+fill_cap_table(struct energy_table *table, int max_mips, unsigned long max_mips_freq)
+{
+	int i, m = table->mips;
+	unsigned long f;
+
+	for (i = 0; i < table->nr_states; i++) {
+		f = table->states[i].frequency;
+
+		/*
+		 * capacity = freq/max_freq * mips/max_mips * 1024
+		 */
+		table->states[i].cap = f * m * 1024 / max_mips_freq / max_mips;
+	}
+}
+
+static void show_energy_table(struct energy_table *table, int cpu)
+{
+	int i;
+
+	pr_info("[Energy Table : cpu%d]\n", cpu);
+	for (i = 0; i < table->nr_states; i++) {
+		pr_info("[%d] .cap=%lu .power=%lu\n", i,
+			table->states[i].cap, table->states[i].power);
+	}
+}
+
+/*
+ * Whenever frequency domain is registered, and energy table corresponding to
+ * the domain is created. Because cpu in the same frequency domain has the same
+ * energy table. Capacity is calculated based on the max frequency of the fastest
+ * cpu, so once the frequency domain of the faster cpu is regsitered, capacity
+ * is recomputed.
+ */
+void init_sched_energy_table(struct cpumask *cpus, int table_size,
+				unsigned long *f_table, unsigned int *v_table,
+				int max_f, int min_f)
+{
+	struct energy_table *table;
+	int cpu, i, mips, valid_table_size = 0;
+	int max_mips = 0;
+	unsigned long max_mips_freq = 0;
+
+	mips = per_cpu(energy_table, cpumask_any(cpus)).mips;
+	for_each_cpu(cpu, cpus) {
+		/*
+		 * All cpus in a frequency domain must have the smae capacity.
+		 * Otherwise, it does not create an energy table because it
+		 * is likely to be a human error.
+		 */
+		if (mips != per_cpu(energy_table, cpu).mips) {
+			pr_warn("cpu%d has different cpacity!!\n", cpu);
+			return;
+		}
+	}
+
+	/* get size of valid frequency table to allocate energy table */
+	for (i = 0; i < table_size; i++) {
+		if (f_table[i] > max_f || f_table[i] < min_f)
+			continue;
+
+		valid_table_size++;
+	}
+
+	/* there is no valid row in the table, energy table is not created */
+	if (!valid_table_size)
+		return;
+
+	/* allocate memory for energy table and fill power table */
+	for_each_cpu(cpu, cpus) {
+		table = &per_cpu(energy_table, cpu);
+		table->states = kcalloc(valid_table_size,
+					sizeof(struct energy_state), GFP_KERNEL);
+		if (unlikely(!table->states))
+			return;
+
+		table->nr_states = valid_table_size;
+		fill_power_table(table, table_size, f_table, v_table, max_f, min_f);
+	}
+
+	/*
+	 * Find fastest cpu among the cpu to which the energy table is allocated.
+	 * The mips and max frequency of fastest cpu are needed to calculate
+	 * capacity.
+	 */
+	for_each_possible_cpu(cpu) {
+		table = &per_cpu(energy_table, cpu);
+		if (!table->states)
+			continue;
+
+		if (table->mips > max_mips) {
+			int last_state = table->nr_states - 1;
+
+			max_mips = table->mips;
+			max_mips_freq = table->states[last_state].frequency;
+		}
+	}
+
+	/*
+	 * Calculate and fill capacity table.
+	 * Recalculate the capacity whenever frequency domain changes because
+	 * the fastest cpu may have changed and the capacity needs to be
+	 * recalculated.
+	 */
+	for_each_possible_cpu(cpu) {
+		table = &per_cpu(energy_table, cpu);
+		if (!table->states)
+			continue;
+
+		fill_cap_table(table, max_mips, max_mips_freq);
+		show_energy_table(table, cpu);
+	}
+}
 
 static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 {
