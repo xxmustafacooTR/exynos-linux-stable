@@ -60,6 +60,10 @@ extern void update_lbt_overutil(int cpu, unsigned long capacity);
 extern void gb_qos_update_request(struct gb_qos_request *req, u32 new_value);
 
 extern void request_kernel_prefer_perf(int grp_idx, int enable);
+
+extern void init_sched_energy_table(struct cpumask *cpus, int table_size,
+				unsigned long *f_table, unsigned int *v_table,
+				int max_f, int min_f);
 #else
 static inline int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
 				int state, int cpus) { return 0; }
@@ -91,4 +95,8 @@ static inline void update_lbt_overutil(int cpu, unsigned long capacity) { }
 static inline void gb_qos_update_request(struct gb_qos_request *req, u32 new_value) { }
 
 static inline void request_kernel_prefer_perf(int grp_idx, int enable) { }
+
+static inline void init_sched_energy_table(struct cpumask *cpus, int table_size,
+				unsigned long *f_table, unsigned int *v_table,
+				int max_f, int min_f) { }
 #endif /* CONFIG_SCHED_EMS */
