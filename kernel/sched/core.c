@@ -4386,15 +4386,6 @@ change:
 	if (running)
 		set_curr_task(rq, p);
 
-	if (p->sched_class == &rt_sched_class) {
-		struct cpumask mask;
-
-		cpumask_andnot(&mask, &p->cpus_allowed, cpu_coregroup_mask(4));
-		cpumask_andnot(&mask, &p->cpus_allowed, cpu_coregroup_mask(6));
-		if (!cpumask_empty(&mask))
-			do_set_cpus_allowed(p, &mask);
-	}
-
 	check_class_changed(rq, p, prev_class, oldprio);
 	preempt_disable(); /* avoid rq from going away on us */
 	task_rq_unlock(rq, p, &rf);
