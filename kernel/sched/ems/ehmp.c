@@ -108,35 +108,6 @@ int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
 }
 
 /**********************************************************************
- * task initialization                                                *
- **********************************************************************/
-void exynos_init_entity_util_avg(struct sched_entity *se)
-{
-	struct cfs_rq *cfs_rq = se->cfs_rq;
-	struct sched_avg *sa = &se->avg;
-	int cpu = cpu_of(cfs_rq->rq);
-	unsigned long cap_org = capacity_orig_of(cpu);
-	long cap = (long)(cap_org - cfs_rq->avg.util_avg) / 2;
-
-	if (cap > 0) {
-		if (cfs_rq->avg.util_avg != 0) {
-			sa->util_avg  = cfs_rq->avg.util_avg * se->load.weight;
-			sa->util_avg /= (cfs_rq->avg.load_avg + 1);
-
-			if (sa->util_avg > cap)
-				sa->util_avg = cap;
-		} else {
-			sa->util_avg = cap_org >> 2;
-		}
-		/*
-		 * If we wish to restore tuning via setting initial util,
-		 * this is where we should do it.
-		 */
-		sa->util_sum = sa->util_avg * LOAD_AVG_MAX;
-	}
-}
-
-/**********************************************************************
  * load balance                                                       *
  **********************************************************************/
 #define lb_sd_parent(sd) \
