@@ -42,6 +42,8 @@ extern int exynos_need_active_balance(enum cpu_idle_type idle,
 extern unsigned long global_boost(void);
 extern int find_second_max_cap(void);
 
+extern int
+exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync);
 extern int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
 				bool boosted, bool prefer_idle);
 
@@ -76,6 +78,11 @@ static inline int exynos_need_active_balance(enum cpu_idle_type idle,
 static inline unsigned long global_boost(void) { return 0; }
 static inline int find_second_max_cap(void) { return -EINVAL; }
 
+static inline int
+exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync)
+{
+	return -1;
+}
 static inline int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
 				bool boosted, bool prefer_idle) { return -EINVAL; }
 
