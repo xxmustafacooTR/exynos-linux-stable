@@ -5,6 +5,8 @@
  * Park Bumgyu <bumgyu.park@samsung.com>
  */
 
+#include <linux/ems.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/ems.h>
 

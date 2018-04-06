@@ -31,21 +31,14 @@ struct gb_qos_request {
 };
 
 #ifdef CONFIG_SCHED_EMS
-extern int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
-				int state, int cpus);
 extern struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
 		struct task_struct *p);
 extern void exynos_init_entity_util_avg(struct sched_entity *se);
 extern int exynos_need_active_balance(enum cpu_idle_type idle,
 		struct sched_domain *sd, int src_cpu, int dst_cpu);
 
-extern unsigned long global_boost(void);
-extern int find_second_max_cap(void);
-
 extern int
 exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync);
-extern int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
-				bool boosted, bool prefer_idle);
 
 extern void ontime_migration(void);
 extern int ontime_can_migration(struct task_struct *p, int cpu);
@@ -54,7 +47,6 @@ extern void ontime_update_load_avg(u64 delta, int cpu, unsigned long weight,
 extern void ontime_new_entity_load(struct task_struct *parent,
 					struct sched_entity *se);
 extern void ontime_trace_task_info(struct task_struct *p);
-extern void ehmp_update_max_cpu_capacity(int cpu, unsigned long val);
 
 extern bool lbt_overutilized(int cpu, int level);
 extern void update_lbt_overutil(int cpu, unsigned long capacity);
@@ -67,24 +59,17 @@ extern void init_sched_energy_table(struct cpumask *cpus, int table_size,
 				unsigned long *f_table, unsigned int *v_table,
 				int max_f, int min_f);
 #else
-static inline int exynos_estimate_idle_state(int cpu_idx, struct cpumask *mask,
-				int state, int cpus) { return 0; }
 static inline struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
 		struct task_struct *p) { return NULL; }
 static inline void exynos_init_entity_util_avg(struct sched_entity *se) { }
 static inline int exynos_need_active_balance(enum cpu_idle_type idle,
 		struct sched_domain *sd, int src_cpu, int dst_cpu) { return 0; }
 
-static inline unsigned long global_boost(void) { return 0; }
-static inline int find_second_max_cap(void) { return -EINVAL; }
-
 static inline int
 exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync)
 {
 	return -1;
 }
-static inline int exynos_select_cpu(struct task_struct *p, int *backup_cpu,
-				bool boosted, bool prefer_idle) { return -EINVAL; }
 
 static inline void ontime_migration(void) { }
 static inline int ontime_can_migration(struct task_struct *p, int cpu) { return 1; }
@@ -93,8 +78,6 @@ static inline void ontime_update_load_avg(u64 delta, int cpu, unsigned long weig
 static inline void ontime_new_entity_load(struct task_struct *p,
 					struct sched_entity *se) { }
 static inline void ontime_trace_task_info(struct task_struct *p) { }
-
-static inline void ehmp_update_max_cpu_capacity(int cpu, unsigned long val) { }
 
 static inline bool lbt_overutilized(int cpu, int level) { return false; }
 static inline void update_lbt_overutil(int cpu, unsigned long capacity) { }
