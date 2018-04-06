@@ -314,7 +314,7 @@ static int ontime_migration_cpu_stop(void *data)
 		rcu_read_unlock();
 		double_unlock_balance(src_rq, dst_rq);
 
-		trace_ehmp_ontime_migration(p, ontime_of(p)->avg.load_avg,
+		trace_ems_ontime_migration(p, ontime_of(p)->avg.load_avg,
 					src_cpu, dst_cpu, boost_migration);
 		goto success_unlock;
 	}
@@ -366,7 +366,7 @@ static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
 /****************************************************************/
 void ontime_trace_task_info(struct task_struct *p)
 {
-	trace_ehmp_ontime_load_avg_task(p, &ontime_of(p)->avg, ontime_flag(p));
+	trace_ems_ontime_load_avg_task(p, &ontime_of(p)->avg, ontime_flag(p));
 }
 
 DEFINE_PER_CPU(struct cpu_stop_work, ontime_migration_work);
@@ -498,7 +498,7 @@ int ontime_task_wakeup(struct task_struct *p)
 		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
 		if (cpu_selected(target_cpu)) {
-			trace_ehmp_ontime_task_wakeup(p, task_cpu(p),
+			trace_ems_ontime_task_wakeup(p, task_cpu(p),
 					target_cpu, "up ontime");
 			goto ontime_up;
 		}
@@ -521,7 +521,7 @@ int ontime_task_wakeup(struct task_struct *p)
 
 		if (delta > get_min_residency(ontime_task_cpu(p)) &&
 				ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p))) {
-			trace_ehmp_ontime_task_wakeup(p, task_cpu(p), -1,
+			trace_ems_ontime_task_wakeup(p, task_cpu(p), -1,
 					"release ontime");
 			goto ontime_out;
 		}
@@ -533,12 +533,12 @@ int ontime_task_wakeup(struct task_struct *p)
 		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
 		if (cpu_selected(target_cpu)) {
-			trace_ehmp_ontime_task_wakeup(p, task_cpu(p),
+			trace_ems_ontime_task_wakeup(p, task_cpu(p),
 					target_cpu, "stay ontime");
 			goto ontime_stay;
 		}
 
-		trace_ehmp_ontime_task_wakeup(p, task_cpu(p), -1, "banished");
+		trace_ems_ontime_task_wakeup(p, task_cpu(p), -1, "banished");
 		goto ontime_out;
 	}
 
@@ -561,22 +561,22 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	u64 delta;
 
 	if (ontime_flag(p) & NOT_ONTIME) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "not ontime");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "not ontime");
 		return true;
 	}
 
 	if (ontime_flag(p) & ONTIME_MIGRATING) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "migrating");
+		trace_ems_ontime_check_migrate(p, dst_cpu, false, "migrating");
 		return false;
 	}
 
 	if (cpumask_test_cpu(dst_cpu, cpu_coregroup_mask(ontime_task_cpu(p)))) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "same coregroup");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "same coregroup");
 		return true;
 	}
 
 	if (capacity_orig_of(dst_cpu) > capacity_orig_of(ontime_task_cpu(p))) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "bigger cpu");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "bigger cpu");
 		return true;
 	}
 
@@ -587,21 +587,21 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
 	delta = delta >> 10;
 	if (delta <= get_min_residency(ontime_task_cpu(p))) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "min residency");
+		trace_ems_ontime_check_migrate(p, dst_cpu, false, "min residency");
 		return false;
 	}
 
 	if (cpu_rq(task_cpu(p))->nr_running > 1) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "big is busy");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "big is busy");
 		goto release;
 	}
 
 	if (ontime_load_avg(p) >= get_down_threshold(ontime_task_cpu(p))) {
-		trace_ehmp_ontime_check_migrate(p, dst_cpu, false, "heavy task");
+		trace_ems_ontime_check_migrate(p, dst_cpu, false, "heavy task");
 		return false;
 	}
 
-	trace_ehmp_ontime_check_migrate(p, dst_cpu, true, "ontime_release");
+	trace_ems_ontime_check_migrate(p, dst_cpu, true, "ontime_release");
 release:
 	exclude_ontime_task(p);
 
@@ -666,7 +666,7 @@ void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 	ontime->avg.period_contrib = 1023;
 	ontime->flags = NOT_ONTIME;
 
-	trace_ehmp_ontime_new_entity_load(task_of(se), &ontime->avg);
+	trace_ems_ontime_new_entity_load(task_of(se), &ontime->avg);
 }
 
 /****************************************************************/
