@@ -1,4 +1,4 @@
-obj-y += core.o pcf.o global_boost.o lbt.o ontime.o
+obj-y += core.o pcf.o global_boost.o lbt.o ontime.o energy.o
 
 obj-$(CONFIG_SCHED_TUNE) += st_addon.o
 obj-$(CONFIG_SCHED_EMS) += ehmp.o
