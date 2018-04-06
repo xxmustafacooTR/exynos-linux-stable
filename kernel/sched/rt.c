@@ -2362,7 +2362,8 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 	 * 1. Cache hot : packing the callee and caller,
 	 * 	when there is nothing to run except callee
 	 */
-	if (wake_flags || affordable_cpu(prefer_cpu, task_util(task))) {
+	if ((wake_flags || affordable_cpu(prefer_cpu, task_util(task))) &&
+		cpumask_test_cpu(prefer_cpu, cpu_online_mask)) {
 		best_cpu = prefer_cpu;
 		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "CACHE-HOT");
 		goto out;
@@ -2457,6 +2458,10 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 unlock:
 	rcu_read_unlock();
 out:
+
+	if (!cpumask_test_cpu(best_cpu, cpu_online_mask))
+		best_cpu = -1;
+
 	return best_cpu;
 }
 #endif /* CONFIG_SCHED_USE_FLUID_RT */
