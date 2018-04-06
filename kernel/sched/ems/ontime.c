@@ -174,7 +174,7 @@ ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 	struct task_struct *p;
 	unsigned int max_util_avg = 0;
 	int task_count = 0;
-	int boosted = !!global_boost();
+	int boosted = !!global_boosted();
 
 	/*
 	 * Since current task does not exist in entity list of cfs_rq,
