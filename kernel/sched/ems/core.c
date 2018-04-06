@@ -11,8 +11,6 @@
 #include "ems.h"
 #include "../sched.h"
 
-#define cpu_selected(cpu)	(cpu >= 0)
-
 static int select_proper_cpu(struct task_struct *p)
 {
 	return -1;
