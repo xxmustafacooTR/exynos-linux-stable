@@ -391,7 +391,7 @@ TRACE_EVENT(ehmp_find_best_target_cpu,
 /*
  * Tracepoint for ontime migration
  */
-TRACE_EVENT(ehmp_ontime_migration,
+TRACE_EVENT(ems_ontime_migration,
 
 	TP_PROTO(struct task_struct *p, unsigned long load,
 		int src_cpu, int dst_cpu, int boost_migration),
@@ -424,7 +424,7 @@ TRACE_EVENT(ehmp_ontime_migration,
 /*
  * Tracepoint for accounting ontime load averages for tasks.
  */
-TRACE_EVENT(ehmp_ontime_new_entity_load,
+TRACE_EVENT(ems_ontime_new_entity_load,
 
 	TP_PROTO(struct task_struct *tsk, struct ontime_avg *avg),
 
@@ -456,7 +456,7 @@ TRACE_EVENT(ehmp_ontime_new_entity_load,
 /*
  * Tracepoint for accounting ontime load averages for tasks.
  */
-TRACE_EVENT(ehmp_ontime_load_avg_task,
+TRACE_EVENT(ems_ontime_load_avg_task,
 
 	TP_PROTO(struct task_struct *tsk, struct ontime_avg *avg, int ontime_flag),
 
@@ -484,7 +484,7 @@ TRACE_EVENT(ehmp_ontime_load_avg_task,
 		  (u64)__entry->load_sum, __entry->ontime_flag)
 );
 
-TRACE_EVENT(ehmp_ontime_check_migrate,
+TRACE_EVENT(ems_ontime_check_migrate,
 
 	TP_PROTO(struct task_struct *tsk, int cpu, int migrate, char *label),
 
@@ -511,7 +511,7 @@ TRACE_EVENT(ehmp_ontime_check_migrate,
 		__entry->migrate, __entry->label)
 );
 
-TRACE_EVENT(ehmp_ontime_task_wakeup,
+TRACE_EVENT(ems_ontime_task_wakeup,
 
 	TP_PROTO(struct task_struct *tsk, int src_cpu, int dst_cpu, char *label),
 
@@ -538,7 +538,7 @@ TRACE_EVENT(ehmp_ontime_task_wakeup,
 		__entry->dst_cpu, __entry->label)
 );
 
-TRACE_EVENT(ehmp_lbt_overutilized,
+TRACE_EVENT(ems_lbt_overutilized,
 
 	TP_PROTO(int cpu, int level, unsigned long util, unsigned long capacity, bool overutilized),
 

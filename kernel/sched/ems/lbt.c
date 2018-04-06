@@ -106,7 +106,7 @@ bool lbt_overutilized(int cpu, int level)
 	overutilized = (cpu_util(cpu) > ou[level].capacity) ? true : false;
 
 	if (overutilized)
-		trace_ehmp_lbt_overutilized(cpu, level, cpu_util(cpu),
+		trace_ems_lbt_overutilized(cpu, level, cpu_util(cpu),
 				ou[level].capacity, overutilized);
 
 	return overutilized;
