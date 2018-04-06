@@ -34,13 +34,5 @@ static inline int prefer_idle_cpu(struct task_struct *p) { return -1; }
 static inline int group_balancing(struct task_struct *p) { return -1; }
 #endif
 
-#ifdef CONFIG_SCHED_EMS
-extern int
-exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync);
-#else
-static inline int
-exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync)
-{
-	return -1;
-}
-#endif
+extern int task_util(struct task_struct *p);
+extern int cpu_util_wake(int cpu, struct task_struct *p);

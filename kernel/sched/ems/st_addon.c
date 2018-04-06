@@ -14,30 +14,6 @@
 #include "../sched.h"
 #include "../tune.h"
 
-static inline unsigned long task_util(struct task_struct *p)
-{
-	return p->se.avg.util_avg;
-}
-
-static inline int check_migration_task(struct task_struct *p)
-{
-	return !p->se.avg.last_update_time;
-}
-
-static inline unsigned long cpu_util_wake(int cpu, struct task_struct *p)
-{
-	unsigned long util, capacity;
-
-	/* Task has no contribution or is new */
-	if (cpu != task_cpu(p) || check_migration_task(p))
-		return cpu_util(cpu);
-
-	capacity = capacity_orig_of(cpu);
-	util = max_t(long, cpu_util(cpu) - task_util(p), 0);
-
-	return (util >= capacity) ? capacity : util;
-}
-
 /**********************************************************************
  *                            Prefer Perf                             *
  **********************************************************************/
