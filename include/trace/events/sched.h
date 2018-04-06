@@ -588,47 +588,43 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 );
 
 /*
- * Tracepoint for accounting sched averages for fair tasks.
+ * Tracepoint for logging FRT schedule activity
  */
-TRACE_EVENT(sched_load_avg_task,
+TRACE_EVENT(sched_fluid_stat,
 
-	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg),
+	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg, int best, char* str),
 
-	TP_ARGS(tsk, avg),
+	TP_ARGS(tsk, avg, best, str),
 
 	TP_STRUCT__entry(
-		__array( char,	comm,	TASK_COMM_LEN		)
+		__array( char,	selectby,	TASK_COMM_LEN	)
+		__array( char,	targettsk,	TASK_COMM_LEN	)
 		__field( pid_t,	pid				)
-		__field( int,	cpu				)
+		__field( int,	bestcpu				)
+		__field( int,	prevcpu				)
 		__field( unsigned long,	load_avg		)
 		__field( unsigned long,	util_avg		)
-		__field( u64,		load_sum		)
-		__field( u32,		util_sum		)
-		__field( u32,		period_contrib		)
 	),
 
 	TP_fast_assign(
-		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		memcpy(__entry->selectby, str, TASK_COMM_LEN);
+		memcpy(__entry->targettsk, tsk->comm, TASK_COMM_LEN);
 		__entry->pid			= tsk->pid;
-		__entry->cpu			= task_cpu(tsk);
+		__entry->bestcpu		= best;
+		__entry->prevcpu		= task_cpu(tsk);
 		__entry->load_avg		= avg->load_avg;
 		__entry->util_avg		= avg->util_avg;
-		__entry->load_sum		= avg->load_sum;
-		__entry->util_sum		= avg->util_sum;
-		__entry->period_contrib		= avg->period_contrib;
 	),
-	TP_printk("fair: comm=%s pid=%d cpu=%d load_avg=%lu util_avg=%lu "
-			"load_sum=%llu util_sum=%u period_contrib=%u",
-		  __entry->comm,
+	TP_printk("frt: comm=%s pid=%d assigned to #%d from #%d load_avg=%lu util_avg=%lu "
+			"by %s.",
+		  __entry->targettsk,
 		  __entry->pid,
-		  __entry->cpu,
+		  __entry->bestcpu,
+		  __entry->prevcpu,
 		  __entry->load_avg,
 		  __entry->util_avg,
-		  (u64)__entry->load_sum,
-		  (u32)__entry->util_sum,
-		  (u32)__entry->period_contrib)
+		  __entry->selectby)
 );
-
 /*
  * Tracepoint for accounting sched averages for tasks.
  */
