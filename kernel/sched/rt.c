@@ -1581,6 +1581,25 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	rcu_read_lock();
 	curr = READ_ONCE(rq->curr); /* unlocked access */
 
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	if (curr) {
+		int target = find_lowest_rq(p, flags);
+		/*
+		 * Even though the destination CPU is running
+		 * a higher priority task, FluidRT can bother moving it
+		 * when its utilization is very small, and the other CPU is too busy
+		 * to accomodate the p in the point of priority and utilization.
+		 *
+		 * BTW, if the curr has higher priority than p, FluidRT tries to find
+		 * the other CPUs first. In the worst case, curr can be victim, if it
+		 * has very small utilization.
+		 */
+		if (likely(target != -1)) {
+			cpu = target;
+		}
+	}
+#else
+
 	/*
 	 * If the current task on @p's runqueue is an RT task, then
 	 * try to see if we can wake this RT task up on another
@@ -1606,22 +1625,6 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	if (curr && unlikely(rt_task(curr)) &&
 	    (tsk_nr_cpus_allowed(curr) < 2 ||
 	     curr->prio <= p->prio)) {
-#ifdef CONFIG_SCHED_USE_FLUID_RT
-		int target = find_lowest_rq(p, flags);
-		/*
-		 * Even though the destination CPU is running
-		 * a higher priority task, FluidRT can bother moving it
-		 * when its utilization is very small, and the other CPU is too busy
-		 * to accomodate the p in the point of priority and utilization.
-		 *
-		 * BTW, if the curr has higher priority than p, FluidRT tries to find
-		 * the other CPUs first. In the worst case, curr can be victim, if it
-		 * has very small utilization.
-		 */
-		if (likely(target != -1)) {
-			cpu = target;
-		}
-#else
 		int target = find_lowest_rq(p);
 		/*
 		 * Don't bother moving it if the destination CPU is
@@ -1630,11 +1633,15 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 		if (target != -1 &&
 		    p->prio < cpu_rq(target)->rt.highest_prio.curr)
 			cpu = target;
-#endif
 	}
+#endif
 	rcu_read_unlock();
 
 out:
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	if (cpu >= 4)
+		trace_sched_fluid_stat(p, &p->se.avg, cpu, "BIG_ASSIGED");
+#endif
 	return cpu;
 }
 
@@ -2339,11 +2346,15 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 	int min_cpu = -1, min_rt_cpu = -1;
 
 	/* Make sure the mask is initialized first */
-	if (unlikely(!lowest_mask))
+	if (unlikely(!lowest_mask)) {
+		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "NA LOWESTMSK");
 		goto out;
+	}
 
-	if (task->nr_cpus_allowed == 1)
+	if (task->nr_cpus_allowed == 1) {
+		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "NA ALLOWED");
 		goto out; /* No other targets possible */
+	}
 
 	/* update the per-cpu local_cpu_mask (lowest_mask) */
 	cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask);
@@ -2459,8 +2470,10 @@ unlock:
 	rcu_read_unlock();
 out:
 
-	if (!cpumask_test_cpu(best_cpu, cpu_online_mask))
+	if (!cpumask_test_cpu(best_cpu, cpu_online_mask)) {
+		trace_sched_fluid_stat(task, &task->se.avg, cpu, "NOTHING_VALID");
 		best_cpu = -1;
+	}
 
 	return best_cpu;
 }
