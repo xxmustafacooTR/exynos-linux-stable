@@ -214,6 +214,12 @@ out:
 struct cpu_topology cpu_topology[NR_CPUS];
 EXPORT_SYMBOL_GPL(cpu_topology);
 
+#ifdef CONFIG_SIMPLIFIED_ENERGY_MODEL
+#define use_simplified	1
+#else
+#define use_simplified	0
+#endif
+
 /* sd energy functions */
 static inline
 const struct sched_group_energy * const cpu_cluster_energy(int cpu)
@@ -224,6 +230,9 @@ const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 		pr_debug("Invalid sched_group_energy for Cluster%d\n", cpu);
 		return NULL;
 	}
+
+	if (use_simplified)
+		return NULL;
 
 	return sge;
 }
@@ -237,6 +246,9 @@ const struct sched_group_energy * const cpu_core_energy(int cpu)
 		pr_debug("Invalid sched_group_energy for CPU%d\n", cpu);
 		return NULL;
 	}
+
+	if (use_simplified)
+		return NULL;
 
 	return sge;
 }
@@ -275,6 +287,9 @@ static void update_cpu_capacity(unsigned int cpu)
 {
 	unsigned long capacity = SCHED_CAPACITY_SCALE;
 
+	if (use_simplified)
+		goto out;
+
 	if (cpu_core_energy(cpu)) {
 		int max_cap_idx = cpu_core_energy(cpu)->nr_cap_states - 1;
 		capacity = cpu_core_energy(cpu)->cap_states[max_cap_idx].cap;
@@ -282,6 +297,7 @@ static void update_cpu_capacity(unsigned int cpu)
 
 	topology_set_cpu_scale(cpu, capacity);
 
+out:
 	pr_debug("CPU%d: update cpu_capacity %lu\n",
 		cpu, arch_scale_cpu_capacity(NULL, cpu));
 }
@@ -493,7 +509,7 @@ void __init init_cpu_topology(void)
 	 */
 	if (of_have_populated_dt() && parse_dt_topology())
 		reset_cpu_topology();
-	else
+	else if (!use_simplified)
 		set_sched_topology(arm64_topology);
 
 	init_sched_energy_costs();

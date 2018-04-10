@@ -454,11 +454,13 @@ static int __init register_cpufreq_notifier(void)
 
 	cpumask_copy(cpus_to_visit, cpu_possible_mask);
 
+#ifndef CONFIG_SIMPLIFIED_ENERGY_MODEL
 	ret = cpufreq_register_notifier(&init_cpu_capacity_notifier,
 					CPUFREQ_POLICY_NOTIFIER);
 
 	if (ret)
 		free_cpumask_var(cpus_to_visit);
+#endif
 
 	return ret;
 }
