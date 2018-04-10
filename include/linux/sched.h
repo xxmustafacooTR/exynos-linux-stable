@@ -1523,6 +1523,9 @@ struct sched_rt_entity {
 #endif
 
 #ifdef CONFIG_SMP
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	int sync_flag;
+#endif
 	/*
 	 * Per entity load average tracking.
 	 *

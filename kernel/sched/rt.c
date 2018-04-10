@@ -2375,6 +2375,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 	 */
 	if ((wake_flags || affordable_cpu(prefer_cpu, task_util(task))) &&
 		cpumask_test_cpu(prefer_cpu, cpu_online_mask)) {
+		task->rt.sync_flag = 1;
 		best_cpu = prefer_cpu;
 		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "CACHE-HOT");
 		goto out;
@@ -2578,8 +2579,17 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			break;
 
 		lowest_rq = cpu_rq(cpu);
-
-		if (lowest_rq->rt.highest_prio.curr <= task->prio) {
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+		if (task->rt.sync_flag == 1 && lowest_rq->rt.highest_prio.curr == task->prio) {
+			/*
+			 * If the sync flag is set,
+			 * let the task go even though its priority is same with current.
+			 */
+			trace_sched_fluid_stat(task, &task->se.avg, cpu, "SYNC AGAIN");
+		} else
+ #else
+		if (lowest_rq->rt.highest_prio.curr <= task->prio)
+		{
 			/*
 			 * Target rq has tasks of equal or higher priority,
 			 * retrying does not release any lock and is unlikely
@@ -2588,6 +2598,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			lowest_rq = NULL;
 			break;
 		}
+#endif
 
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
@@ -3019,8 +3030,19 @@ static void task_woken_rt(struct rq *rq, struct task_struct *p)
 	    tsk_nr_cpus_allowed(p) > 1 &&
 	    (dl_task(rq->curr) || rt_task(rq->curr)) &&
 	    (tsk_nr_cpus_allowed(rq->curr) < 2 ||
-	     rq->curr->prio <= p->prio))
+	     rq->curr->prio <= p->prio)) {
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+		if (p->rt.sync_flag && rq->curr->prio < p->prio) {
+			p->rt.sync_flag = 0;
+			push_rt_tasks(rq);
+		}
+#else
 		push_rt_tasks(rq);
+#endif
+	}
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	p->rt.sync_flag = 0;
+#endif
 }
 
 /* Assumes rq->lock is held */
