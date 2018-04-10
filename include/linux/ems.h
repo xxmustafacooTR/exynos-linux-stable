@@ -55,9 +55,6 @@ extern void gb_qos_update_request(struct gb_qos_request *req, u32 new_value);
 
 extern void request_kernel_prefer_perf(int grp_idx, int enable);
 
-extern void init_sched_energy_table(struct cpumask *cpus, int table_size,
-				unsigned long *f_table, unsigned int *v_table,
-				int max_f, int min_f);
 #else
 static inline struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
 		struct task_struct *p) { return NULL; }
@@ -85,8 +82,14 @@ static inline void update_lbt_overutil(int cpu, unsigned long capacity) { }
 static inline void gb_qos_update_request(struct gb_qos_request *req, u32 new_value) { }
 
 static inline void request_kernel_prefer_perf(int grp_idx, int enable) { }
+#endif /* CONFIG_SCHED_EMS */
 
+#ifdef CONFIG_SIMPLIFIED_ENERGY_MODEL
+extern void init_sched_energy_table(struct cpumask *cpus, int table_size,
+				unsigned long *f_table, unsigned int *v_table,
+				int max_f, int min_f);
+#else
 static inline void init_sched_energy_table(struct cpumask *cpus, int table_size,
 				unsigned long *f_table, unsigned int *v_table,
 				int max_f, int min_f) { }
-#endif /* CONFIG_SCHED_EMS */
+#endif
