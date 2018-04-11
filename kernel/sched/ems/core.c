@@ -15,7 +15,10 @@
 
 int task_util(struct task_struct *p)
 {
-	return p->se.avg.util_avg;
+	if (rt_task(p))
+		return p->rt.avg.util_avg;
+	else
+		return p->se.avg.util_avg;
 }
 
 int cpu_util_wake(int cpu, struct task_struct *p)

@@ -1640,7 +1640,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 out:
 #ifdef CONFIG_SCHED_USE_FLUID_RT
 	if (cpu >= 4)
-		trace_sched_fluid_stat(p, &p->se.avg, cpu, "BIG_ASSIGED");
+		trace_sched_fluid_stat(p, &p->rt.avg, cpu, "BIG_ASSIGED");
 #endif
 	return cpu;
 }
@@ -2263,7 +2263,7 @@ static inline int affordable_cpu(int cpu, unsigned long task_load)
 
 extern unsigned long cpu_util_wake(int cpu, struct task_struct *p);
 extern unsigned long task_util(struct task_struct *p);
-
+static inline int cpu_selected(int cpu)	{ return (nr_cpu_ids > cpu && cpu >= 0); }
 /*
  * Must find the victim or recessive (not in lowest_mask)
  *
@@ -2271,8 +2271,7 @@ extern unsigned long task_util(struct task_struct *p);
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define rttsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
 
-static int find_victim_rt_rq(struct task_struct *task, struct sched_group *sg, int *best_cpu) {
-	struct cpumask *sg_cpus = sched_group_cpus_rt(sg);
+static int find_victim_rt_rq(struct task_struct *task, const struct cpumask *sg_cpus, int *best_cpu) {
 	int i;
 	unsigned long victim_rtweight, target_rtweight, min_rtweight;
 	unsigned int victim_cpu_cap, min_cpu_cap = arch_scale_cpu_capacity(NULL, task_cpu(task));
@@ -2326,9 +2325,9 @@ static int find_victim_rt_rq(struct task_struct *task, struct sched_group *sg, i
 	}
 
 	if (victim_rt)
-		trace_sched_fluid_stat(task, &task->se.avg, *best_cpu, "VICTIM-FAIR");
+		trace_sched_fluid_stat(task, &task->rt.avg, *best_cpu, "VICTIM-FAIR");
 	else
-		trace_sched_fluid_stat(task, &task->se.avg, *best_cpu, "VICTIM-RT");
+		trace_sched_fluid_stat(task, &task->rt.avg, *best_cpu, "VICTIM-RT");
 
 	return *best_cpu;
 
@@ -2336,23 +2335,22 @@ static int find_victim_rt_rq(struct task_struct *task, struct sched_group *sg, i
 
 static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 {
-	int cpu, best_cpu = -1;
+	int cpu, icpu, best_cpu = -1;
 	int prefer_cpu = smp_processor_id();	/* Cache-hot with itself or waker (default). */
-	int boosted = 0;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
-	struct sched_domain *sd;
-	struct sched_group *sg;
+
 	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX, min_rt_load = ULLONG_MAX;
+	u64 min_icl = ULLONG_MAX;
 	int min_cpu = -1, min_rt_cpu = -1;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask)) {
-		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "NA LOWESTMSK");
+		trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "NA LOWESTMSK");
 		goto out;
 	}
 
 	if (task->nr_cpus_allowed == 1) {
-		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "NA ALLOWED");
+		trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "NA ALLOWED");
 		goto out; /* No other targets possible */
 	}
 
@@ -2371,108 +2369,117 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 
 	/*
 	 * 1. Cache hot : packing the callee and caller,
-	 * 	when there is nothing to run except callee
+	 * 	when there is nothing to run except callee, or
+	 *	wake_flags are set.
 	 */
+	/* FUTURE WORK: Hierarchical cache hot */
 	if ((wake_flags || affordable_cpu(prefer_cpu, task_util(task))) &&
 		cpumask_test_cpu(prefer_cpu, cpu_online_mask)) {
 		task->rt.sync_flag = 1;
 		best_cpu = prefer_cpu;
-		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "CACHE-HOT");
+		trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "CACHE-HOT");
 		goto out;
 	}
-
-	prefer_cpu = task_cpu(task);
 
 	/*
 	 * 2. idle CPU selection
 	 */
-	boosted = (task->rt.avg.util_avg > sched_rt_boost_threshold) ? (1) : (0);
+	prefer_cpu = task_cpu(task);
+	prefer_cpu = (task->rt.avg.util_avg > sched_rt_boost_threshold) ?
+		cpumask_first(cpu_coregroup_mask(prefer_cpu)) :
+		cpumask_first(cpu_online_mask);
 
 	/* TODO: Need to refer the scheduling status of eHMP */
-	for_each_cpu_and(cpu, rttsk_cpus_allowed(task), cpu_online_mask){
-		if (boosted && cpu < cpumask_first(cpu_coregroup_mask(prefer_cpu)))
+	for_each_online_cpu(cpu){
+		const struct cpumask* traversingDom = cpu_coregroup_mask(cpu);
+		if (cpu != cpumask_first(traversingDom))
 			continue;
 
-		if (idle_cpu(cpu)) {
-			best_cpu = cpu;
-			trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "IDLE-FIRST");
+		if (cpumask_first(traversingDom) < prefer_cpu)
+			continue;
+
+		for_each_cpu_and(icpu, rttsk_cpus_allowed(task), traversingDom) {
+			if (idle_cpu(icpu)) {
+				cpu_load = cpu_util_wake(icpu, task) + task_util(task);
+				if ((min_icl > cpu_load) ||
+					(min_icl == cpu_load && task_cpu(task) == icpu)) {
+					min_icl = cpu_load;
+					best_cpu = icpu;
+				}
+			}
+		}
+
+		if (cpu_selected(best_cpu)) {
+			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "IDLE-FIRST");
 			goto out;
 		}
 	}
 
-	rcu_read_lock();
-
-	sd = boosted ?
-		rcu_dereference(per_cpu(sd_ea, 0)) :
-		rcu_dereference(per_cpu(sd_ea, prefer_cpu));
-
-	if (!sd)
-		goto unlock;
-
-	sg = sd->groups;
-
 	/*
 	 * 3. recessive task first
 	 */
-	do {
-		for_each_cpu_and(cpu, sched_group_span(sg), lowest_mask) {
+	prefer_cpu = task_cpu(task);
 
-			cpu_load = cpu_util_wake(cpu, task) + task_util(task);
+	for_each_online_cpu(cpu) {
+		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
+			continue;
 
-			if (rt_task(cpu_rq(cpu)->curr)) {
+		for_each_cpu_and(icpu, rttsk_cpus_allowed(task), cpu_coregroup_mask(cpu)) {
+			if (!cpumask_test_cpu(icpu, lowest_mask))
+				continue;
+
+			cpu_load = cpu_util_wake(icpu, task) + task_util(task);
+
+			if (rt_task(cpu_rq(icpu)->curr)) {
 				if (cpu_load < min_rt_load ||
-					(cpu_load == min_rt_load && cpu == prefer_cpu)) {
+					(cpu_load == min_rt_load && icpu == prefer_cpu)) {
 					min_rt_load = cpu_load;
-					min_rt_cpu = cpu;
+					min_rt_cpu = icpu;
 				}
-
 				continue;
 			}
 			if (cpu_load < min_load ||
-				(cpu_load == min_load && cpu == prefer_cpu)) {
+				(cpu_load == min_load && icpu == prefer_cpu)) {
 				min_load = cpu_load;
-				min_cpu = cpu;
+				min_cpu = icpu;
 			}
 
 		}
-
 		/* Fair recessive task : best min-load of non-rt cpu is exist? */
-		if (min_cpu >= 0 &&
+		if (cpu_selected(min_cpu) &&
 			((capacity_of(min_cpu) >= min_load) || (min_cpu == prefer_cpu))) {
 			best_cpu = min_cpu;
-			trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "FAIR-RECESS");
-			goto unlock;
+			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "FAIR-RECESS");
+			goto out;
 		}
 
 		/* RT recessive task : best min-load of rt cpu is exist? */
-		if (min_rt_cpu >= 0 &&
-			((capacity_of(min_rt_cpu) >= min_rt_load) || (min_rt_cpu == prefer_cpu))) {
+		if (cpu_selected(min_rt_cpu) &&
+			((capacity_of(min_rt_cpu) > min_rt_load) || (min_rt_cpu == prefer_cpu))) {
 			best_cpu = min_rt_cpu;
-			trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "RT-RECESS");
-			goto unlock;
+			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "RT-RECESS");
+			goto out;
 		}
-
-	} while (sg = sg->next, sg != sd->groups);
-	/* need to check the method for traversing the sg */
-
-	sg = sd->groups;
+	}
 
 	/*
 	 * 4. victim task first
 	 */
-	do {
-		if (find_victim_rt_rq(task, sg, &best_cpu) != -1)
-			break;
-	} while (sg = sg->next, sg != sd->groups);
+	for_each_online_cpu(cpu) {
+		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
+			continue;
 
-	if (best_cpu < 0)
+		if (find_victim_rt_rq(task, cpu_coregroup_mask(cpu), &best_cpu) != -1)
+			break;
+	}
+
+	if (!cpu_selected(best_cpu))
 		best_cpu = prefer_cpu;
-unlock:
-	rcu_read_unlock();
+
 out:
 
 	if (!cpumask_test_cpu(best_cpu, cpu_online_mask)) {
-		trace_sched_fluid_stat(task, &task->se.avg, cpu, "NOTHING_VALID");
+		trace_sched_fluid_stat(task, &task->rt.avg, cpu, "NOTHING_VALID");
 		best_cpu = -1;
 	}
 
@@ -2585,7 +2592,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			 * If the sync flag is set,
 			 * let the task go even though its priority is same with current.
 			 */
-			trace_sched_fluid_stat(task, &task->se.avg, cpu, "SYNC AGAIN");
+			trace_sched_fluid_stat(task, &task->rt.avg, cpu, "SYNC AGAIN");
 		} else
  #else
 		if (lowest_rq->rt.highest_prio.curr <= task->prio)
