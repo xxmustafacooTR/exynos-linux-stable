@@ -1489,7 +1489,7 @@ config DEFAULT_USE_ENERGY_AWARE
 
 config SCHED_USE_FLUID_RT
 	bool "Enable Fluid RT scheduler feature"
-	depends on SMP
+	depends on SCHED_EMS
 	default n
 	help
 	Basically, the Fluid RT selects the core by a task priority as usual.
