@@ -139,8 +139,7 @@ static int select_idle_cpu(struct task_struct *p)
 
 	target_cpu = !cpu_selected(target_cpu) ? task_cpu(p) : target_cpu;
 
-
-	trace_ems_prefer_idle_cpu_select(p, target_cpu, state);
+	trace_ems_select_idle_cpu(p, target_cpu, state);
 
 	return target_cpu;
 }

@@ -134,82 +134,6 @@ TRACE_EVENT(ems_global_boost,
 );
 
 /*
- * Tracepoint for selection of boost cpu
- */
-TRACE_EVENT(ehmp_select_boost_cpu,
-
-	TP_PROTO(struct task_struct *p, int cpu, int trigger, char *state),
-
-	TP_ARGS(p, cpu, trigger, state),
-
-	TP_STRUCT__entry(
-		__array(	char,		comm,	TASK_COMM_LEN	)
-		__field(	pid_t,		pid			)
-		__field(	int,		cpu			)
-		__field(	int,		trigger			)
-		__array(	char,		state,		64	)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid		= p->pid;
-		__entry->cpu		= cpu;
-		__entry->trigger	= trigger;
-		memcpy(__entry->state, state, 64);
-	),
-
-	TP_printk("comm=%s pid=%d target_cpu=%d trigger=%d state=%s",
-		  __entry->comm, __entry->pid, __entry->cpu,
-		  __entry->trigger, __entry->state)
-);
-
-/*
- * Tracepoint for selection of group balancer
- */
-TRACE_EVENT(ehmp_select_group_boost,
-
-	TP_PROTO(struct task_struct *p, int cpu, char *state),
-
-	TP_ARGS(p, cpu, state),
-
-	TP_STRUCT__entry(
-		__array(	char,		comm,	TASK_COMM_LEN	)
-		__field(	pid_t,		pid			)
-		__field(	int,		cpu			)
-		__array(	char,		state,		64	)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid		= p->pid;
-		__entry->cpu		= cpu;
-		memcpy(__entry->state, state, 64);
-	),
-
-	TP_printk("comm=%s pid=%d target_cpu=%d state=%s",
-		  __entry->comm, __entry->pid, __entry->cpu, __entry->state)
-);
-
-TRACE_EVENT(ehmp_global_boost,
-
-	TP_PROTO(char *name, unsigned long boost),
-
-	TP_ARGS(name, boost),
-
-	TP_STRUCT__entry(
-		__array(	char,		name,		64	)
-		__field(	unsigned long,	boost			)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->name, name, 64);
-		__entry->boost		= boost;
-	),
-
-	TP_printk("name=%s global_boost_value=%ld", __entry->name, __entry->boost)
-);
-
-/*
  * Tracepoint for prefer idle
  */
 TRACE_EVENT(ems_prefer_idle,
@@ -247,7 +171,7 @@ TRACE_EVENT(ems_prefer_idle,
 		__entry->capacity_orig, __entry->task_util, __entry->new_util, __entry->idle)
 );
 
-TRACE_EVENT(ems_prefer_idle_cpu_select,
+TRACE_EVENT(ems_select_idle_cpu,
 
 	TP_PROTO(struct task_struct *p, int cpu, char *state),
 
@@ -269,123 +193,6 @@ TRACE_EVENT(ems_prefer_idle_cpu_select,
 
 	TP_printk("comm=%s pid=%d target_cpu=%d state=%s",
 		  __entry->comm, __entry->pid, __entry->cpu, __entry->state)
-);
-
-TRACE_EVENT(ehmp_prefer_idle,
-
-	TP_PROTO(struct task_struct *p, int orig_cpu, int target_cpu,
-		unsigned long task_util, unsigned long new_util, int idle),
-
-	TP_ARGS(p, orig_cpu, target_cpu, task_util, new_util, idle),
-
-	TP_STRUCT__entry(
-		__array(	char,		comm,	TASK_COMM_LEN	)
-		__field(	pid_t,		pid			)
-		__field(	int,		orig_cpu		)
-		__field(	int,		target_cpu		)
-		__field(	unsigned long,	task_util		)
-		__field(	unsigned long,	new_util		)
-		__field(	int,		idle			)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid		= p->pid;
-		__entry->orig_cpu	= orig_cpu;
-		__entry->target_cpu	= target_cpu;
-		__entry->task_util	= task_util;
-		__entry->new_util	= new_util;
-		__entry->idle		= idle;
-	),
-
-	TP_printk("comm=%s pid=%d orig_cpu=%d target_cpu=%d task_util=%lu new_util=%lu idle=%d",
-		__entry->comm, __entry->pid, __entry->orig_cpu, __entry->target_cpu,
-		__entry->task_util, __entry->new_util, __entry->idle)
-);
-
-TRACE_EVENT(ehmp_prefer_idle_cpu_select,
-
-	TP_PROTO(struct task_struct *p, int cpu),
-
-	TP_ARGS(p, cpu),
-
-	TP_STRUCT__entry(
-		__array(	char,		comm,	TASK_COMM_LEN	)
-		__field(	pid_t,		pid			)
-		__field(	int,		cpu			)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid		= p->pid;
-		__entry->cpu		= cpu;
-	),
-
-	TP_printk("comm=%s pid=%d target_cpu=%d",
-		  __entry->comm, __entry->pid, __entry->cpu)
-);
-
-/*
- * Tracepoint for cpu selection
- */
-TRACE_EVENT(ehmp_find_best_target_stat,
-
-	TP_PROTO(int cpu, unsigned long cap, unsigned long util, unsigned long target_util),
-
-	TP_ARGS(cpu, cap, util, target_util),
-
-	TP_STRUCT__entry(
-		__field( int,		cpu	)
-		__field( unsigned long, cap	)
-		__field( unsigned long, util	)
-		__field( unsigned long, target_util	)
-	),
-
-	TP_fast_assign(
-		__entry->cpu = cpu;
-		__entry->cap = cap;
-		__entry->util = util;
-		__entry->target_util = target_util;
-	),
-
-	TP_printk("find_best : [cpu%d] capacity %lu, util %lu, target_util %lu\n",
-		__entry->cpu, __entry->cap, __entry->util, __entry->target_util)
-);
-
-TRACE_EVENT(ehmp_find_best_target_candi,
-
-	TP_PROTO(unsigned int cpu),
-
-	TP_ARGS(cpu),
-
-	TP_STRUCT__entry(
-		__field( unsigned int, cpu	)
-	),
-
-	TP_fast_assign(
-		__entry->cpu = cpu;
-	),
-
-	TP_printk("find_best: energy candidate cpu %d\n", __entry->cpu)
-);
-
-TRACE_EVENT(ehmp_find_best_target_cpu,
-
-	TP_PROTO(unsigned int cpu, unsigned long target_util),
-
-	TP_ARGS(cpu, target_util),
-
-	TP_STRUCT__entry(
-		__field( unsigned int, cpu	)
-		__field( unsigned long, target_util	)
-	),
-
-	TP_fast_assign(
-		__entry->cpu = cpu;
-		__entry->target_util = target_util;
-	),
-
-	TP_printk("find_best: target_cpu %d, target_util %lu\n", __entry->cpu, __entry->target_util)
 );
 
 /*
