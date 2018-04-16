@@ -2586,15 +2586,6 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			break;
 
 		lowest_rq = cpu_rq(cpu);
-#ifdef CONFIG_SCHED_USE_FLUID_RT
-		if (task->rt.sync_flag == 1 && lowest_rq->rt.highest_prio.curr == task->prio) {
-			/*
-			 * If the sync flag is set,
-			 * let the task go even though its priority is same with current.
-			 */
-			trace_sched_fluid_stat(task, &task->rt.avg, cpu, "SYNC AGAIN");
-		} else
- #else
 		if (lowest_rq->rt.highest_prio.curr <= task->prio)
 		{
 			/*
@@ -2605,7 +2596,6 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			lowest_rq = NULL;
 			break;
 		}
-#endif
 
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
