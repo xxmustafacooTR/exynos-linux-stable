@@ -815,6 +815,7 @@ void post_init_entity_util_avg(struct sched_entity *se)
 util_init_done:
 	if (entity_is_task(se)) {
 		struct task_struct *p = task_of(se);
+		struct sched_avg *sa = &se->avg;
 		if (p->sched_class != &fair_sched_class) {
 			/*
 			 * For !fair tasks do:
@@ -829,6 +830,9 @@ util_init_done:
 			se->avg.last_update_time = cfs_rq_clock_task(cfs_rq);
 			return;
 		}
+
+		sa->util_est.ewma = 0;
+		sa->util_est.enqueued = 0;
 	}
 
 	attach_entity_cfs_rq(se);
@@ -3684,7 +3688,7 @@ util_est_dequeue(struct cfs_rq *cfs_rq, struct task_struct *p, bool task_sleep)
 	 */
 	ue.enqueued = (task_util(p) | UTIL_AVG_UNCHANGED);
 	last_ewma_diff = ue.enqueued - ue.ewma;
-	if (within_margin(last_ewma_diff, (SCHED_CAPACITY_SCALE / 100)))
+	if (within_margin(last_ewma_diff, capacity_orig_of(task_cpu(p)) / 100))
 		return;
 
 	/*

@@ -7,21 +7,8 @@
 
 #include <trace/events/ems.h>
 
+#include "ems.h"
 #include "../sched.h"
-
-static int cpu_util_wake(int cpu, struct task_struct *p)
-{
-	unsigned long util, capacity;
-
-	/* Task has no contribution or is new */
-	if (cpu != task_cpu(p) || !p->se.avg.last_update_time)
-		return cpu_util(cpu);
-
-	capacity = capacity_orig_of(cpu);
-	util = max_t(long, cpu_rq(cpu)->cfs.avg.util_avg - p->se.avg.util_avg, 0);
-
-	return (util >= capacity) ? capacity : util;
-}
 
 /*
  * Currently, PCF is composed of a selection algorithm based on distributed

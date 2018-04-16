@@ -1828,6 +1828,9 @@ extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int walt_ravg_window;
 extern bool walt_disabled;
 
+inline unsigned long _task_util_est(struct task_struct *p);
+inline unsigned long task_util_est(struct task_struct *p);
+
 #endif /* CONFIG_SMP */
 
 static inline void sched_rt_avg_update(struct rq *rq, u64 rt_delta)
