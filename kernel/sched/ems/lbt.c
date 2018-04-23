@@ -221,10 +221,10 @@ static int __init lbt_sysfs_init(void)
 		goto out;
 
 	for (i = 0; i <= depth; i++) {
-		char buf[20];
+		char buf[25];
 		char *name;
 
-		sprintf(buf, "overutil_ratio_level%d", i);
+		scnprintf(buf, sizeof(buf), "overutil_ratio_level%d", i);
 		name = kstrdup(buf, GFP_KERNEL);
 		if (!name)
 			goto out;
