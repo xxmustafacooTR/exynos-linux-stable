@@ -5,8 +5,8 @@
  * Park Bumgyu <bumgyu.park@samsung.com>
  */
 
+#include <linux/cpufreq.h>
 #include <linux/of.h>
-
 #include <trace/events/ems.h>
 
 #include "ems.h"
@@ -390,6 +390,43 @@ static void show_energy_table(struct energy_table *table, int cpu)
 }
 
 /*
+ * Store the original capacity to update the cpu capacity according to the
+ * max frequency of cpufreq.
+ */
+DEFINE_PER_CPU(unsigned long, cpu_orig_scale) = SCHED_CAPACITY_SCALE;
+
+static int sched_cpufreq_policy_callback(struct notifier_block *nb,
+					unsigned long event, void *data)
+{
+	struct cpufreq_policy *policy = data;
+	unsigned long cpu_scale, max_scale;
+	int cpu;
+
+	if (event != CPUFREQ_NOTIFY)
+		return NOTIFY_DONE;
+
+	/*
+	 * When policy->max is pressed, the performance of the cpu is constrained.
+	 * In the constrained state, the cpu capacity also changes, and the
+	 * overutil condition changes accordingly, so the cpu scale is updated
+	 * whenever policy is changed.
+	 */
+	max_scale = (policy->max << SCHED_CAPACITY_SHIFT);
+	max_scale /= policy->cpuinfo.max_freq;
+	for_each_cpu(cpu, policy->related_cpus) {
+		cpu_scale = per_cpu(cpu_orig_scale, cpu) * max_scale;
+		cpu_scale = cpu_scale >> SCHED_CAPACITY_SHIFT;
+		topology_set_cpu_scale(cpu, cpu_scale);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block sched_cpufreq_policy_notifier = {
+	.notifier_call = sched_cpufreq_policy_callback,
+};
+
+/*
  * Whenever frequency domain is registered, and energy table corresponding to
  * the domain is created. Because cpu in the same frequency domain has the same
  * energy table. Capacity is calculated based on the max frequency of the fastest
@@ -478,6 +515,7 @@ void init_sched_energy_table(struct cpumask *cpus, int table_size,
 		show_energy_table(table, cpu);
 
 		last_state = table->nr_states - 1;
+		per_cpu(cpu_orig_scale, cpu) = table->states[last_state].cap;
 		topology_set_cpu_scale(cpu, table->states[last_state].cap);
 
 		rcu_read_lock();
@@ -524,7 +562,9 @@ static int __init init_sched_energy_data(void)
 		pr_info("cpu%d mips=%d, coefficient=%d\n", cpu, table->mips, table->coefficient);
 	}
 
+	cpufreq_register_notifier(&sched_cpufreq_policy_notifier, CPUFREQ_POLICY_NOTIFIER);
+
 	return 0;
 }
-pure_initcall(init_sched_energy_data);
+core_initcall(init_sched_energy_data);
 #endif	/* CONFIG_SIMPLIFIED_ENERGY_MODEL */
