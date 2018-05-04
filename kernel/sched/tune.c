@@ -235,6 +235,9 @@ struct schedtune {
 
 	/* SchedTune group balancer */
 	struct group_balancer gb;
+
+	/* SchedTune util-est */
+	int util_est_en;
 };
 
 static inline struct schedtune *css_st(struct cgroup_subsys_state *css)
@@ -655,6 +658,23 @@ int schedtune_task_boost(struct task_struct *p)
 	return task_boost;
 }
 
+int schedtune_util_est_en(struct task_struct *p)
+{
+	struct schedtune *st;
+	int util_est_en;
+
+	if (unlikely(!schedtune_initialized))
+		return 0;
+
+	/* Get util_est value */
+	rcu_read_lock();
+	st = task_schedtune(p);
+	util_est_en = st->util_est_en;
+	rcu_read_unlock();
+
+	return util_est_en;
+}
+
 int schedtune_prefer_idle(struct task_struct *p)
 {
 	struct schedtune *st;
@@ -1004,6 +1024,24 @@ gb_window_write(struct cgroup_subsys_state *css, struct cftype *cft,
 }
 
 static u64
+util_est_en_read(struct cgroup_subsys_state *css, struct cftype *cft)
+{
+	struct schedtune *st = css_st(css);
+
+	return st->util_est_en;
+}
+
+static int
+util_est_en_write(struct cgroup_subsys_state *css, struct cftype *cft,
+	    u64 util_est_en)
+{
+	struct schedtune *st = css_st(css);
+	st->util_est_en = util_est_en;
+
+	return 0;
+}
+
+static u64
 prefer_idle_read(struct cgroup_subsys_state *css, struct cftype *cft)
 {
 	struct schedtune *st = css_st(css);
@@ -1137,6 +1175,11 @@ static struct cftype files[] = {
 		.name = "gb_window_ms",
 		.read_u64 = gb_window_read,
 		.write_u64 = gb_window_write,
+	},
+	{
+		.name = "util_est_en",
+		.read_u64 = util_est_en_read,
+		.write_u64 = util_est_en_write,
 	},
 	{ }	/* terminate */
 };
