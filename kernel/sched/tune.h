@@ -22,6 +22,7 @@ int schedtune_need_group_balance(struct task_struct *p);
 
 int schedtune_prefer_idle(struct task_struct *tsk);
 int schedtune_prefer_perf(struct task_struct *tsk);
+int schedtune_util_est_en(struct task_struct *tsk);
 
 void schedtune_exit_task(struct task_struct *tsk);
 
@@ -54,6 +55,7 @@ int schedtune_accept_deltas(int nrg_delta, int cap_delta,
 
 #define schedtune_prefer_idle(tsk) 0
 #define schedtune_prefer_perf(tsk) 0
+#define schedtune_util_est_en(tsk) 0
 
 #define schedtune_exit_task(task) do { } while (0)
 
