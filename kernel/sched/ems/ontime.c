@@ -474,7 +474,7 @@ release:
 	 * If wakeup task doesn't satisfy ontime condition or there is no
 	 * possible dst_cpu, release this task from ontime
 	 */
-	trace_ems_ontime_task_wakeup(p, src_cpu, -1, "release ontime");
+	trace_ems_ontime_task_wakeup(p, src_cpu, -1, "not ontime");
 	return -1;
 }
 
@@ -483,17 +483,17 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	int src_cpu = task_cpu(p);
 
 	if (ontime_of(p)->migrating == 1) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, false, "migrating");
+		trace_ems_ontime_check_migrate(p, dst_cpu, false, "on migrating");
 		return false;
 	}
 
 	if (cpumask_test_cpu(dst_cpu, cpu_coregroup_mask(src_cpu))) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, true, "same coregroup");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "go to same");
 		return true;
 	}
 
 	if (capacity_orig_of(dst_cpu) > capacity_orig_of(src_cpu)) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, true, "bigger cpu");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "go to bigger");
 		return true;
 	}
 
@@ -501,12 +501,12 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	 * At this point, load balancer is trying to migrate task to smaller CPU.
 	 */
 	if (ontime_load_avg(p) < get_down_threshold(src_cpu)) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, true, "ontime_release");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "light task");
 		return true;
 	}
 
 	if (cpu_rq(src_cpu)->nr_running > 1) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, true, "big is busy");
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "curr is busy");
 		return true;
 	}
 
