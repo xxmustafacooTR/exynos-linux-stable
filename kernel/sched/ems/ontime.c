@@ -174,18 +174,21 @@ ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 	struct task_struct *p;
 	unsigned int max_util_avg = 0;
 	int task_count = 0;
-	int boosted = !!global_boosted();
+	int boosted = !!global_boosted() || !!schedtune_prefer_perf(task_of(se));
 
 	/*
 	 * Since current task does not exist in entity list of cfs_rq,
 	 * check first that current task is heavy.
 	 */
 	p = task_of(se);
-	if (boosted || ontime_load_avg(p) >= get_up_threshold(task_cpu(p))) {
-		heaviest_task = task_of(se);
-		max_util_avg = ontime_load_avg(task_of(se));
-		if (boosted)
-			*boost_migration = 1;
+	if (boosted) {
+		*boost_migration = 1;
+		return p;
+	}
+	if (ontime_load_avg(p) >= get_up_threshold(task_cpu(p))) {
+		heaviest_task = p;
+		max_util_avg = ontime_load_avg(p);
+		*boost_migration = 0;
 	}
 
 	se = __pick_first_entity(se->cfs_rq);
@@ -201,15 +204,14 @@ ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 			break;
 		}
 
-		if (!boosted && ontime_load_avg(p) <
-				get_up_threshold(task_cpu(p)))
+		if (ontime_load_avg(p) < get_up_threshold(task_cpu(p)))
 			goto next_entity;
 
 		if (ontime_load_avg(p) > max_util_avg &&
 		    cpumask_intersects(dst_cpus, tsk_cpus_allowed(p))) {
 			heaviest_task = p;
 			max_util_avg = ontime_load_avg(p);
-			*boost_migration = boosted;
+			*boost_migration = 0;
 		}
 
 next_entity:
