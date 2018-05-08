@@ -24,9 +24,7 @@
 #define TASK_TRACK_COUNT	5
 #define MAX_CAPACITY_CPU	(NR_CPUS - 1)
 
-#define ontime_task_cpu(p)		(ontime_of(p)->cpu)
-#define ontime_flag(p)			(ontime_of(p)->flags)
-#define ontime_load_avg(p)		(ontime_of(p)->avg.load_avg)
+#define ontime_load_avg(p)	(ontime_of(p)->avg.load_avg)
 
 #define cap_scale(v, s)		((v)*(s) >> SCHED_CAPACITY_SHIFT)
 
@@ -93,18 +91,6 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 static inline struct sched_entity *se_of(struct sched_avg *sa)
 {
 	return container_of(sa, struct sched_entity, avg);
-}
-
-static inline void include_ontime_task(struct task_struct *p, int dst_cpu)
-{
-	ontime_flag(p) = ONTIME;
-	ontime_task_cpu(p) = dst_cpu;
-}
-
-static inline void exclude_ontime_task(struct task_struct *p)
-{
-	ontime_task_cpu(p) = 0;
-	ontime_flag(p) = NOT_ONTIME;
 }
 
 static int
@@ -254,7 +240,7 @@ static int ontime_migration_cpu_stop(void *data)
 
 	raw_spin_lock_irq(&src_rq->lock);
 
-	if (!(ontime_flag(p) & ONTIME_MIGRATING))
+	if (ontime_of(p)->migrating == 0)
 		goto out_unlock;
 
 	if (p->exit_state)
@@ -279,28 +265,20 @@ static int ontime_migration_cpu_stop(void *data)
 			break;
 
 	if (likely(sd) && move_specific_task(p, env)) {
-		if (boost_migration) {
-			/* boost task is not classified as ontime task */
-			exclude_ontime_task(p);
-		} else {
-			include_ontime_task(p, dst_cpu);
-		}
-
 		rcu_read_unlock();
 		double_unlock_balance(src_rq, dst_rq);
 
 		trace_ems_ontime_migration(p, ontime_of(p)->avg.load_avg,
 					src_cpu, dst_cpu, boost_migration);
-		goto success_unlock;
+		goto out_unlock;
 	}
 
 	rcu_read_unlock();
 	double_unlock_balance(src_rq, dst_rq);
 
 out_unlock:
-	exclude_ontime_task(p);
+	ontime_of(p)->migrating = 0;
 
-success_unlock:
 	src_rq->active_balance = 0;
 	dst_rq->ontime_migrating = 0;
 
@@ -341,7 +319,7 @@ static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
 /****************************************************************/
 void ontime_trace_task_info(struct task_struct *p)
 {
-	trace_ems_ontime_load_avg_task(p, &ontime_of(p)->avg, ontime_flag(p));
+	trace_ems_ontime_load_avg_task(p, &ontime_of(p)->avg, ontime_of(p)->migrating);
 }
 
 DEFINE_PER_CPU(struct cpu_stop_work, ontime_migration_work);
@@ -420,7 +398,7 @@ void ontime_migration(void)
 				continue;
 			}
 
-			ontime_flag(p) = ONTIME_MIGRATING;
+			ontime_of(p)->migrating = 1;
 			get_task_struct(p);
 
 			/* Set environment data */
@@ -453,8 +431,11 @@ int ontime_task_wakeup(struct task_struct *p)
 	int dst_cpu = -1;
 
 	/* When wakeup task is on ontime migrating, do not ontime wakeup */
-	if (ontime_flag(p) == ONTIME_MIGRATING)
+	if (ontime_of(p)->migrating == 1)
 		return -1;
+
+	if (ontime_load_avg(p) < get_down_threshold(src_cpu))
+		goto release;
 
 	/*
 	 * When wakeup task satisfies ontime condition to up migration,
@@ -473,97 +454,64 @@ int ontime_task_wakeup(struct task_struct *p)
 
 		if (cpu_selected(dst_cpu)) {
 			trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "up ontime");
-			goto ontime_up;
+			return dst_cpu;
 		}
 	}
 
 	/*
-	 * If wakeup task is not ontime and doesn't satisfy ontime condition,
-	 * it cannot be ontime task.
+	 * If there is a possible dst_cpu to stay, task will wake up at this cpu.
 	 */
-	if (ontime_flag(p) == NOT_ONTIME)
-		goto ontime_out;
+	cpumask_copy(&target_mask, cpu_coregroup_mask(src_cpu));
+	dst_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
-	if (ontime_flag(p) == ONTIME) {
-		/*
-		 * If wakeup task is ontime but doesn't keep ontime condition,
-		 * exclude this task from ontime.
-		 */
-		if (ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p))) {
-			trace_ems_ontime_task_wakeup(p, src_cpu, -1, "release ontime");
-			goto ontime_out;
-		}
-
-		/*
-		 * If there is a possible cpu to stay ontime, task will wake up at this cpu.
-		 */
-		cpumask_copy(&target_mask, cpu_coregroup_mask(ontime_task_cpu(p)));
-		dst_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
-
-		if (cpu_selected(dst_cpu)) {
-			trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "stay ontime");
-			goto ontime_stay;
-		}
-
-		trace_ems_ontime_task_wakeup(p, src_cpu, -1, "banished");
-		goto ontime_out;
+	if (cpu_selected(dst_cpu)) {
+		trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "stay ontime");
+		return dst_cpu;
 	}
 
-	if (!cpu_selected(dst_cpu))
-		goto ontime_out;
-
-ontime_up:
-	include_ontime_task(p, dst_cpu);
-
-ontime_stay:
-	return dst_cpu;
-
-ontime_out:
-	exclude_ontime_task(p);
+release:
+	/*
+	 * If wakeup task doesn't satisfy ontime condition or there is no
+	 * possible dst_cpu, release this task from ontime
+	 */
+	trace_ems_ontime_task_wakeup(p, src_cpu, -1, "release ontime");
 	return -1;
 }
 
 int ontime_can_migration(struct task_struct *p, int dst_cpu)
 {
-	if (ontime_flag(p) & NOT_ONTIME) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, true, "not ontime");
-		return true;
-	}
+	int src_cpu = task_cpu(p);
 
-	if (ontime_flag(p) & ONTIME_MIGRATING) {
+	if (ontime_of(p)->migrating == 1) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, false, "migrating");
 		return false;
 	}
 
-	if (cpumask_test_cpu(dst_cpu, cpu_coregroup_mask(ontime_task_cpu(p)))) {
+	if (cpumask_test_cpu(dst_cpu, cpu_coregroup_mask(src_cpu))) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "same coregroup");
 		return true;
 	}
 
-	if (capacity_orig_of(dst_cpu) > capacity_orig_of(ontime_task_cpu(p))) {
+	if (capacity_orig_of(dst_cpu) > capacity_orig_of(src_cpu)) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "bigger cpu");
 		return true;
 	}
 
 	/*
-	 * At this point, task is "ontime task" and running on big
-	 * and load balancer is trying to migrate task to LITTLE.
+	 * At this point, load balancer is trying to migrate task to smaller CPU.
 	 */
-	if (cpu_rq(task_cpu(p))->nr_running > 1) {
+	if (ontime_load_avg(p) < get_down_threshold(src_cpu)) {
+		trace_ems_ontime_check_migrate(p, dst_cpu, true, "ontime_release");
+		return true;
+	}
+
+	if (cpu_rq(src_cpu)->nr_running > 1) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "big is busy");
-		goto release;
+		return true;
 	}
 
-	if (ontime_load_avg(p) >= get_down_threshold(ontime_task_cpu(p))) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, false, "heavy task");
-		return false;
-	}
-
-	trace_ems_ontime_check_migrate(p, dst_cpu, true, "ontime_release");
-release:
-	exclude_ontime_task(p);
-
-	return true;
+	trace_ems_ontime_check_migrate(p, dst_cpu, false, "heavy task");
+	return false;
 }
 
 /*
@@ -621,7 +569,7 @@ void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 	ontime->avg.load_sum = ontime_of(parent)->avg.load_sum;
 	ontime->avg.load_avg = ontime_of(parent)->avg.load_avg;
 	ontime->avg.period_contrib = 1023;
-	ontime->flags = NOT_ONTIME;
+	ontime->migrating = 0;
 
 	trace_ems_ontime_new_entity_load(task_of(se), &ontime->avg);
 }
