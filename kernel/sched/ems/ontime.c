@@ -47,10 +47,8 @@ struct ontime_cond {
 
 	struct list_head	list;
 
-	/* kobject attrbute for sysfs */
-	struct kobj_attribute	up_threshold_attr;
-	struct kobj_attribute	down_threshold_attr;
-	struct kobj_attribute	min_residency_attr;
+	/* kobject for sysfs group */
+	struct kobject		kobj;
 };
 LIST_HEAD(cond_list);
 
@@ -664,46 +662,40 @@ void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 /****************************************************************/
 /*				SYSFS				*/
 /****************************************************************/
-#define NUM_OF_ONTIME_NODE	3
-
-#define ontime_attr_init(_attr, _name, _mode, _show, _store)		\
-	sysfs_attr_init(&_attr.attr);					\
-	_attr.attr.name = _name;					\
-	_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(_mode);		\
-	_attr.show	= _show;					\
-	_attr.store	= _store;
-
-#define ontime_show(_name)						\
-static ssize_t show_##_name(struct kobject *kobj,			\
-		struct kobj_attribute *attr, char *buf)			\
-{									\
-	struct ontime_cond *cond = container_of(attr,			\
-			struct ontime_cond, _name##_attr);		\
-									\
-	return sprintf(buf, "%u\n", (unsigned int)cond->_name);		\
-}
-
-#define ontime_store(_name, _type, _max)				\
-static ssize_t store_##_name(struct kobject *kobj,			\
-		struct kobj_attribute *attr, const char *buf,		\
-		size_t count)						\
-{									\
-	unsigned int val;						\
-	struct ontime_cond *cond = container_of(attr,			\
-			struct ontime_cond, _name##_attr);		\
-									\
-	if (!sscanf(buf, "%u", &val))					\
-		return -EINVAL;						\
-									\
-	val = val > _max ? _max : val;					\
-	cond->_name = (_type)val;					\
-									\
-	return count;							\
-}
-
 static struct kobject *ontime_kobj;
-static struct attribute_group ontime_group;
-static struct attribute **ontime_attrs;
+
+struct ontime_attr {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *, char *);
+	ssize_t (*store)(struct kobject *, const char *, size_t count);
+};
+
+#define ontime_attr_rw(_name)				\
+static struct ontime_attr _name##_attr =		\
+__ATTR(_name, 0644, show_##_name, store_##_name)
+
+#define ontime_show(_name)							\
+static ssize_t show_##_name(struct kobject *k, char *buf)			\
+{										\
+	struct ontime_cond *cond = container_of(k, struct ontime_cond, kobj);	\
+										\
+	return sprintf(buf, "%u\n", (unsigned int)cond->_name);			\
+}
+
+#define ontime_store(_name, _type, _max)					\
+static ssize_t store_##_name(struct kobject *k, const char *buf, size_t count)	\
+{										\
+	unsigned int val;							\
+	struct ontime_cond *cond = container_of(k, struct ontime_cond, kobj);	\
+										\
+	if (!sscanf(buf, "%u", &val))						\
+		return -EINVAL;							\
+										\
+	val = val > _max ? _max : val;						\
+	cond->_name = (_type)val;						\
+										\
+	return count;								\
+}
 
 ontime_show(up_threshold);
 ontime_show(down_threshold);
@@ -711,94 +703,70 @@ ontime_show(min_residency);
 ontime_store(up_threshold, unsigned long, 1024);
 ontime_store(down_threshold, unsigned long, 1024);
 ontime_store(min_residency, unsigned int, UINT_MAX);
+ontime_attr_rw(up_threshold);
+ontime_attr_rw(down_threshold);
+ontime_attr_rw(min_residency);
 
-static int alloc_ontime_sysfs(int size)
+static ssize_t show(struct kobject *kobj, struct attribute *at, char *buf)
 {
-	ontime_attrs = kzalloc(sizeof(struct attribute *) * (size + 1),
-			GFP_KERNEL);
-	if (!ontime_attrs)
-		goto fail_alloc;
+	struct ontime_attr *oattr = container_of(at, struct ontime_attr, attr);
 
-	return 0;
-
-fail_alloc:
-	pr_err("ONTIME(%s): failed to alloc sysfs attrs\n", __func__);
-	return -ENOMEM;
+	return oattr->show(kobj, buf);
 }
+
+static ssize_t store(struct kobject *kobj, struct attribute *at,
+		     const char *buf, size_t count)
+{
+	struct ontime_attr *oattr = container_of(at, struct ontime_attr, attr);
+
+	return oattr->store(kobj, buf, count);
+}
+
+static const struct sysfs_ops ontime_sysfs_ops = {
+	.show	= show,
+	.store	= store,
+};
+
+static struct attribute *ontime_attrs[] = {
+	&up_threshold_attr.attr,
+	&down_threshold_attr.attr,
+	&min_residency_attr.attr,
+	NULL
+};
+
+static struct kobj_type ktype_ontime = {
+	.sysfs_ops	= &ontime_sysfs_ops,
+	.default_attrs	= ontime_attrs,
+};
 
 static int __init ontime_sysfs_init(void)
 {
 	struct ontime_cond *curr;
-	int count = 0, step = 0, i = 0;
 
-	list_for_each_entry(curr, &cond_list, list) {
-		/* If ontime is disabled in this step, do not create sysfs node */
-		if (curr->enabled)
-			count++;
-	}
-
-	/* If ontime is disabled in all step, do not create sysfs node at all */
-	if (count == 0)
+	if (list_empty(&cond_list))
 		return 0;
-
-	alloc_ontime_sysfs(count * NUM_OF_ONTIME_NODE);
-
-	list_for_each_entry(curr, &cond_list, list) {
-		char buf[20];
-		char *name;
-
-		/* If ontime is disabled in this step, do not create sysfs node */
-		if (!curr->enabled)
-			goto skip;
-
-		/* Init up_threshold node */
-		sprintf(buf, "up_threshold_step%d", step);
-		name = kstrdup(buf, GFP_KERNEL);
-		if (!name)
-			goto out;
-
-		ontime_attr_init(curr->up_threshold_attr, name, 0644,
-				show_up_threshold, store_up_threshold);
-		ontime_attrs[i++] = &curr->up_threshold_attr.attr;
-
-		/* Init down_threshold node */
-		sprintf(buf, "down_threshold_step%d", step);
-		name = kstrdup(buf, GFP_KERNEL);
-		if (!name)
-			goto out;
-
-		ontime_attr_init(curr->down_threshold_attr, name, 0644,
-				show_down_threshold, store_down_threshold);
-		ontime_attrs[i++] = &curr->down_threshold_attr.attr;
-
-		/* Init min_residency node */
-		sprintf(buf, "min_residency_step%d", step);
-		name = kstrdup(buf, GFP_KERNEL);
-		if (!name)
-			goto out;
-
-		ontime_attr_init(curr->min_residency_attr, name, 0644,
-				show_min_residency, store_min_residency);
-		ontime_attrs[i++] = &curr->min_residency_attr.attr;
-
-skip:
-		step++;
-	}
-
-	ontime_group.attrs = ontime_attrs;
 
 	ontime_kobj = kobject_create_and_add("ontime", ems_kobj);
 	if (!ontime_kobj)
 		goto out;
 
-	if (sysfs_create_group(ontime_kobj, &ontime_group))
-		goto out;
+	/* Add ontime sysfs node for each coregroup */
+	list_for_each_entry(curr, &cond_list, list) {
+		int ret;
+
+		/* If ontime is disabled in this coregroup, do not create sysfs node */
+		if (!curr->enabled)
+			continue;
+
+		ret = kobject_init_and_add(&curr->kobj, &ktype_ontime,
+				ontime_kobj, "coregroup%d", curr->coregroup);
+		if (ret)
+			goto out;
+	}
 
 	return 0;
 
 out:
-	kfree(ontime_attrs);
-
 	pr_err("ONTIME(%s): failed to create sysfs node\n", __func__);
 	return -EINVAL;
 }
