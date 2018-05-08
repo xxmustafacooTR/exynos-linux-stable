@@ -26,7 +26,6 @@
 
 #define ontime_task_cpu(p)		(ontime_of(p)->cpu)
 #define ontime_flag(p)			(ontime_of(p)->flags)
-#define ontime_migration_time(p)	(ontime_of(p)->avg.ontime_migration_time)
 #define ontime_load_avg(p)		(ontime_of(p)->avg.load_avg)
 
 #define cap_scale(v, s)		((v)*(s) >> SCHED_CAPACITY_SHIFT)
@@ -40,7 +39,6 @@ struct ontime_cond {
 
 	unsigned long		up_threshold;
 	unsigned long		down_threshold;
-	unsigned int		min_residency;
 
 	int			coregroup;
 	struct cpumask		cpus;
@@ -87,18 +85,6 @@ static unsigned long get_down_threshold(int cpu)
 	return 0;
 }
 
-static unsigned int get_min_residency(int cpu)
-{
-	struct ontime_cond *curr;
-
-	list_for_each_entry(curr, &cond_list, list) {
-		if (cpumask_test_cpu(cpu, &curr->cpus))
-			return curr->min_residency;
-	}
-
-	return 0;
-}
-
 static inline struct task_struct *task_of(struct sched_entity *se)
 {
 	return container_of(se, struct task_struct, se);
@@ -113,15 +99,11 @@ static inline void include_ontime_task(struct task_struct *p, int dst_cpu)
 {
 	ontime_flag(p) = ONTIME;
 	ontime_task_cpu(p) = dst_cpu;
-
-	/* Manage time based on clock task of boot cpu(cpu0) */
-	ontime_migration_time(p) = cpu_rq(0)->clock_task;
 }
 
 static inline void exclude_ontime_task(struct task_struct *p)
 {
 	ontime_task_cpu(p) = 0;
-	ontime_migration_time(p) = 0;
 	ontime_flag(p) = NOT_ONTIME;
 }
 
@@ -467,7 +449,6 @@ int ontime_task_wakeup(struct task_struct *p)
 {
 	struct ontime_cond *curr, *next = NULL;
 	struct cpumask target_mask;
-	u64 delta;
 	int src_cpu = task_cpu(p);
 	int dst_cpu = -1;
 
@@ -508,11 +489,7 @@ int ontime_task_wakeup(struct task_struct *p)
 		 * If wakeup task is ontime but doesn't keep ontime condition,
 		 * exclude this task from ontime.
 		 */
-		delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
-		delta = delta >> 10;
-
-		if (delta > get_min_residency(ontime_task_cpu(p)) &&
-				ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p))) {
+		if (ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p))) {
 			trace_ems_ontime_task_wakeup(p, src_cpu, -1, "release ontime");
 			goto ontime_out;
 		}
@@ -548,8 +525,6 @@ ontime_out:
 
 int ontime_can_migration(struct task_struct *p, int dst_cpu)
 {
-	u64 delta;
-
 	if (ontime_flag(p) & NOT_ONTIME) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "not ontime");
 		return true;
@@ -574,13 +549,6 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	 * At this point, task is "ontime task" and running on big
 	 * and load balancer is trying to migrate task to LITTLE.
 	 */
-	delta = cpu_rq(0)->clock_task - ontime_migration_time(p);
-	delta = delta >> 10;
-	if (delta <= get_min_residency(ontime_task_cpu(p))) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, false, "min residency");
-		return false;
-	}
-
 	if (cpu_rq(task_cpu(p))->nr_running > 1) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "big is busy");
 		goto release;
@@ -652,7 +620,6 @@ void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 
 	ontime->avg.load_sum = ontime_of(parent)->avg.load_sum;
 	ontime->avg.load_avg = ontime_of(parent)->avg.load_avg;
-	ontime->avg.ontime_migration_time = 0;
 	ontime->avg.period_contrib = 1023;
 	ontime->flags = NOT_ONTIME;
 
@@ -699,13 +666,10 @@ static ssize_t store_##_name(struct kobject *k, const char *buf, size_t count)	\
 
 ontime_show(up_threshold);
 ontime_show(down_threshold);
-ontime_show(min_residency);
 ontime_store(up_threshold, unsigned long, 1024);
 ontime_store(down_threshold, unsigned long, 1024);
-ontime_store(min_residency, unsigned int, UINT_MAX);
 ontime_attr_rw(up_threshold);
 ontime_attr_rw(down_threshold);
-ontime_attr_rw(min_residency);
 
 static ssize_t show(struct kobject *kobj, struct attribute *at, char *buf)
 {
@@ -730,7 +694,6 @@ static const struct sysfs_ops ontime_sysfs_ops = {
 static struct attribute *ontime_attrs[] = {
 	&up_threshold_attr.attr,
 	&down_threshold_attr.attr,
-	&min_residency_attr.attr,
 	NULL
 };
 
@@ -800,9 +763,6 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 	res |= of_property_read_u32(coregroup, "down-threshold", &prop);
 	cond->down_threshold = prop;
 
-	res |= of_property_read_u32(coregroup, "min-residency-us", &prop);
-	cond->min_residency = prop;
-
 	if (res)
 		goto disable;
 
@@ -813,7 +773,6 @@ disable:
 	cond->enabled = false;
 	cond->up_threshold = ULONG_MAX;
 	cond->down_threshold = 0;
-	cond->min_residency = 0;
 }
 
 static int __init init_ontime(void)
