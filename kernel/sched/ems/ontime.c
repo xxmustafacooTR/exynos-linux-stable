@@ -22,7 +22,7 @@
 /*			On-time migration			*/
 /****************************************************************/
 #define TASK_TRACK_COUNT	5
-#define MAX_CAPACITY_CPU	7
+#define MAX_CAPACITY_CPU	(NR_CPUS - 1)
 
 #define ontime_task_cpu(p)		(ontime_of(p)->cpu)
 #define ontime_flag(p)			(ontime_of(p)->flags)
@@ -136,8 +136,7 @@ static inline void exclude_ontime_task(struct task_struct *p)
 static int
 ontime_select_target_cpu(struct cpumask *dst_cpus, const struct cpumask *mask)
 {
-	int cpu;
-	int dest_cpu = -1;
+	int cpu, dest_cpu = -1;
 	unsigned int min_exit_latency = UINT_MAX;
 	struct cpuidle_state *idle;
 
@@ -266,9 +265,9 @@ static int ontime_migration_cpu_stop(void *data)
 {
 	struct ontime_env *env = data;
 	struct rq *src_rq, *dst_rq;
-	int src_cpu, dst_cpu;
 	struct task_struct *p;
 	struct sched_domain *sd;
+	int src_cpu, dst_cpu;
 	int boost_migration;
 
 	/* Initialize environment data */
@@ -385,14 +384,13 @@ void ontime_migration(void)
 	for (cond = ontime_cond; cond != NULL; cond = cond->next) {
 		for_each_cpu_and(cpu, &cond->src_cpus, cpu_active_mask) {
 			unsigned long flags;
-			struct rq *rq;
+			struct rq *rq = cpu_rq(cpu);
 			struct sched_entity *se;
 			struct task_struct *p;
-			int dst_cpu;
 			struct ontime_env *env = &per_cpu(ontime_env, cpu);
+			int dst_cpu;
 			int boost_migration = 0;
 
-			rq = cpu_rq(cpu);
 			raw_spin_lock_irqsave(&rq->lock, flags);
 
 			/*
@@ -413,13 +411,11 @@ void ontime_migration(void)
 				continue;
 			}
 
-			se = rq->cfs.curr;
-
 			/* Find task entity if entity is cfs_rq. */
+			se = rq->cfs.curr;
 			if (entity_is_cfs_rq(se)) {
-				struct cfs_rq *cfs_rq;
+				struct cfs_rq *cfs_rq = se->my_q;
 
-				cfs_rq = se->my_q;
 				while (cfs_rq) {
 					se = cfs_rq->curr;
 					cfs_rq = se->my_q;
@@ -440,8 +436,7 @@ void ontime_migration(void)
 			 * Pick task to be migrated. Return NULL if there is no
 			 * heavy task in rq.
 			 */
-			p = ontime_pick_heavy_task(se, &cond->dst_cpus,
-							&boost_migration);
+			p = ontime_pick_heavy_task(se, &cond->dst_cpus, &boost_migration);
 			if (!p) {
 				raw_spin_unlock_irqrestore(&rq->lock, flags);
 				continue;
@@ -464,8 +459,7 @@ void ontime_migration(void)
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 			/* Migrate task through stopper */
-			stop_one_cpu_nowait(cpu,
-				ontime_migration_cpu_stop, env,
+			stop_one_cpu_nowait(cpu, ontime_migration_cpu_stop, env,
 				&per_cpu(ontime_migration_work, cpu));
 		}
 	}
@@ -478,7 +472,8 @@ int ontime_task_wakeup(struct task_struct *p)
 	struct ontime_cond *cond;
 	struct cpumask target_mask;
 	u64 delta;
-	int target_cpu = -1;
+	int src_cpu = task_cpu(p);
+	int dst_cpu = -1;
 
 	/* When wakeup task is on ontime migrating, do not ontime wakeup */
 	if (ontime_flag(p) == ONTIME_MIGRATING)
@@ -488,20 +483,19 @@ int ontime_task_wakeup(struct task_struct *p)
 	 * When wakeup task satisfies ontime condition to up migration,
 	 * check there is a possible target cpu.
 	 */
-	if (ontime_load_avg(p) >= get_up_threshold(task_cpu(p))) {
+	if (ontime_load_avg(p) >= get_up_threshold(src_cpu)) {
 		cpumask_clear(&target_mask);
 
 		for (cond = ontime_cond; cond != NULL; cond = cond->next)
-			if (cpumask_test_cpu(task_cpu(p), &cond->src_cpus)) {
+			if (cpumask_test_cpu(src_cpu, &cond->src_cpus)) {
 				cpumask_copy(&target_mask, &cond->dst_cpus);
 				break;
 			}
 
-		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
+		dst_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
-		if (cpu_selected(target_cpu)) {
-			trace_ems_ontime_task_wakeup(p, task_cpu(p),
-					target_cpu, "up ontime");
+		if (cpu_selected(dst_cpu)) {
+			trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "up ontime");
 			goto ontime_up;
 		}
 	}
@@ -523,8 +517,7 @@ int ontime_task_wakeup(struct task_struct *p)
 
 		if (delta > get_min_residency(ontime_task_cpu(p)) &&
 				ontime_load_avg(p) < get_down_threshold(ontime_task_cpu(p))) {
-			trace_ems_ontime_task_wakeup(p, task_cpu(p), -1,
-					"release ontime");
+			trace_ems_ontime_task_wakeup(p, src_cpu, -1, "release ontime");
 			goto ontime_out;
 		}
 
@@ -532,26 +525,25 @@ int ontime_task_wakeup(struct task_struct *p)
 		 * If there is a possible cpu to stay ontime, task will wake up at this cpu.
 		 */
 		cpumask_copy(&target_mask, cpu_coregroup_mask(ontime_task_cpu(p)));
-		target_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
+		dst_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
 
-		if (cpu_selected(target_cpu)) {
-			trace_ems_ontime_task_wakeup(p, task_cpu(p),
-					target_cpu, "stay ontime");
+		if (cpu_selected(dst_cpu)) {
+			trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "stay ontime");
 			goto ontime_stay;
 		}
 
-		trace_ems_ontime_task_wakeup(p, task_cpu(p), -1, "banished");
+		trace_ems_ontime_task_wakeup(p, src_cpu, -1, "banished");
 		goto ontime_out;
 	}
 
-	if (!cpu_selected(target_cpu))
+	if (!cpu_selected(dst_cpu))
 		goto ontime_out;
 
 ontime_up:
-	include_ontime_task(p, target_cpu);
+	include_ontime_task(p, dst_cpu);
 
 ontime_stay:
-	return target_cpu;
+	return dst_cpu;
 
 ontime_out:
 	exclude_ontime_task(p);
@@ -739,9 +731,8 @@ fail_alloc:
 static int __init ontime_sysfs_init(void)
 {
 	struct ontime_cond *cond = ontime_cond;
-	int count, step, i;
+	int count = 0, step = 0, i = 0;
 
-	count = 0;
 	while (cond) {
 		/* If ontime is disabled in this step, do not create sysfs node */
 		if (cond->enabled)
@@ -756,8 +747,6 @@ static int __init ontime_sysfs_init(void)
 
 	alloc_ontime_sysfs(count * NUM_OF_ONTIME_NODE);
 
-	i = 0;
-	step = 0;
 	cond = ontime_cond;
 	while (cond) {
 		char buf[20];
