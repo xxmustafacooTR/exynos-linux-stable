@@ -536,9 +536,32 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 		return true;
 	}
 
+	/*
+	 * When runqueue is busy, check whether this task is heaviest.
+	 * If this task is not heaviest in runqueue, allow it to be migrated.
+	 */
 	if (cpu_rq(src_cpu)->nr_running > 1) {
-		trace_ems_ontime_check_migrate(p, dst_cpu, true, "curr is busy");
-		return true;
+		struct task_struct *curr = cpu_curr(src_cpu);
+		struct sched_entity *se = __pick_first_entity(p->se.cfs_rq);
+		int count;
+
+		/* Firstly, compare with curr running task */
+		if (ontime_load_avg(p) < ontime_load_avg(curr)) {
+			trace_ems_ontime_check_migrate(p, dst_cpu, true, "busy runqueue");
+			return true;
+		}
+
+		/* Secondly, compare with tasks in rq */
+		for (count = 0; se && count < TASK_TRACK_COUNT;
+				se = __pick_next_entity(se), count++) {
+			if (entity_is_cfs_rq(se))
+				continue;
+
+			if (ontime_load_avg(p) < ontime_load_avg(task_of(se))) {
+				trace_ems_ontime_check_migrate(p, dst_cpu, true, "busy runqueue");
+				return true;
+			}
+		}
 	}
 
 	trace_ems_ontime_check_migrate(p, dst_cpu, false, "heavy task");
