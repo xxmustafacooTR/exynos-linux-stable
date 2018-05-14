@@ -181,8 +181,7 @@ ontime_select_target_cpu(struct cpumask *dst_cpus, const struct cpumask *mask)
 
 extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
 static struct task_struct *
-ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
-						int *boost_migration)
+ontime_pick_heavy_task(struct sched_entity *se, int *boost_migration)
 {
 	struct task_struct *heaviest_task = NULL;
 	struct task_struct *p;
@@ -221,8 +220,7 @@ ontime_pick_heavy_task(struct sched_entity *se, struct cpumask *dst_cpus,
 		if (ontime_load_avg(p) < get_up_threshold(task_cpu(p)))
 			goto next_entity;
 
-		if (ontime_load_avg(p) > max_util_avg &&
-		    cpumask_intersects(dst_cpus, tsk_cpus_allowed(p))) {
+		if (ontime_load_avg(p) > max_util_avg) {
 			heaviest_task = p;
 			max_util_avg = ontime_load_avg(p);
 			*boost_migration = 0;
@@ -382,97 +380,106 @@ static DEFINE_SPINLOCK(om_lock);
 
 void ontime_migration(void)
 {
-	struct ontime_cond *curr, *next = NULL;
 	int cpu;
 
 	if (!spin_trylock(&om_lock))
 		return;
 
-	list_for_each_entry(curr, &cond_list, list) {
-		next = list_next_entry(curr, list);
-		if (!next)
+	for_each_possible_cpu(cpu) {
+		unsigned long flags;
+		struct rq *rq = cpu_rq(cpu);
+		struct sched_entity *se;
+		struct task_struct *p;
+		struct ontime_env *env = &per_cpu(ontime_env, cpu);
+		struct cpumask fit_cpus;
+		int boost_migration = 0;
+		int dst_cpu;
+
+		/* Task in big cores don't be ontime migrated. */
+		if (cpumask_test_cpu(cpu, cpu_coregroup_mask(MAX_CAPACITY_CPU)))
 			break;
 
-		for_each_cpu_and(cpu, &curr->cpus, cpu_active_mask) {
-			unsigned long flags;
-			struct rq *rq = cpu_rq(cpu);
-			struct sched_entity *se;
-			struct task_struct *p;
-			struct ontime_env *env = &per_cpu(ontime_env, cpu);
-			int dst_cpu;
-			int boost_migration = 0;
+		raw_spin_lock_irqsave(&rq->lock, flags);
 
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			/*
-			 * Ontime migration is not performed when active balance
-			 * is in progress.
-			 */
-			if (rq->active_balance) {
-				raw_spin_unlock_irqrestore(&rq->lock, flags);
-				continue;
-			}
-
-			/*
-			 * No need to migration if source cpu does not have cfs
-			 * tasks.
-			 */
-			if (!rq->cfs.curr) {
-				raw_spin_unlock_irqrestore(&rq->lock, flags);
-				continue;
-			}
-
-			/* Find task entity if entity is cfs_rq. */
-			se = rq->cfs.curr;
-			if (entity_is_cfs_rq(se)) {
-				struct cfs_rq *cfs_rq = se->my_q;
-
-				while (cfs_rq) {
-					se = cfs_rq->curr;
-					cfs_rq = se->my_q;
-				}
-			}
-
-			/*
-			 * Select cpu to migrate the task to. Return negative number
-			 * if there is no idle cpu in sg.
-			 */
-			dst_cpu = ontime_select_target_cpu(&next->cpus, cpu_active_mask);
-			if (dst_cpu < 0) {
-				raw_spin_unlock_irqrestore(&rq->lock, flags);
-				continue;
-			}
-
-			/*
-			 * Pick task to be migrated. Return NULL if there is no
-			 * heavy task in rq.
-			 */
-			p = ontime_pick_heavy_task(se, &next->cpus, &boost_migration);
-			if (!p) {
-				raw_spin_unlock_irqrestore(&rq->lock, flags);
-				continue;
-			}
-
-			ontime_of(p)->migrating = 1;
-			get_task_struct(p);
-
-			/* Set environment data */
-			env->dst_cpu = dst_cpu;
-			env->src_rq = rq;
-			env->target_task = p;
-			env->boost_migration = boost_migration;
-
-			/* Prevent active balance to use stopper for migration */
-			rq->active_balance = 1;
-
-			cpu_rq(dst_cpu)->ontime_migrating = 1;
-
+		/*
+		 * Ontime migration is not performed when active balance
+		 * is in progress.
+		 */
+		if (rq->active_balance) {
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
-
-			/* Migrate task through stopper */
-			stop_one_cpu_nowait(cpu, ontime_migration_cpu_stop, env,
-				&per_cpu(ontime_migration_work, cpu));
+			continue;
 		}
+
+		/*
+		 * No need to migration if source cpu does not have cfs
+		 * tasks.
+		 */
+		if (!rq->cfs.curr) {
+			raw_spin_unlock_irqrestore(&rq->lock, flags);
+			continue;
+		}
+
+		/* Find task entity if entity is cfs_rq. */
+		se = rq->cfs.curr;
+		if (entity_is_cfs_rq(se)) {
+			struct cfs_rq *cfs_rq = se->my_q;
+
+			while (cfs_rq) {
+				se = cfs_rq->curr;
+				cfs_rq = se->my_q;
+			}
+		}
+
+		/*
+		 * Pick task to be migrated. Return NULL if there is no
+		 * heavy task in rq.
+		 */
+		p = ontime_pick_heavy_task(se, &boost_migration);
+		if (!p) {
+			raw_spin_unlock_irqrestore(&rq->lock, flags);
+			continue;
+		}
+
+		/*
+		 * If fit_cpus is smaller than current coregroup,
+		 * don't need to ontime migration.
+		 */
+		ontime_select_fit_cpus(p, &fit_cpus);
+		if (capacity_orig_of(cpu) >=
+				capacity_orig_of(cpumask_first(&fit_cpus))) {
+			raw_spin_unlock_irqrestore(&rq->lock, flags);
+			continue;
+		}
+
+		/*
+		 * Select cpu to migrate the task to. Return negative number
+		 * if there is no idle cpu in sg.
+		 */
+		dst_cpu = ontime_select_target_cpu(&fit_cpus, cpu_active_mask);
+		if (!cpu_selected(dst_cpu)) {
+			raw_spin_unlock_irqrestore(&rq->lock, flags);
+			continue;
+		}
+
+		ontime_of(p)->migrating = 1;
+		get_task_struct(p);
+
+		/* Set environment data */
+		env->dst_cpu = dst_cpu;
+		env->src_rq = rq;
+		env->target_task = p;
+		env->boost_migration = boost_migration;
+
+		/* Prevent active balance to use stopper for migration */
+		rq->active_balance = 1;
+
+		cpu_rq(dst_cpu)->ontime_migrating = 1;
+
+		raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+		/* Migrate task through stopper */
+		stop_one_cpu_nowait(cpu, ontime_migration_cpu_stop, env,
+				&per_cpu(ontime_migration_work, cpu));
 	}
 
 	spin_unlock(&om_lock);
