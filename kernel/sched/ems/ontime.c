@@ -59,30 +59,6 @@ struct ontime_env {
 };
 DEFINE_PER_CPU(struct ontime_env, ontime_env);
 
-static unsigned long get_up_threshold(int cpu)
-{
-	struct ontime_cond *curr;
-
-	list_for_each_entry(curr, &cond_list, list) {
-		if (cpumask_test_cpu(cpu, &curr->cpus))
-			return curr->up_threshold;
-	}
-
-	return ULONG_MAX;
-}
-
-static unsigned long get_down_threshold(int cpu)
-{
-	struct ontime_cond *curr;
-
-	list_for_each_entry(curr, &cond_list, list) {
-		if (cpumask_test_cpu(cpu, &curr->cpus))
-			return curr->down_threshold;
-	}
-
-	return 0;
-}
-
 static inline struct task_struct *task_of(struct sched_entity *se)
 {
 	return container_of(se, struct task_struct, se);
@@ -91,6 +67,84 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 static inline struct sched_entity *se_of(struct sched_avg *sa)
 {
 	return container_of(sa, struct sched_entity, avg);
+}
+
+struct ontime_cond *get_current_cond(int cpu)
+{
+	struct ontime_cond *curr;
+
+	list_for_each_entry(curr, &cond_list, list) {
+		if (cpumask_test_cpu(cpu, &curr->cpus))
+			return curr;
+	}
+
+	return NULL;
+}
+
+static unsigned long get_up_threshold(int cpu)
+{
+	struct ontime_cond *curr = get_current_cond(cpu);
+
+	if (curr)
+		return curr->up_threshold;
+	else
+		return ULONG_MAX;
+}
+
+static unsigned long get_down_threshold(int cpu)
+{
+	struct ontime_cond *curr = get_current_cond(cpu);
+
+	if (curr)
+		return curr->down_threshold;
+	else
+		return 0;
+}
+
+static void
+ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
+{
+	struct ontime_cond *curr;
+	struct cpumask cpus;
+	int cpu = task_cpu(p);
+
+	cpumask_and(fit_cpus, cpu_coregroup_mask(cpu), tsk_cpus_allowed(p));
+
+	curr = get_current_cond(cpu);
+	if (!curr)
+		return;
+
+	if (ontime_load_avg(p) >= curr->up_threshold) {
+		/*
+		 * 1. If task's load is bigger than up threshold,
+		 * find fit_cpus among next coregroup.
+		 */
+		list_for_each_entry_from(curr, &cond_list, list) {
+			cpumask_and(&cpus, &curr->cpus, tsk_cpus_allowed(p));
+			if (cpumask_empty(&cpus))
+				break;
+
+			cpumask_copy(fit_cpus, &cpus);
+
+			if (ontime_load_avg(p) < curr->up_threshold)
+				break;
+		}
+	} else if (ontime_load_avg(p) < curr->down_threshold) {
+		/*
+		 * 2. If task's load is smaller than down threshold,
+		 * find fit_cpus among prev coregroup.
+		 */
+		list_for_each_entry_from_reverse(curr, &cond_list, list) {
+			cpumask_and(&cpus, &curr->cpus, tsk_cpus_allowed(p));
+			if (cpumask_empty(&cpus))
+				break;
+
+			cpumask_copy(fit_cpus, &cpus);
+
+			if (ontime_load_avg(p) >= curr->down_threshold)
+				break;
+		}
+	}
 }
 
 static int
