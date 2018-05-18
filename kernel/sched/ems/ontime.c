@@ -22,6 +22,7 @@
 /*			On-time migration			*/
 /****************************************************************/
 #define TASK_TRACK_COUNT	5
+#define MIN_CAPACITY_CPU	0
 #define MAX_CAPACITY_CPU	(NR_CPUS - 1)
 
 #define ontime_load_avg(p)	(ontime_of(p)->avg.load_avg)
@@ -479,56 +480,25 @@ void ontime_migration(void)
 
 int ontime_task_wakeup(struct task_struct *p)
 {
-	struct ontime_cond *curr, *next = NULL;
-	struct cpumask target_mask;
-	int src_cpu = task_cpu(p);
-	int dst_cpu = -1;
+	struct cpumask fit_cpus;
+	int dst_cpu, src_cpu = task_cpu(p);
 
 	/* When wakeup task is on ontime migrating, do not ontime wakeup */
 	if (ontime_of(p)->migrating == 1)
 		return -1;
 
-	if (ontime_load_avg(p) < get_down_threshold(src_cpu))
-		goto release;
+	/* If fit_cpus is little coregroup, don't need to select dst_cpu */
+	ontime_select_fit_cpus(p, &fit_cpus);
+	if (cpumask_test_cpu(MIN_CAPACITY_CPU, &fit_cpus))
+		return -1;
 
-	/*
-	 * When wakeup task satisfies ontime condition to up migration,
-	 * check there is a possible target cpu.
-	 */
-	if (ontime_load_avg(p) >= get_up_threshold(src_cpu)) {
-		list_for_each_entry (curr, &cond_list, list) {
-			next = list_next_entry(curr, list);
-			if (cpumask_test_cpu(src_cpu, &curr->cpus)) {
-				cpumask_copy(&target_mask, &next->cpus);
-				break;
-			}
-		}
-
-		dst_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
-
-		if (cpu_selected(dst_cpu)) {
-			trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "up ontime");
-			return dst_cpu;
-		}
-	}
-
-	/*
-	 * If there is a possible dst_cpu to stay, task will wake up at this cpu.
-	 */
-	cpumask_copy(&target_mask, cpu_coregroup_mask(src_cpu));
-	dst_cpu = ontime_select_target_cpu(&target_mask, tsk_cpus_allowed(p));
-
+	dst_cpu = ontime_select_target_cpu(&fit_cpus, cpu_active_mask);
 	if (cpu_selected(dst_cpu)) {
-		trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "stay ontime");
+		trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "ontime wakeup");
 		return dst_cpu;
 	}
 
-release:
-	/*
-	 * If wakeup task doesn't satisfy ontime condition or there is no
-	 * possible dst_cpu, release this task from ontime
-	 */
-	trace_ems_ontime_task_wakeup(p, src_cpu, -1, "not ontime");
+	trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "busy target");
 	return -1;
 }
 
