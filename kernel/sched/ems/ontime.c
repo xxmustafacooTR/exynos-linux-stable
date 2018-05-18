@@ -38,6 +38,8 @@ struct ontime_cond {
 
 	unsigned long		up_threshold;
 	unsigned long		down_threshold;
+	/* Ratio at which ontime util can be covered within capacity */
+	int			coverage_ratio;
 
 	int			coregroup;
 	struct cpumask		cpus;
@@ -102,6 +104,16 @@ static unsigned long get_down_threshold(int cpu)
 		return 0;
 }
 
+static unsigned long get_coverage_ratio(int cpu)
+{
+	struct ontime_cond *curr = get_current_cond(cpu);
+
+	if (curr)
+		return curr->coverage_ratio;
+	else
+		return 0;
+}
+
 static void
 ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 {
@@ -149,34 +161,53 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 }
 
 static int
-ontime_select_target_cpu(struct cpumask *dst_cpus, const struct cpumask *mask)
+ontime_select_target_cpu(struct task_struct *p, struct cpumask *dst_cpus)
 {
-	int cpu, dest_cpu = -1;
+	int cpu;
+	int best_cpu = -1, backup_cpu = -1;
 	unsigned int min_exit_latency = UINT_MAX;
-	struct cpuidle_state *idle;
+	unsigned long min_util = ULONG_MAX;
 
 	rcu_read_lock();
-	for_each_cpu_and(cpu, dst_cpus, mask) {
-		if (!idle_cpu(cpu))
-			continue;
 
+	for_each_cpu_and(cpu, dst_cpus, cpu_active_mask) {
 		if (cpu_rq(cpu)->ontime_migrating)
 			continue;
 
-		idle = idle_get_state(cpu_rq(cpu));
-		if (!idle) {
-			rcu_read_unlock();
-			return cpu;
-		}
+		if (idle_cpu(cpu)) {
+			/* 1. Find shallowest idle cpu. */
+			struct cpuidle_state *idle = idle_get_state(cpu_rq(cpu));
 
-		if (idle && idle->exit_latency < min_exit_latency) {
-			min_exit_latency = idle->exit_latency;
-			dest_cpu = cpu;
+			if (!idle) {
+				rcu_read_unlock();
+				return cpu;
+			}
+
+			if (idle->exit_latency < min_exit_latency) {
+				min_exit_latency = idle->exit_latency;
+				best_cpu = cpu;
+			}
+		} else {
+			/* 2. Find cpu that have to spare */
+			unsigned long new_util = task_util(p) + cpu_util_wake(cpu, p);
+
+			if (new_util * 100 >=
+					capacity_orig_of(cpu) * get_coverage_ratio(cpu))
+				continue;
+
+			if (new_util < min_util) {
+				min_util = new_util;
+				backup_cpu = cpu;
+			}
 		}
 	}
 
 	rcu_read_unlock();
-	return dest_cpu;
+
+	if (cpu_selected(best_cpu))
+		return best_cpu;
+
+	return backup_cpu;
 }
 
 extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
@@ -455,7 +486,7 @@ void ontime_migration(void)
 		 * Select cpu to migrate the task to. Return negative number
 		 * if there is no idle cpu in sg.
 		 */
-		dst_cpu = ontime_select_target_cpu(&fit_cpus, cpu_active_mask);
+		dst_cpu = ontime_select_target_cpu(p, &fit_cpus);
 		if (!cpu_selected(dst_cpu)) {
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
 			continue;
@@ -499,7 +530,7 @@ int ontime_task_wakeup(struct task_struct *p)
 	if (cpumask_test_cpu(MIN_CAPACITY_CPU, &fit_cpus))
 		return -1;
 
-	dst_cpu = ontime_select_target_cpu(&fit_cpus, cpu_active_mask);
+	dst_cpu = ontime_select_target_cpu(p, &fit_cpus);
 	if (cpu_selected(dst_cpu)) {
 		trace_ems_ontime_task_wakeup(p, src_cpu, dst_cpu, "ontime wakeup");
 		return dst_cpu;
@@ -668,10 +699,13 @@ static ssize_t store_##_name(struct kobject *k, const char *buf, size_t count)	\
 
 ontime_show(up_threshold);
 ontime_show(down_threshold);
+ontime_show(coverage_ratio);
 ontime_store(up_threshold, unsigned long, 1024);
 ontime_store(down_threshold, unsigned long, 1024);
+ontime_store(coverage_ratio, int, 100);
 ontime_attr_rw(up_threshold);
 ontime_attr_rw(down_threshold);
+ontime_attr_rw(coverage_ratio);
 
 static ssize_t show(struct kobject *kobj, struct attribute *at, char *buf)
 {
@@ -696,6 +730,7 @@ static const struct sysfs_ops ontime_sysfs_ops = {
 static struct attribute *ontime_attrs[] = {
 	&up_threshold_attr.attr,
 	&down_threshold_attr.attr,
+	&coverage_ratio_attr.attr,
 	NULL
 };
 
@@ -764,6 +799,9 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 
 	res |= of_property_read_u32(coregroup, "down-threshold", &prop);
 	cond->down_threshold = prop;
+
+	res |= of_property_read_u32(coregroup, "coverage-ratio", &prop);
+	cond->coverage_ratio = prop;
 
 	if (res)
 		goto disable;
