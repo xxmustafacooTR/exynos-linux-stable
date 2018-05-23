@@ -651,8 +651,8 @@ void ontime_new_entity_load(struct task_struct *parent, struct sched_entity *se)
 
 	ontime = &se->ontime;
 
-	ontime->avg.load_sum = ontime_of(parent)->avg.load_sum;
-	ontime->avg.load_avg = ontime_of(parent)->avg.load_avg;
+	ontime->avg.load_sum = ontime_of(parent)->avg.load_sum >> 1;
+	ontime->avg.load_avg = ontime_of(parent)->avg.load_avg >> 1;
 	ontime->avg.period_contrib = 1023;
 	ontime->migrating = 0;
 
