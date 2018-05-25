@@ -78,6 +78,7 @@
 #include <linux/cpufreq_times.h>
 #include <linux/sched/loadavg.h>
 #include <linux/cgroup-defs.h>
+#include <linux/ems.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -2244,6 +2245,10 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 #endif
 
 	INIT_LIST_HEAD(&p->se.group_node);
+#ifdef CONFIG_SCHED_EMS
+	rcu_assign_pointer(p->band, NULL);
+	INIT_LIST_HEAD(&p->band_members);
+#endif
 	walt_init_new_task_load(p);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -2605,6 +2610,8 @@ void wake_up_new_task(struct task_struct *p)
 	struct rq *rq;
 
 	raw_spin_lock_irqsave(&p->pi_lock, rf.flags);
+
+	newbie_join_band(p);
 
 	walt_init_new_task_load(p);
 
@@ -3175,6 +3182,8 @@ void scheduler_tick(void)
 	trigger_load_balance(rq);
 #endif
 	rq_last_tick_reset(rq);
+
+	update_band(curr, -1);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
@@ -7899,6 +7908,8 @@ void __init sched_init(void)
 	}
 
 	set_load_weight(&init_task);
+
+	alloc_bands();
 
 	/*
 	 * The boot idle thread does lazy MMU switching as well:

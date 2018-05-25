@@ -164,8 +164,14 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	 * the utilization to determine which cpu the task will be assigned to.
 	 * Exclude new task.
 	 */
-	if (!(sd_flag & SD_BALANCE_FORK))
+	if (!(sd_flag & SD_BALANCE_FORK)) {
+		unsigned long old_util = task_util(p);
+
 		sync_entity_load_avg(&p->se);
+
+		/* update the band if a large amount of task util is decayed */
+		update_band(p, old_util);
+	}
 
 	/*
 	 * Priority 1 : ontime task
@@ -202,7 +208,26 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 3 : global boosting
+	 * Priority 3 : task band
+	 *
+	 * The tasks in a process are likely to interact, and its operations are
+	 * sequential and share resources. Therefore, if these tasks are packed and
+	 * and assign on a specific cpu or cluster, the latency for interaction
+	 * decreases and the reusability of the cache increases, thereby improving
+	 * performance.
+	 *
+	 * The "task band" is a function that groups tasks on a per-process basis
+	 * and assigns them to a specific cpu or cluster. If the attribute "band"
+	 * of schedtune.cgroup is set to '1', task band operate on this cgroup.
+	 */
+	target_cpu = band_play_cpu(p);
+	if (cpu_selected(target_cpu)) {
+		strcpy(state, "task band");
+		goto out;
+	}
+
+	/*
+	 * Priority 4 : global boosting
 	 *
 	 * Global boost is a function that preferentially assigns all tasks in the
 	 * system to the performance cpu. Unlike prefer-perf, which targets only
@@ -222,7 +247,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 4 : group balancing
+	 * Priority 5 : group balancing
 	 */
 	target_cpu = group_balancing(p);
 	if (cpu_selected(target_cpu)) {
@@ -231,7 +256,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 5 : prefer-idle
+	 * Priority 6 : prefer-idle
 	 *
 	 * Prefer-idle is a function that operates on cgroup basis managed by
 	 * schedtune. When perfer-idle is set to 1, the tasks in the group are
@@ -247,7 +272,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 6 : energy cpu
+	 * Priority 7 : energy cpu
 	 *
 	 * A scheduling scheme based on cpu energy, find the least power consumption
 	 * cpu referring energy table when assigning task.
@@ -259,7 +284,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 7 : proper cpu
+	 * Priority 8 : proper cpu
 	 */
 	target_cpu = select_proper_cpu(p);
 	if (cpu_selected(target_cpu))
