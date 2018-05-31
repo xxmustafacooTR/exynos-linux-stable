@@ -265,15 +265,33 @@ next_entity:
 	return heaviest_task;
 }
 
-static int can_migrate(struct task_struct *p, struct ontime_env *env)
+static bool can_migrate(struct task_struct *p, struct ontime_env *env)
 {
+	struct rq *src_rq = env->src_rq;
+	int src_cpu = env->src_cpu;
+
+	if (ontime_of(p)->migrating == 0)
+		return false;
+
+	if (p->exit_state)
+		return false;
+
+	if (unlikely(src_rq != task_rq(p)))
+		return false;
+
+	if (unlikely(src_cpu != smp_processor_id()))
+		return false;
+
+	if (src_rq->nr_running <= 1)
+		return false;
+
 	if (!cpumask_test_cpu(env->dst_cpu, tsk_cpus_allowed(p)))
-		return 0;
+		return false;
 
 	if (task_running(env->src_rq, p))
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 static void move_task(struct task_struct *p, struct ontime_env *env)
@@ -289,12 +307,10 @@ static void move_task(struct task_struct *p, struct ontime_env *env)
 
 static int move_specific_task(struct task_struct *target, struct ontime_env *env)
 {
+	struct list_head *tasks = &env->src_rq->cfs_tasks;
 	struct task_struct *p, *n;
 
-	list_for_each_entry_safe(p, n, &env->src_rq->cfs_tasks, se.group_node) {
-		if (!can_migrate(p, env))
-			continue;
-
+	list_for_each_entry_safe(p, n, tasks, se.group_node) {
 		if (p != target)
 			continue;
 
@@ -310,7 +326,6 @@ static int ontime_migration_cpu_stop(void *data)
 	struct ontime_env *env = data;
 	struct rq *src_rq, *dst_rq;
 	struct task_struct *p;
-	struct sched_domain *sd;
 	int src_cpu, dst_cpu;
 	int boost_migration;
 
@@ -324,40 +339,18 @@ static int ontime_migration_cpu_stop(void *data)
 
 	raw_spin_lock_irq(&src_rq->lock);
 
-	if (ontime_of(p)->migrating == 0)
-		goto out_unlock;
-
-	if (p->exit_state)
-		goto out_unlock;
-
-	if (unlikely(src_cpu != smp_processor_id()))
-		goto out_unlock;
-
-	if (src_rq->nr_running <= 1)
-		goto out_unlock;
-
-	if (src_rq != task_rq(p))
+	/* Check task can be migrated */
+	if (!can_migrate(p, env))
 		goto out_unlock;
 
 	BUG_ON(src_rq == dst_rq);
 
+	/* Move task from source to destination */
 	double_lock_balance(src_rq, dst_rq);
-
-	rcu_read_lock();
-	for_each_domain(dst_cpu, sd)
-		if (cpumask_test_cpu(src_cpu, sched_domain_span(sd)))
-			break;
-
-	if (likely(sd) && move_specific_task(p, env)) {
-		rcu_read_unlock();
-		double_unlock_balance(src_rq, dst_rq);
-
+	if (move_specific_task(p, env)) {
 		trace_ems_ontime_migration(p, ontime_of(p)->avg.load_avg,
-					src_cpu, dst_cpu, boost_migration);
-		goto out_unlock;
+				src_cpu, dst_cpu, boost_migration);
 	}
-
-	rcu_read_unlock();
 	double_unlock_balance(src_rq, dst_rq);
 
 out_unlock:
