@@ -36,8 +36,8 @@
 struct ontime_cond {
 	bool			enabled;
 
-	unsigned long		up_threshold;
-	unsigned long		down_threshold;
+	unsigned long		upper_boundary;
+	unsigned long		lower_boundary;
 	/* Ratio at which ontime util can be covered within capacity */
 	int			coverage_ratio;
 
@@ -84,22 +84,22 @@ struct ontime_cond *get_current_cond(int cpu)
 	return NULL;
 }
 
-static unsigned long get_up_threshold(int cpu)
+static unsigned long get_upper_boundary(int cpu)
 {
 	struct ontime_cond *curr = get_current_cond(cpu);
 
 	if (curr)
-		return curr->up_threshold;
+		return curr->upper_boundary;
 	else
 		return ULONG_MAX;
 }
 
-static unsigned long get_down_threshold(int cpu)
+static unsigned long get_lower_boundary(int cpu)
 {
 	struct ontime_cond *curr = get_current_cond(cpu);
 
 	if (curr)
-		return curr->down_threshold;
+		return curr->lower_boundary;
 	else
 		return 0;
 }
@@ -127,9 +127,9 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 	if (!curr)
 		return;
 
-	if (ontime_load_avg(p) >= curr->up_threshold) {
+	if (ontime_load_avg(p) >= curr->upper_boundary) {
 		/*
-		 * 1. If task's load is bigger than up threshold,
+		 * 1. If task's load is bigger than upper boundary,
 		 * find fit_cpus among next coregroup.
 		 */
 		list_for_each_entry_from(curr, &cond_list, list) {
@@ -139,12 +139,12 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 
 			cpumask_copy(fit_cpus, &cpus);
 
-			if (ontime_load_avg(p) < curr->up_threshold)
+			if (ontime_load_avg(p) < curr->upper_boundary)
 				break;
 		}
-	} else if (ontime_load_avg(p) < curr->down_threshold) {
+	} else if (ontime_load_avg(p) < curr->lower_boundary) {
 		/*
-		 * 2. If task's load is smaller than down threshold,
+		 * 2. If task's load is smaller than lower boundary,
 		 * find fit_cpus among prev coregroup.
 		 */
 		list_for_each_entry_from_reverse(curr, &cond_list, list) {
@@ -154,7 +154,7 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 
 			cpumask_copy(fit_cpus, &cpus);
 
-			if (ontime_load_avg(p) >= curr->down_threshold)
+			if (ontime_load_avg(p) >= curr->lower_boundary)
 				break;
 		}
 	}
@@ -229,7 +229,7 @@ ontime_pick_heavy_task(struct sched_entity *se, int *boost_migration)
 		*boost_migration = 1;
 		return p;
 	}
-	if (ontime_load_avg(p) >= get_up_threshold(task_cpu(p))) {
+	if (ontime_load_avg(p) >= get_upper_boundary(task_cpu(p))) {
 		heaviest_task = p;
 		max_util_avg = ontime_load_avg(p);
 		*boost_migration = 0;
@@ -248,7 +248,7 @@ ontime_pick_heavy_task(struct sched_entity *se, int *boost_migration)
 			break;
 		}
 
-		if (ontime_load_avg(p) < get_up_threshold(task_cpu(p)))
+		if (ontime_load_avg(p) < get_upper_boundary(task_cpu(p)))
 			goto next_entity;
 
 		if (ontime_load_avg(p) > max_util_avg) {
@@ -370,7 +370,7 @@ static void ontime_update_next_balance(int cpu, struct ontime_avg *oa)
 	if (cpumask_test_cpu(cpu, cpu_coregroup_mask(MAX_CAPACITY_CPU)))
 		return;
 
-	if (oa->load_avg < get_up_threshold(cpu))
+	if (oa->load_avg < get_upper_boundary(cpu))
 		return;
 
 	/*
@@ -555,7 +555,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 	/*
 	 * At this point, load balancer is trying to migrate task to smaller CPU.
 	 */
-	if (ontime_load_avg(p) < get_down_threshold(src_cpu)) {
+	if (ontime_load_avg(p) < get_lower_boundary(src_cpu)) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "light task");
 		return true;
 	}
@@ -690,14 +690,14 @@ static ssize_t store_##_name(struct kobject *k, const char *buf, size_t count)	\
 	return count;								\
 }
 
-ontime_show(up_threshold);
-ontime_show(down_threshold);
+ontime_show(upper_boundary);
+ontime_show(lower_boundary);
 ontime_show(coverage_ratio);
-ontime_store(up_threshold, unsigned long, 1024);
-ontime_store(down_threshold, unsigned long, 1024);
+ontime_store(upper_boundary, unsigned long, 1024);
+ontime_store(lower_boundary, unsigned long, 1024);
 ontime_store(coverage_ratio, int, 100);
-ontime_attr_rw(up_threshold);
-ontime_attr_rw(down_threshold);
+ontime_attr_rw(upper_boundary);
+ontime_attr_rw(lower_boundary);
 ontime_attr_rw(coverage_ratio);
 
 static ssize_t show(struct kobject *kobj, struct attribute *at, char *buf)
@@ -721,8 +721,8 @@ static const struct sysfs_ops ontime_sysfs_ops = {
 };
 
 static struct attribute *ontime_attrs[] = {
-	&up_threshold_attr.attr,
-	&down_threshold_attr.attr,
+	&upper_boundary_attr.attr,
+	&lower_boundary_attr.attr,
 	&coverage_ratio_attr.attr,
 	NULL
 };
@@ -787,11 +787,11 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 	cond->coregroup = cnt;
 
 	/* If any of ontime parameter isn't, disable ontime of this coregroup */
-	res |= of_property_read_u32(coregroup, "up-threshold", &prop);
-	cond->up_threshold = prop;
+	res |= of_property_read_u32(coregroup, "upper-boundary", &prop);
+	cond->upper_boundary = prop;
 
-	res |= of_property_read_u32(coregroup, "down-threshold", &prop);
-	cond->down_threshold = prop;
+	res |= of_property_read_u32(coregroup, "lower-boundary", &prop);
+	cond->lower_boundary = prop;
 
 	res |= of_property_read_u32(coregroup, "coverage-ratio", &prop);
 	cond->coverage_ratio = prop;
@@ -804,8 +804,8 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 
 disable:
 	cond->enabled = false;
-	cond->up_threshold = ULONG_MAX;
-	cond->down_threshold = 0;
+	cond->upper_boundary = ULONG_MAX;
+	cond->lower_boundary = 0;
 }
 
 static int __init init_ontime(void)
