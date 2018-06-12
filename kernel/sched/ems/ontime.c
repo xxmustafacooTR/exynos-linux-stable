@@ -409,7 +409,7 @@ void ontime_migration(void)
 	if (!spin_trylock(&om_lock))
 		return;
 
-	for_each_possible_cpu(cpu) {
+	for_each_cpu(cpu, cpu_active_mask) {
 		unsigned long flags;
 		struct rq *rq = cpu_rq(cpu);
 		struct sched_entity *se;

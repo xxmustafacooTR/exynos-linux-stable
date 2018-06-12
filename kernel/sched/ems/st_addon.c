@@ -94,16 +94,13 @@ static int select_idle_cpu(struct task_struct *p)
 	int i;
 	char state[30] = "prev_cpu";
 
-	for_each_possible_cpu(cpu) {
+	for_each_cpu(cpu, cpu_active_mask) {
 		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
 			continue;
 
 		for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_coregroup_mask(cpu)) {
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long new_util, wake_util;
-
-			if (!cpu_active(i))
-				continue;
 
 			wake_util = cpu_util_wake(i, p);
 			new_util = wake_util + task_util_est(p);

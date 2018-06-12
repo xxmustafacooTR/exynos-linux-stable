@@ -159,7 +159,7 @@ static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 			util[cpu] += task_util_est(p);
 	}
 
-	for_each_possible_cpu(cpu) {
+	for_each_cpu(cpu, cpu_active_mask) {
 		struct energy_table *table;
 		unsigned long max_util = 0, util_sum = 0;
 		unsigned long capacity;
