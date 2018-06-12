@@ -469,8 +469,7 @@ void ontime_migration(void)
 		 * don't need to ontime migration.
 		 */
 		ontime_select_fit_cpus(p, &fit_cpus);
-		if (capacity_orig_of(cpu) >=
-				capacity_orig_of(cpumask_first(&fit_cpus))) {
+		if (get_cpu_mips(cpu) >= get_cpu_mips(cpumask_first(&fit_cpus))) {
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
 			continue;
 		}
@@ -547,7 +546,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 		return true;
 	}
 
-	if (capacity_orig_of(dst_cpu) > capacity_orig_of(src_cpu)) {
+	if (get_cpu_mips(dst_cpu) > get_cpu_mips(src_cpu)) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "go to bigger");
 		return true;
 	}
