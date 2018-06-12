@@ -37,6 +37,11 @@ struct energy_table {
 };
 DEFINE_PER_CPU(struct energy_table, energy_table);
 
+inline unsigned int get_cpu_mips(unsigned int cpu)
+{
+	return per_cpu(energy_table, cpu).mips;
+}
+
 /*
  * When choosing cpu considering energy efficiency, decide best cpu and
  * backup cpu according to policy, and then choose cpu which consumes the
