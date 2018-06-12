@@ -468,6 +468,9 @@ static int __init sysmmu_parse_dt(struct device *sysmmu,
 			return ret;
 		}
 	}
+	
+	if (of_property_read_bool(sysmmu->of_node, "sysmmu,hold-rpm-on-boot"))
+		drvdata->hold_rpm_on_boot = true;
 
 	if (of_property_read_bool(sysmmu->of_node, "sysmmu,no-suspend"))
 		dev_pm_syscore_device(sysmmu, true);
@@ -538,6 +541,9 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, data);
 
 	pm_runtime_enable(dev);
+	
+	if (data->hold_rpm_on_boot)
+		pm_runtime_get_sync(dev);
 
 	ret = exynos_iommu_init_event_log(SYSMMU_DRVDATA_TO_LOG(data),
 				SYSMMU_LOG_LEN);
@@ -667,6 +673,10 @@ static int sysmmu_enable_from_master(struct device *master,
 				__sysmmu_disable(drvdata);
 			}
 			break;
+		}
+		if (drvdata->hold_rpm_on_boot) {
+			pm_runtime_put(drvdata->sysmmu);
+			drvdata->hold_rpm_on_boot = false;
 		}
 	}
 	spin_unlock_irqrestore(&owner->lock, flags);
