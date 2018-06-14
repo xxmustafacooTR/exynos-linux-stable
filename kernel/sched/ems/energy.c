@@ -81,6 +81,7 @@ static void find_eco_target(struct eco_env *eenv)
 
 		wake_util = cpu_util_wake(cpu, p);
 		new_util = wake_util + task_util_est(p);
+		new_util = max(new_util, boosted_task_util(p));
 
 		/* checking prev cpu is meaningless */
 		if (eenv->prev_cpu == cpu)

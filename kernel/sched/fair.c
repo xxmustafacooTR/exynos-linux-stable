@@ -6606,7 +6606,7 @@ static bool cpu_overutilized(int cpu)
 
 struct reciprocal_value schedtune_spc_rdiv;
 
-static long
+long
 schedtune_margin(unsigned long signal, long boost)
 {
 	long long margin = 0;

@@ -104,6 +104,7 @@ static int select_idle_cpu(struct task_struct *p)
 
 			wake_util = cpu_util_wake(i, p);
 			new_util = wake_util + task_util_est(p);
+			new_util = max(new_util, boosted_task_util(p));
 
 			trace_ems_prefer_idle(p, task_cpu(p), i, capacity_orig, task_util_est(p),
 							new_util, idle_cpu(i));
