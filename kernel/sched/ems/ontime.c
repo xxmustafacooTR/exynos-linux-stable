@@ -114,7 +114,7 @@ static unsigned long get_coverage_ratio(int cpu)
 		return 0;
 }
 
-static void
+static int
 ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 {
 	struct ontime_cond *curr;
@@ -122,10 +122,12 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 	int cpu = task_cpu(p);
 
 	cpumask_and(fit_cpus, cpu_coregroup_mask(cpu), tsk_cpus_allowed(p));
+	if (cpumask_empty(fit_cpus))
+		return -ENODEV;
 
 	curr = get_current_cond(cpu);
 	if (!curr)
-		return;
+		return -EINVAL;
 
 	if (ontime_load_avg(p) >= curr->upper_boundary) {
 		/*
@@ -158,6 +160,8 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 				break;
 		}
 	}
+
+	return 0;
 }
 
 static int
@@ -464,11 +468,16 @@ void ontime_migration(void)
 			continue;
 		}
 
+		/* If fit_cpus is not searched, don't need to select dst_cpu */
+		if (ontime_select_fit_cpus(p, &fit_cpus)) {
+			raw_spin_unlock_irqrestore(&rq->lock, flags);
+			continue;
+		}
+
 		/*
 		 * If fit_cpus is smaller than current coregroup,
 		 * don't need to ontime migration.
 		 */
-		ontime_select_fit_cpus(p, &fit_cpus);
 		if (get_cpu_mips(cpu) >= get_cpu_mips(cpumask_first(&fit_cpus))) {
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
 			continue;
@@ -517,8 +526,11 @@ int ontime_task_wakeup(struct task_struct *p)
 	if (ontime_of(p)->migrating == 1)
 		return -1;
 
+	/* If fit_cpus is not searched, don't need to select dst_cpu */
+	if (ontime_select_fit_cpus(p, &fit_cpus))
+		return -1;
+
 	/* If fit_cpus is little coregroup, don't need to select dst_cpu */
-	ontime_select_fit_cpus(p, &fit_cpus);
 	if (cpumask_test_cpu(MIN_CAPACITY_CPU, &fit_cpus))
 		return -1;
 
