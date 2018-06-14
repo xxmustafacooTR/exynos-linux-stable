@@ -88,23 +88,6 @@ bool lbt_overutilized(int cpu, int level)
 	return overutilized;
 }
 
-bool lbt_bring_overutilize(int cpu, struct task_struct *p)
-{
-	struct sched_domain *sd;
-	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
-	unsigned long util_sum = cpu_util_wake(cpu, p) + task_util(p);
-
-	if (!ou)
-		return false;
-
-	for_each_domain(cpu, sd) {
-		if (util_sum > ou[sd->level].capacity)
-			return true;
-	}
-
-	return false;
-}
-
 void update_lbt_overutil(int cpu, unsigned long capacity)
 {
 	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
