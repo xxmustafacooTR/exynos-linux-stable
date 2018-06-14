@@ -92,14 +92,6 @@ static void find_eco_target(struct eco_env *eenv)
 			continue;
 
 		/*
-		 * According to the criteria determined by the LBT(Load
-		 * Balance trigger), the cpu that becomes overutilized when
-		 * the task is assigned is skipped.
-		 */
-		if (lbt_bring_overutilize(cpu, p))
-			continue;
-
-		/*
 		 * Backup target) shallowest idle cpu among min-cap cpu
 		 *
 		 * In general, assigning a task to an idle cpu is
