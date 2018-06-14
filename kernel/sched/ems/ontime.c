@@ -25,7 +25,7 @@
 #define MIN_CAPACITY_CPU	0
 #define MAX_CAPACITY_CPU	(NR_CPUS - 1)
 
-#define ontime_load_avg(p)	(ontime_of(p)->avg.load_avg)
+#define ontime_of(p)		(&p->se.ontime)
 
 #define cap_scale(v, s)		((v)*(s) >> SCHED_CAPACITY_SHIFT)
 
@@ -70,6 +70,18 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 static inline struct sched_entity *se_of(struct sched_avg *sa)
 {
 	return container_of(sa, struct sched_entity, avg);
+}
+
+extern long schedtune_margin(unsigned long signal, long boost);
+static inline unsigned long ontime_load_avg(struct task_struct *p)
+{
+	int boost = schedtune_task_boost(p);
+	unsigned long load_avg = ontime_of(p)->avg.load_avg;
+
+	if (boost == 0)
+		return load_avg;
+
+	return load_avg + schedtune_margin(load_avg, boost);
 }
 
 struct ontime_cond *get_current_cond(int cpu)

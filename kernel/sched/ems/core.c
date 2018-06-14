@@ -12,6 +12,7 @@
 
 #include "ems.h"
 #include "../sched.h"
+#include "../tune.h"
 
 int task_util(struct task_struct *p)
 {
