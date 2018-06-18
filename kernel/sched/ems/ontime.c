@@ -786,16 +786,16 @@ out:
 	pr_err("ONTIME(%s): failed to create sysfs node\n", __func__);
 	return -EINVAL;
 }
-late_initcall(ontime_sysfs_init);
 
 /****************************************************************/
 /*			initialization				*/
 /****************************************************************/
-static void
+static void __init
 parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 {
 	struct device_node *ontime, *coregroup;
 	char name[15];
+	unsigned long capacity;
 	unsigned int prop;
 	int res = 0;
 
@@ -809,12 +809,14 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 		goto disable;
 	cond->coregroup = cnt;
 
+	capacity = capacity_orig_of(cpumask_first(&cond->cpus));
+
 	/* If any of ontime parameter isn't, disable ontime of this coregroup */
 	res |= of_property_read_u32(coregroup, "upper-boundary", &prop);
-	cond->upper_boundary = prop;
+	cond->upper_boundary = capacity * prop / 100;
 
 	res |= of_property_read_u32(coregroup, "lower-boundary", &prop);
-	cond->lower_boundary = prop;
+	cond->lower_boundary = capacity * prop / 100;
 
 	res |= of_property_read_u32(coregroup, "coverage-ratio", &prop);
 	cond->coverage_ratio = prop;
@@ -826,6 +828,7 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 	return;
 
 disable:
+	pr_err("ONTIME(%s): failed to parse ontime node\n", __func__);
 	cond->enabled = false;
 	cond->upper_boundary = ULONG_MAX;
 	cond->lower_boundary = 0;
@@ -856,7 +859,9 @@ static int __init init_ontime(void)
 		list_add_tail(&cond->list, &cond_list);
 	}
 
+	ontime_sysfs_init();
+
 	of_node_put(dn);
 	return 0;
 }
-pure_initcall(init_ontime);
+late_initcall(init_ontime);
