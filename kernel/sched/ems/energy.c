@@ -42,6 +42,13 @@ inline unsigned int get_cpu_mips(unsigned int cpu)
 	return per_cpu(energy_table, cpu).mips;
 }
 
+unsigned int get_cpu_max_capacity(unsigned int cpu)
+{
+	struct energy_table *table = &per_cpu(energy_table, cpu);
+
+	return table->states[table->nr_states - 1].cap;
+}
+
 /*
  * When choosing cpu considering energy efficiency, decide best cpu and
  * backup cpu according to policy, and then choose cpu which consumes the
