@@ -809,7 +809,7 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 		goto disable;
 	cond->coregroup = cnt;
 
-	capacity = capacity_orig_of(cpumask_first(&cond->cpus));
+	capacity = get_cpu_max_capacity(cpumask_first(&cond->cpus));
 
 	/* If any of ontime parameter isn't, disable ontime of this coregroup */
 	res |= of_property_read_u32(coregroup, "upper-boundary", &prop);
