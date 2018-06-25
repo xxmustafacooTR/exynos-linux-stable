@@ -56,96 +56,8 @@ unsigned int get_cpu_max_capacity(unsigned int cpu)
  */
 struct eco_env {
 	struct task_struct *p;
-
 	int prev_cpu;
-	int best_cpu;
-	int backup_cpu;
 };
-
-static void find_eco_target(struct eco_env *eenv)
-{
-	struct task_struct *p = eenv->p;
-	unsigned long best_min_cap_orig = ULONG_MAX;
-	unsigned long backup_min_cap_orig = ULONG_MAX;
-	unsigned long best_spare_cap = 0;
-	int backup_idle_cstate = INT_MAX;
-	int best_cpu = -1;
-	int backup_cpu = -1;
-	int cpu;
-
-	/*
-	 * It is meaningless to find an energy cpu when the energy table is
-	 * not created or has not been created yet.
-	 */
-	if (!per_cpu(energy_table, eenv->prev_cpu).nr_states)
-		return;
-
-	rcu_read_lock();
-
-	for_each_cpu_and(cpu, &p->cpus_allowed, cpu_active_mask) {
-		unsigned long capacity_orig = capacity_orig_of(cpu);
-		unsigned long wake_util, new_util;
-
-		wake_util = cpu_util_wake(cpu, p);
-		new_util = wake_util + task_util_est(p);
-		new_util = max(new_util, boosted_task_util(p));
-
-		/* checking prev cpu is meaningless */
-		if (eenv->prev_cpu == cpu)
-			continue;
-
-		/* skip over-capacity cpu */
-		if (new_util > capacity_orig)
-			continue;
-
-		/*
-		 * Backup target) shallowest idle cpu among min-cap cpu
-		 *
-		 * In general, assigning a task to an idle cpu is
-		 * disadvantagerous in energy. To minimize the energy increase
-		 * associated with selecting idle cpu, choose a cpu that is
-		 * in the lowest performance and shallowest idle state.
-		 */
-		if (idle_cpu(cpu)) {
-			int idle_idx;
-
-			if (backup_min_cap_orig < capacity_orig)
-				continue;
-
-			idle_idx = idle_get_state_idx(cpu_rq(cpu));
-			if (backup_idle_cstate <= idle_idx)
-				continue;
-
-			backup_min_cap_orig = capacity_orig;
-			backup_idle_cstate = idle_idx;
-			backup_cpu = cpu;
-			continue;
-		}
-
-		/*
-		 * Best target) biggest spare cpu among min-cap cpu
-		 *
-		 * Select the cpu with the biggest spare capacity to maintain
-		 * frequency as possible without waking up idle cpu. Also, to
-		 * maximize the use of energy-efficient cpu, we choose the
-		 * lowest performance cpu.
-		 */
-		if (best_min_cap_orig < capacity_orig)
-			continue;
-
-		if (best_spare_cap > (capacity_orig - new_util))
-			continue;
-
-		best_spare_cap = capacity_orig - new_util;
-		best_min_cap_orig = capacity_orig;
-		best_cpu = cpu;
-	}
-
-	rcu_read_unlock();
-
-	eenv->best_cpu = best_cpu;
-	eenv->backup_cpu = backup_cpu;
-}
 
 static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 {
@@ -224,60 +136,98 @@ static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 	return total_energy;
 }
 
+static int find_min_util_cpu(struct cpumask *mask, unsigned long task_util)
+{
+	unsigned long min_util = ULONG_MAX;
+	int min_util_cpu = -1;
+	int cpu;
+
+	/* Find energy efficient cpu in each coregroup. */
+	for_each_cpu_and(cpu, mask, cpu_active_mask) {
+		unsigned long capacity_orig = capacity_orig_of(cpu);
+		unsigned long util = cpu_util(cpu);
+
+		/* Skip over-capacity cpu */
+		if (util + task_util > capacity_orig)
+			continue;
+
+		/*
+		 * Choose min util cpu within coregroup as candidates.
+		 * Choosing a min util cpu is most likely to handle
+		 * wake-up task without increasing the frequecncy.
+		 */
+		if (util < min_util) {
+			min_util = util;
+			min_util_cpu = cpu;
+		}
+	}
+
+	return min_util_cpu;
+}
+
 static int select_eco_cpu(struct eco_env *eenv)
 {
-	unsigned int prev_energy, best_energy, backup_energy;
-	unsigned int temp_energy;
-	int temp_cpu;
+	unsigned long task_util = task_util_est(eenv->p);
+	unsigned int best_energy = UINT_MAX;
+	unsigned int prev_energy;
 	int eco_cpu = eenv->prev_cpu;
-	int margin;
-
-	prev_energy = calculate_energy(eenv->p, eenv->prev_cpu);
+	int cpu, best_cpu = -1;
 
 	/*
-	 * find_eco_target() may not find best or backup cup. Ignore unfound
-	 * cpu, and if both are found, select a cpu that consumes less energy
-	 * when assigning task.
+	 * It is meaningless to find an energy cpu when the energy table is
+	 * not created or has not been created yet.
 	 */
-	best_energy = backup_energy = UINT_MAX;
+	if (!per_cpu(energy_table, eenv->prev_cpu).nr_states)
+		return eenv->prev_cpu;
 
-	if (cpu_selected(eenv->best_cpu))
-		best_energy = calculate_energy(eenv->p, eenv->best_cpu);
+	for_each_cpu(cpu, cpu_active_mask) {
+		struct cpumask mask;
+		int energy_cpu;
 
-	if (cpu_selected(eenv->backup_cpu))
-		backup_energy = calculate_energy(eenv->p, eenv->backup_cpu);
+		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
+			continue;
 
-	if (best_energy < backup_energy) {
-		temp_energy = best_energy;
-		temp_cpu = eenv->best_cpu;
-	} else {
-		temp_energy = backup_energy;
-		temp_cpu = eenv->backup_cpu;
-	}
-
-	/*
-	 * Compare prev cpu to target cpu among best and backup cpu to determine
-	 * whether keeping the task on PREV CPU and sending the task to TARGET
-	 * CPU is beneficial for energy.
-	 */
-	if (temp_energy < prev_energy) {
+		cpumask_and(&mask, cpu_coregroup_mask(cpu), tsk_cpus_allowed(eenv->p));
 		/*
-		 * Compute the dead-zone margin used to prevent too many task
-		 * migrations with negligible energy savings.
-		 * An energy saving is considered meaningful if it reduces the
-		 * energy consumption of PREV CPU candidate by at least ~1.56%.
+		 * Checking prev cpu is meaningless, because the energy of prev cpu
+		 * will be compared to best cpu at last
 		 */
-		margin = prev_energy >> 6;
-		if ((prev_energy - temp_energy) < margin)
-			goto out;
+		cpumask_clear_cpu(eenv->prev_cpu, &mask);
+		if (cpumask_empty(&mask))
+			continue;
 
-		eco_cpu = temp_cpu;
+		/*
+		 * Select the best target, which is expected to consume the
+		 * lowest energy among the min util cpu for each coregroup.
+		 */
+		energy_cpu = find_min_util_cpu(&mask, task_util);
+		if (cpu_selected(energy_cpu)) {
+			unsigned int energy = calculate_energy(eenv->p, energy_cpu);
+
+			if (energy < best_energy) {
+				best_energy = energy;
+				best_cpu = energy_cpu;
+			}
+		}
 	}
 
-out:
-	trace_ems_select_eco_cpu(eenv->p, eco_cpu,
-			eenv->prev_cpu, eenv->best_cpu, eenv->backup_cpu,
-			prev_energy, best_energy, backup_energy);
+	if (!cpu_selected(best_cpu))
+		return -1;
+
+	/*
+	 * Compare prev cpu to best cpu to determine whether keeping the task
+	 * on PREV CPU and sending the task to BEST CPU is beneficial for
+	 * energy.
+	 * An energy saving is considered meaningful if it reduces the energy
+	 * consumption of PREV CPU candidate by at least ~1.56%.
+	 */
+	prev_energy = calculate_energy(eenv->p, eenv->prev_cpu);
+	if (prev_energy - (prev_energy >> 6) > best_energy)
+		eco_cpu = best_cpu;
+
+	trace_ems_select_eco_cpu(eenv->p, eco_cpu, eenv->prev_cpu, best_cpu,
+			prev_energy, best_energy);
+
 	return eco_cpu;
 }
 
@@ -288,8 +238,6 @@ int select_energy_cpu(struct task_struct *p, int prev_cpu, int sd_flag, int sync
 	struct eco_env eenv = {
 		.p = p,
 		.prev_cpu = prev_cpu,
-		.best_cpu = -1,
-		.backup_cpu = -1,
 	};
 
 	if (!sched_feat(ENERGY_AWARE))
@@ -321,13 +269,9 @@ int select_energy_cpu(struct task_struct *p, int prev_cpu, int sd_flag, int sync
 
 	/*
 	 * Find eco-friendly target.
-	 * After selecting the best and backup cpu according to strategy, we
-	 * choose a cpu that is energy efficient compared to prev cpu.
+	 * After selecting the best cpu according to strategy,
+	 * we choose a cpu that is energy efficient compared to prev cpu.
 	 */
-	find_eco_target(&eenv);
-	if (eenv.best_cpu < 0 && eenv.backup_cpu < 0)
-		return prev_cpu;
-
 	return select_eco_cpu(&eenv);
 }
 
