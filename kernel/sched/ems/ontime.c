@@ -62,11 +62,6 @@ struct ontime_env {
 };
 DEFINE_PER_CPU(struct ontime_env, ontime_env);
 
-static inline struct task_struct *task_of(struct sched_entity *se)
-{
-	return container_of(se, struct task_struct, se);
-}
-
 static inline struct sched_entity *se_of(struct sched_avg *sa)
 {
 	return container_of(sa, struct sched_entity, avg);
