@@ -11,7 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#define LOAD_AVG_MAX		47742
+#include "../sched-pelt.h"
+
 #define cpu_selected(cpu)	(cpu >= 0)
 #define tsk_cpus_allowed(tsk)	(&(tsk)->cpus_allowed)
 
