@@ -2261,8 +2261,34 @@ static inline int affordable_cpu(int cpu, unsigned long task_load)
 	return 1;
 }
 
-extern unsigned long cpu_util_wake(int cpu, struct task_struct *p);
 extern unsigned long task_util(struct task_struct *p);
+unsigned long frt_cpu_util_wake(int cpu, struct task_struct *p)
+{
+	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
+	struct rt_rq *rt_rq = &cpu_rq(cpu)->rt;
+	unsigned int util;
+
+	util = READ_ONCE(cfs_rq->avg.util_avg) + READ_ONCE(rt_rq->avg.util_avg);
+
+#ifdef CONFIG_SCHED_WALT
+	/*
+	 * WALT does not decay idle tasks in the same manner
+	 * as PELT, so it makes little sense to subtract task
+	 * utilization from cpu utilization. Instead just use
+	 * cpu_util for this case.
+	 */
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+		return cpu_util(cpu);
+#endif
+	/* Task has no contribution or is new */
+	if (cpu != task_cpu(p) || !READ_ONCE(p->se.avg.last_update_time))
+		return util;
+
+	/* Discount task's blocked util from CPU's util */
+	util -= min_t(unsigned int, util, task_util(p));
+
+	return min_t(unsigned long, util, capacity_orig_of(cpu));
+}
 static inline int cpu_selected(int cpu)	{ return (nr_cpu_ids > cpu && cpu >= 0); }
 /*
  * Must find the victim or recessive (not in lowest_mask)
@@ -2400,7 +2426,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 
 		for_each_cpu_and(icpu, rttsk_cpus_allowed(task), traversingDom) {
 			if (idle_cpu(icpu)) {
-				cpu_load = cpu_util_wake(icpu, task) + task_util(task);
+				cpu_load = frt_cpu_util_wake(icpu, task) + task_util(task);
 				if ((min_icl > cpu_load) ||
 					(min_icl == cpu_load && task_cpu(task) == icpu)) {
 					min_icl = cpu_load;
@@ -2428,7 +2454,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 			if (!cpumask_test_cpu(icpu, lowest_mask))
 				continue;
 
-			cpu_load = cpu_util_wake(icpu, task) + task_util(task);
+			cpu_load = frt_cpu_util_wake(icpu, task) + task_util(task);
 
 			if (rt_task(cpu_rq(icpu)->curr)) {
 				if (cpu_load < min_rt_load ||
