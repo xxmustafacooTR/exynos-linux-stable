@@ -23,7 +23,7 @@
 #include "tune.h"
 #include "ems/ems.h"
 
-unsigned long boosted_cpu_util(int cpu);
+unsigned long boosted_cpu_util(int cpu, unsigned long other_util);
 
 /* Stub out fast switch routines present on mainline to reduce the backport
  * overhead. */
@@ -255,7 +255,7 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, u64 time)
 #ifdef CONFIG_SCHED_EMS
 	*util = ml_boosted_cpu_util(cpu);
 #else
-	*util = boosted_cpu_util(cpu);
+	*util = boosted_cpu_util(cpu, rt);
 #endif
 	if (likely(use_pelt()))
 		*util = *util + rt;
