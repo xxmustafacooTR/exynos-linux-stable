@@ -11022,7 +11022,6 @@ static __latent_entropy void run_rebalance_domains(struct softirq_action *h)
 		rebalance_domains(this_rq, idle);
 
 	ontime_migration();
-	schedtune_group_util_update();
 
 #ifdef CONFIG_NO_HZ_COMMON
 	clear_bit(NOHZ_STATS_KICK, nohz_flags(this_rq->cpu));

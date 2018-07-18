@@ -248,16 +248,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 5 : group balancing
-	 */
-	target_cpu = group_balancing(p);
-	if (cpu_selected(target_cpu)) {
-		strcpy(state, "group balancing");
-		goto out;
-	}
-
-	/*
-	 * Priority 6 : prefer-idle
+	 * Priority 5 : prefer-idle
 	 *
 	 * Prefer-idle is a function that operates on cgroup basis managed by
 	 * schedtune. When perfer-idle is set to 1, the tasks in the group are
@@ -273,7 +264,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 7 : energy cpu
+	 * Priority 6 : energy cpu
 	 *
 	 * A scheduling scheme based on cpu energy, find the least power consumption
 	 * cpu referring energy table when assigning task.
@@ -285,7 +276,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	}
 
 	/*
-	 * Priority 8 : proper cpu
+	 * Priority 7 : proper cpu
 	 */
 	target_cpu = select_proper_cpu(p);
 	if (cpu_selected(target_cpu))

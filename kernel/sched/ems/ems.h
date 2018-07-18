@@ -28,11 +28,9 @@ extern int band_play_cpu(struct task_struct *p);
 #ifdef CONFIG_SCHED_TUNE
 extern int prefer_perf_cpu(struct task_struct *p);
 extern int prefer_idle_cpu(struct task_struct *p);
-extern int group_balancing(struct task_struct *p);
 #else
 static inline int prefer_perf_cpu(struct task_struct *p) { return -1; }
 static inline int prefer_idle_cpu(struct task_struct *p) { return -1; }
-static inline int group_balancing(struct task_struct *p) { return -1; }
 #endif
 
 extern int task_util(struct task_struct *p);
