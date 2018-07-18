@@ -267,7 +267,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	 * Priority 6 : energy cpu
 	 *
 	 * A scheduling scheme based on cpu energy, find the least power consumption
-	 * cpu referring energy table when assigning task.
+	 * cpu with energy table when assigning task.
 	 */
 	target_cpu = select_energy_cpu(p, prev_cpu, sd_flag, sync);
 	if (cpu_selected(target_cpu)) {
@@ -277,6 +277,10 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 
 	/*
 	 * Priority 7 : proper cpu
+	 *
+	 * If the task failed to find a cpu to assign from the above conditions,
+	 * it means that assigning task to any cpu does not have performance and
+	 * power benefit. In this case, select cpu for balancing cpu utilization.
 	 */
 	target_cpu = select_proper_cpu(p);
 	if (cpu_selected(target_cpu))
