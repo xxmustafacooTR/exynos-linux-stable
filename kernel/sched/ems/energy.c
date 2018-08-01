@@ -59,7 +59,7 @@ struct eco_env {
 	int prev_cpu;
 };
 
-static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
+unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 {
 	unsigned long util[NR_CPUS] = {0, };
 	unsigned int total_energy = 0;
