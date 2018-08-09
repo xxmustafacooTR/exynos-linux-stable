@@ -480,6 +480,8 @@ void init_sched_energy_table(struct cpumask *cpus, int table_size,
 			update_group_capacity(sd, cpu);
 		rcu_read_unlock();
 	}
+
+	topology_update();
 }
 
 static int __init init_sched_energy_data(void)
