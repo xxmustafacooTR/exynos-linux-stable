@@ -46,6 +46,9 @@ struct task_band {
 };
 
 #ifdef CONFIG_SCHED_EMS
+extern struct kobject *ems_kobj;
+extern unsigned int get_cpu_max_capacity(unsigned int cpu);
+
 extern struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
 		struct task_struct *p);
 
