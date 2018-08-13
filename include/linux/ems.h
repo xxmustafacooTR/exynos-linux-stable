@@ -14,16 +14,6 @@
 #include <linux/plist.h>
 #include <linux/sched.h>
 
-#ifdef CONFIG_SCHED_TUNE
-enum stune_group {
-	STUNE_ROOT,
-	STUNE_FOREGROUND,
-	STUNE_BACKGROUND,
-	STUNE_TOPAPP,
-	STUNE_GROUP_COUNT,
-};
-#endif
-
 struct gb_qos_request {
 	struct plist_node node;
 	char *name;
@@ -77,9 +67,6 @@ extern void update_lbt_overutil(int cpu, unsigned long capacity);
 /* global boost */
 extern void gb_qos_update_request(struct gb_qos_request *req, u32 new_value);
 
-/* prefer perf */
-extern void request_kernel_prefer_perf(int grp_idx, int enable);
-
 /* task band */
 extern void sync_band(struct task_struct *p, bool join);
 extern void newbie_join_band(struct task_struct *newbie);
@@ -119,8 +106,6 @@ static inline bool lbt_overutilized(int cpu, int level)
 static inline void update_lbt_overutil(int cpu, unsigned long capacity) { }
 
 static inline void gb_qos_update_request(struct gb_qos_request *req, u32 new_value) { }
-
-static inline void request_kernel_prefer_perf(int grp_idx, int enable) { }
 
 static inline void sync_band(struct task_struct *p, bool join) { }
 static inline void newbie_join_band(struct task_struct *newbie) { }
