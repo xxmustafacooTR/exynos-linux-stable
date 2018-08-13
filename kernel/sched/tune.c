@@ -6,6 +6,7 @@
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/ems.h>
+#include <linux/ems_service.h>
 
 #include <trace/events/sched.h>
 
@@ -683,30 +684,6 @@ int schedtune_prefer_idle(struct task_struct *p)
 
 	return prefer_idle;
 }
-
-#ifdef CONFIG_SCHED_EMS
-static atomic_t kernel_prefer_perf_req[BOOSTGROUPS_COUNT];
-int kernel_prefer_perf(int grp_idx)
-{
-	if (grp_idx >= BOOSTGROUPS_COUNT)
-		return -EINVAL;
-
-	return atomic_read(&kernel_prefer_perf_req[grp_idx]);
-}
-
-void request_kernel_prefer_perf(int grp_idx, int enable)
-{
-	if (grp_idx >= BOOSTGROUPS_COUNT)
-		return;
-
-	if (enable)
-		atomic_inc(&kernel_prefer_perf_req[grp_idx]);
-	else
-		BUG_ON(atomic_dec_return(&kernel_prefer_perf_req[grp_idx]) < 0);
-}
-#else
-static inline int kernel_prefer_perf(int grp_idx) { return 0; }
-#endif
 
 int schedtune_prefer_perf(struct task_struct *p)
 {
