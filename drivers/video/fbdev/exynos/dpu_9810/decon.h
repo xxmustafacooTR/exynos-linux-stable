@@ -488,6 +488,16 @@ enum dpp_hdr_standard {
 	DPP_HDR_HLG,
 };
 
+enum decon_color_mode {
+	HAL_COLOR_MODE_NATIVE = 0,
+	HAL_COLOR_MODE_NUM_MAX,
+};
+
+struct decon_color_mode_info {
+	int index;
+	u32 color_mode;
+};
+
 struct decon_clocks {
 	unsigned long decon[CLK_ID_DPLL + 1];
 };
@@ -1720,5 +1730,10 @@ void decon_reg_set_dsu(u32 id, enum decon_dsi_mode dsi_mode, struct decon_param 
 #define V4L2_EVENT_DECON_FRAME_DONE     (V4L2_EVENT_DECON + 2)
 #define V4L2_EVENT_DECON_VSYNC          (V4L2_EVENT_DECON + 3)
 #endif
+
+/* COLOR Mode */
+#define EXYNOS_GET_COLOR_MODE_NUM	_IOW('F', 600, __u32)
+#define EXYNOS_GET_COLOR_MODE		_IOW('F', 601, struct decon_color_mode_info)
+#define EXYNOS_SET_COLOR_MODE		_IOW('F', 602, __u32)
 
 #endif /* ___SAMSUNG_DECON_H__ */
