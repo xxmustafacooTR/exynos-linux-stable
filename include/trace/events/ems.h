@@ -414,6 +414,32 @@ TRACE_EVENT(ems_manage_band,
 	TP_printk("comm=%s pid=%d band_id=%d event=%s",
 			__entry->comm, __entry->pid, __entry->band_id, __entry->event)
 );
+
+TRACE_EVENT(ems_prefer_perf_service,
+
+	TP_PROTO(struct task_struct *p, unsigned long util, int service_cpu, char *event),
+
+	TP_ARGS(p, util, service_cpu, event),
+
+	TP_STRUCT__entry(
+		__array( char,		comm,		TASK_COMM_LEN	)
+		__field( pid_t,		pid				)
+		__field( unsigned long,	util				)
+		__field( int,		service_cpu			)
+		__array( char,		event,		64		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid			= p->pid;
+		__entry->util			= util;
+		__entry->service_cpu		= service_cpu;
+		strncpy(__entry->event, event, 63);
+	),
+
+	TP_printk("comm=%s pid=%d util=%lu service_cpu=%d event=%s",
+			__entry->comm, __entry->pid, __entry->util, __entry->service_cpu, __entry->event)
+);
 #endif /* _TRACE_EMS_H */
 
 /* This part must be outside protection */
