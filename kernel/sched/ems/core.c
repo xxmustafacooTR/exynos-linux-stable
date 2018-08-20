@@ -186,7 +186,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	 * Ontime task is very sensitive to performance because it is usually the
 	 * main task of application. Therefore, it has the highest priority.
 	 */
-	target_cpu = ontime_task_wakeup(p);
+	target_cpu = ontime_task_wakeup(p, sync);
 	if (cpu_selected(target_cpu)) {
 		strcpy(state, "ontime migration");
 		goto out;

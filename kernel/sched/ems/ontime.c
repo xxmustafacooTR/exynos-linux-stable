@@ -524,7 +524,7 @@ void ontime_migration(void)
 	spin_unlock(&om_lock);
 }
 
-int ontime_task_wakeup(struct task_struct *p)
+int ontime_task_wakeup(struct task_struct *p, int sync)
 {
 	struct cpumask fit_cpus;
 	int dst_cpu, src_cpu = task_cpu(p);
@@ -540,6 +540,17 @@ int ontime_task_wakeup(struct task_struct *p)
 	/* If fit_cpus is little coregroup, don't need to select dst_cpu */
 	if (cpumask_test_cpu(MIN_CAPACITY_CPU, &fit_cpus))
 		return -1;
+
+	/* If this cpu is fit and sync, wake up on this cpu */
+	if (sysctl_sched_sync_hint_enable && sync) {
+		int cpu = smp_processor_id();
+
+		if (cpumask_test_cpu(cpu, &p->cpus_allowed)
+				&& cpumask_test_cpu(cpu, &fit_cpus)) {
+			trace_ems_ontime_task_wakeup(p, src_cpu, cpu, "ontime-sync wakeup");
+			return cpu;
+		}
+	}
 
 	dst_cpu = ontime_select_target_cpu(p, &fit_cpus);
 	if (cpu_selected(dst_cpu)) {

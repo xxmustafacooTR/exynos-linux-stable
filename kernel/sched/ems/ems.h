@@ -18,7 +18,7 @@
 
 extern struct kobject *ems_kobj;
 
-extern int ontime_task_wakeup(struct task_struct *p);
+extern int ontime_task_wakeup(struct task_struct *p, int sync);
 extern int select_perf_cpu(struct task_struct *p);
 extern int global_boosting(struct task_struct *p);
 extern int global_boosted(void);
