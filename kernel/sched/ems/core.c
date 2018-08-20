@@ -174,6 +174,12 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 		update_band(p, old_util);
 	}
 
+	target_cpu = select_service_cpu(p);
+	if (cpu_selected(target_cpu)) {
+		strcpy(state, "service");
+		goto out;
+	}
+
 	/*
 	 * Priority 1 : ontime task
 	 *
