@@ -2583,28 +2583,31 @@ static int find_victim_rt_rq(struct task_struct *task, const struct cpumask *sg_
 
 static int find_idle_cpu(struct task_struct *task)
 {
-	int best_cpu = -1, cpu, cpu_prio, max_prio = -1, prefer_cpu;
-	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX;
+	int prefer_cpu, cpu, best_cpu = -1;
+	int cpu_prio, max_prio = -1;
+	u64 cpu_load, min_load = ULLONG_MAX;
 	struct cpumask candidate_cpus;
 
+	prefer_cpu = cpu = frt_find_prefer_cpu(task);
 	cpumask_and(&candidate_cpus, &task->cpus_allowed, cpu_active_mask);
-	prefer_cpu = frt_find_prefer_cpu(task);
 
-	while (!cpumask_empty(&candidate_cpus)) {
-		const struct cpumask* grp_mask = cpu_coregroup_mask(prefer_cpu);
+	do {
+		const struct cpumask *grp_mask = cpu_coregroup_mask(cpu);
 
-		for_each_cpu(cpu, grp_mask) {
-			cpumask_clear_cpu(cpu, &candidate_cpus);
-
+		for_each_cpu_and(cpu, grp_mask, &candidate_cpus) {
 			if (!idle_cpu(cpu))
 				continue;
+
 			cpu_prio = cpu_rq(cpu)->rt.highest_prio.curr;
 			if (cpu_prio < max_prio)
 				continue;
 
 			cpu_load = frt_cpu_util_wake(cpu, task) + task_util(task);
+			if (cpu_load > capacity_orig_of(cpu))
+				continue;
+
 			if ((cpu_prio > max_prio) || (cpu_load < min_load) ||
-					(cpu_load == min_load && task_cpu(task) == cpu)) {
+				(cpu_load == min_load && task_cpu(task) == cpu)) {
 				min_load = cpu_load;
 				max_prio = cpu_prio;
 				best_cpu = cpu;
@@ -2620,20 +2623,20 @@ static int find_idle_cpu(struct task_struct *task)
 		 * If heavy util rt task, search higher performance sched group.
 		 * In the opposite case, search lower performance sched group
 		 */
-		prefer_cpu = cpumask_first(grp_mask);
-		prefer_cpu += cpumask_weight(grp_mask);
-		if (prefer_cpu >= NR_CPUS)
-			prefer_cpu = 0;
-	}
+		cpu = cpumask_first(grp_mask);
+		cpu += cpumask_weight(grp_mask);
+		if (cpu >= cpumask_weight(cpu_possible_mask))
+			cpu = 0;
+	} while (prefer_cpu == cpu);
 
 	return best_cpu;
 }
 
 static int find_recessive_cpu(struct task_struct *task)
 {
-	int best_cpu = -1, cpu, prefer_cpu;
+	int cpu, prefer_cpu, best_cpu = -1;
+	u64 cpu_load, min_load = ULLONG_MAX;
 	struct cpumask *lowest_mask;
-	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX;
 	struct cpumask candidate_cpus;
 	lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	/* Make sure the mask is initialized first */
@@ -2645,38 +2648,36 @@ static int find_recessive_cpu(struct task_struct *task)
 	cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask);
 
 	cpumask_and(&candidate_cpus, &task->cpus_allowed, lowest_mask);
-	prefer_cpu = frt_find_prefer_cpu(task);
+	cpumask_and(&candidate_cpus, &candidate_cpus, cpu_active_mask);
+	prefer_cpu = cpu = frt_find_prefer_cpu(task);
 
-	while (!cpumask_empty(&candidate_cpus)) {
-		const struct cpumask* grp_mask = cpu_coregroup_mask(prefer_cpu);
+	do {
+		const struct cpumask *grp_mask = cpu_coregroup_mask(cpu);
 
-		for_each_cpu(cpu, grp_mask) {
-			cpumask_clear_cpu(cpu, &candidate_cpus);
+		for_each_cpu_and(cpu, grp_mask, &candidate_cpus) {
 			cpu_load = frt_cpu_util_wake(cpu, task) + task_util(task);
 
+			if (cpu_load > capacity_orig_of(cpu))
+				continue;
+
 			if (cpu_load < min_load ||
-				(cpu_load == min_load && cpu == prefer_cpu)) {
+				(cpu_load == min_load && task_cpu(task) == cpu)) {
 				min_load = cpu_load;
 				best_cpu = cpu;
 			}
 		}
-
-		if (cpu_selected(best_cpu) &&
-			((capacity_orig_of(best_cpu) >= min_load) || (best_cpu == prefer_cpu))) {
+		if (cpu_selected(best_cpu))
 			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu,
 				rt_task(cpu_rq(best_cpu)->curr) ? "RT-RECESS" : "FAIR-RECESS");
-			return best_cpu;
-		}
-
 		/*
 		 * If heavy util rt task, search higher performance sched group.
 		 * In the opposite case, search lower performance sched group
 		 */
-		prefer_cpu = cpumask_first(grp_mask);
-		prefer_cpu += cpumask_weight(grp_mask);
-		if (prefer_cpu >= NR_CPUS)
-			prefer_cpu = 0;
-	}
+		cpu = cpumask_first(grp_mask);
+		cpu += cpumask_weight(grp_mask);
+		if (cpu >= cpumask_weight(cpu_possible_mask))
+			cpu = 0;
+	} while (prefer_cpu == cpu);
 
 	return best_cpu;
 }
