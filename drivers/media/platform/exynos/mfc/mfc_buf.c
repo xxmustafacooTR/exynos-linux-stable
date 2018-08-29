@@ -704,6 +704,7 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 
 	if (err != 0) {
 		mfc_err_dev("Firmware is not present in the /lib/firmware directory nor compiled in kernel.\n");
+		release_firmware(fw_blob);
 		return -EINVAL;
 	}
 
