@@ -117,6 +117,12 @@ static unsigned int calculate_energy(struct task_struct *p, int target_cpu)
 		 *    cpu usuage that excludes cpu performance.
 		 */
 		for_each_cpu(i, cpu_coregroup_mask(cpu)) {
+			if (i == task_cpu(p))
+				util[i] -= min_t(unsigned long, util[i], task_util_est(p));
+
+			if (i == target_cpu)
+				util[i] += task_util_est(p);
+
 			/* utilization with task exceeds max capacity of cpu */
 			if (util[i] >= capacity) {
 				util_sum += SCHED_CAPACITY_SCALE;
