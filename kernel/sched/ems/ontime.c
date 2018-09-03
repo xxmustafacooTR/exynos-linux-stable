@@ -125,100 +125,118 @@ static int
 ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 {
 	struct ontime_cond *curr;
-	struct cpumask cpus;
-	int cpu = task_cpu(p);
+	int src_cpu = task_cpu(p);
 
-	cpumask_and(fit_cpus, cpu_coregroup_mask(cpu), tsk_cpus_allowed(p));
-	if (cpumask_empty(fit_cpus))
-		return -ENODEV;
-
-	curr = get_current_cond(cpu);
+	curr = get_current_cond(src_cpu);
 	if (!curr)
 		return -EINVAL;
 
+	cpumask_clear(fit_cpus);
+
 	if (ontime_load_avg(p) >= curr->upper_boundary) {
 		/*
-		 * 1. If task's load is bigger than upper boundary,
-		 * find fit_cpus among next coregroup.
+		 * If task's load is above upper boundary of source,
+		 * find fit_cpus that have higher mips than source.
 		 */
-		list_for_each_entry_from(curr, &cond_list, list) {
-			cpumask_and(&cpus, &curr->cpus, tsk_cpus_allowed(p));
-			if (cpumask_empty(&cpus))
-				break;
+		list_for_each_entry(curr, &cond_list, list) {
+			int dst_cpu = cpumask_first(&curr->cpus);
 
-			cpumask_copy(fit_cpus, &cpus);
-
-			if (ontime_load_avg(p) < curr->upper_boundary)
-				break;
+			if (get_cpu_mips(src_cpu) < get_cpu_mips(dst_cpu))
+				cpumask_or(fit_cpus, fit_cpus, &curr->cpus);
 		}
-	} else if (ontime_load_avg(p) < curr->lower_boundary) {
+	} else if (ontime_load_avg(p) >= curr->lower_boundary) {
 		/*
-		 * 2. If task's load is smaller than lower boundary,
-		 * find fit_cpus among prev coregroup.
+		 * If task's load is between upper boundary and lower boundary of source,
+		 * fit cpus is the coregroup of source.
 		 */
-		list_for_each_entry_from_reverse(curr, &cond_list, list) {
-			cpumask_and(&cpus, &curr->cpus, tsk_cpus_allowed(p));
-			if (cpumask_empty(&cpus))
-				break;
-
-			cpumask_copy(fit_cpus, &cpus);
-
-			if (ontime_load_avg(p) >= curr->lower_boundary)
-				break;
-		}
+		cpumask_copy(fit_cpus, cpu_coregroup_mask(src_cpu));
+	} else {
+		/*
+		 * If task's load is below lower boundary,
+		 * don't need to do ontime migration or wakeup.
+		 */
+		return -1;
 	}
+
+	if (cpumask_empty(fit_cpus))
+		return -1;
 
 	return 0;
 }
 
 static int
-ontime_select_target_cpu(struct task_struct *p, struct cpumask *dst_cpus)
+ontime_select_target_cpu(struct task_struct *p, struct cpumask *fit_cpus)
 {
-	int cpu;
-	int best_cpu = -1, backup_cpu = -1;
-	unsigned int min_exit_latency = UINT_MAX;
-	unsigned long min_util = ULONG_MAX;
+	struct cpumask candidates;
+	int cpu, min_energy_cpu = -1;
+	int candidate_count = 0;
 
-	rcu_read_lock();
+	cpumask_clear(&candidates);
 
-	for_each_cpu_and(cpu, dst_cpus, cpu_active_mask) {
-		if (cpu_rq(cpu)->ontime_migrating)
+	/*
+	 * First) Find min_util_cpu for each coregroup in fit cpus and candidate it.
+	 */
+	for_each_cpu(cpu, fit_cpus) {
+		int i, min_util_cpu = -1;
+		unsigned long coverage_util, min_util = ULONG_MAX;
+
+		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
 			continue;
 
-		if (idle_cpu(cpu)) {
-			/* 1. Find shallowest idle cpu. */
-			struct cpuidle_state *idle = idle_get_state(cpu_rq(cpu));
+		coverage_util = capacity_orig_of(cpu) * get_coverage_ratio(cpu);
 
-			if (!idle) {
-				rcu_read_unlock();
-				return cpu;
-			}
+		for_each_cpu_and(i, cpu_coregroup_mask(cpu), cpu_active_mask) {
+			unsigned long new_util;
 
-			if (idle->exit_latency < min_exit_latency) {
-				min_exit_latency = idle->exit_latency;
-				best_cpu = cpu;
-			}
-		} else {
-			/* 2. Find cpu that have to spare */
-			unsigned long new_util = task_util(p) + cpu_util_wake(cpu, p);
+			if (!cpumask_test_cpu(i, tsk_cpus_allowed(p)))
+				continue;
 
-			if (new_util * 100 >=
-					capacity_orig_of(cpu) * get_coverage_ratio(cpu))
+			if (cpu_rq(i)->ontime_migrating)
+				continue;
+
+			new_util = task_util(p) + cpu_util_wake(i, p);
+
+			if (new_util * 100 >= coverage_util)
 				continue;
 
 			if (new_util < min_util) {
 				min_util = new_util;
-				backup_cpu = cpu;
+				min_util_cpu = i;
 			}
+		}
+
+		if (cpu_selected(min_util_cpu)) {
+			cpumask_set_cpu(min_util_cpu, &candidates);
+			candidate_count++;
 		}
 	}
 
-	rcu_read_unlock();
+	/*
+	 * Second) Find min_energy_cpu among the candidates and return it.
+	 */
+	if (candidate_count > 1) {
+		/*
+		 * If there is more than one candidate,
+		 * calculate each energy and choose min_energy_cpu.
+		 */
+		unsigned int min_energy = UINT_MAX;
 
-	if (cpu_selected(best_cpu))
-		return best_cpu;
+		for_each_cpu(cpu, &candidates) {
+			unsigned int new_energy = calculate_energy(p, cpu);
 
-	return backup_cpu;
+			if (min_energy > new_energy) {
+				min_energy = new_energy;
+				min_energy_cpu = cpu;
+			}
+		}
+	} else if (candidate_count == 1) {
+		/*
+		 * If there is just one candidate, this will be min_energy_cpu.
+		 */
+		min_energy_cpu = cpumask_first(&candidates);
+	}
+
+	return min_energy_cpu;
 }
 
 extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
