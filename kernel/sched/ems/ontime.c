@@ -796,13 +796,26 @@ out:
 /****************************************************************/
 /*			initialization				*/
 /****************************************************************/
+static inline unsigned long get_boundary(unsigned long capacity, int ratio)
+{
+	/*
+	 * If ratio is negative, migration is disabled
+	 * -> threshold == maximum util(1024)
+	 */
+	if (ratio < 0)
+		return SCHED_CAPACITY_SCALE;
+
+	return capacity * ratio / 100;
+
+}
+
 static void __init
 parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 {
 	struct device_node *ontime, *coregroup;
 	char name[15];
 	unsigned long capacity;
-	unsigned int prop;
+	int prop;
 	int res = 0;
 
 	ontime = of_get_child_by_name(dn, "ontime");
@@ -818,11 +831,11 @@ parse_ontime(struct device_node *dn, struct ontime_cond *cond, int cnt)
 	capacity = get_cpu_max_capacity(cpumask_first(&cond->cpus));
 
 	/* If any of ontime parameter isn't, disable ontime of this coregroup */
-	res |= of_property_read_u32(coregroup, "upper-boundary", &prop);
-	cond->upper_boundary = capacity * prop / 100;
+	res |= of_property_read_s32(coregroup, "upper-boundary", &prop);
+	cond->upper_boundary = get_boundary(capacity, prop);
 
-	res |= of_property_read_u32(coregroup, "lower-boundary", &prop);
-	cond->lower_boundary = capacity * prop / 100;
+	res |= of_property_read_s32(coregroup, "lower-boundary", &prop);
+	cond->lower_boundary = get_boundary(capacity, prop);
 
 	res |= of_property_read_u32(coregroup, "coverage-ratio", &prop);
 	cond->coverage_ratio = prop;
