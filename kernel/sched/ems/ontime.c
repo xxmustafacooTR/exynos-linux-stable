@@ -240,10 +240,12 @@ ontime_pick_heavy_task(struct sched_entity *se, int *boost_migration)
 		*boost_migration = 1;
 		return p;
 	}
-	if (ontime_load_avg(p) >= get_upper_boundary(task_cpu(p))) {
-		heaviest_task = p;
-		max_util_avg = ontime_load_avg(p);
-		*boost_migration = 0;
+	if (schedtune_ontime_en(p)) {
+		if (ontime_load_avg(p) >= get_upper_boundary(task_cpu(p))) {
+			heaviest_task = p;
+			max_util_avg = ontime_load_avg(p);
+			*boost_migration = 0;
+		}
 	}
 
 	se = __pick_first_entity(se->cfs_rq);
@@ -258,6 +260,9 @@ ontime_pick_heavy_task(struct sched_entity *se, int *boost_migration)
 			*boost_migration = 1;
 			break;
 		}
+
+		if (!schedtune_ontime_en(p))
+			goto next_entity;
 
 		if (ontime_load_avg(p) < get_upper_boundary(task_cpu(p)))
 			goto next_entity;
@@ -529,6 +534,10 @@ int ontime_task_wakeup(struct task_struct *p, int sync)
 	struct cpumask fit_cpus;
 	int dst_cpu, src_cpu = task_cpu(p);
 
+	/* If this task is not allowed to ontime, do not ontime wakeup */
+	if (!schedtune_ontime_en(p))
+		return -1;
+
 	/* When wakeup task is on ontime migrating, do not ontime wakeup */
 	if (ontime_of(p)->migrating == 1)
 		return -1;
@@ -565,6 +574,9 @@ int ontime_task_wakeup(struct task_struct *p, int sync)
 int ontime_can_migration(struct task_struct *p, int dst_cpu)
 {
 	int src_cpu = task_cpu(p);
+
+	if (!schedtune_ontime_en(p))
+		return true;
 
 	if (ontime_of(p)->migrating == 1) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, false, "on migrating");
