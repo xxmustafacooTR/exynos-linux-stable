@@ -168,8 +168,10 @@ static int
 ontime_select_target_cpu(struct task_struct *p, struct cpumask *fit_cpus)
 {
 	struct cpumask candidates;
-	int cpu, min_energy_cpu = -1;
+	int cpu, energy_cpu = -1;
 	int candidate_count = 0;
+
+	rcu_read_lock();
 
 	cpumask_clear(&candidates);
 
@@ -177,8 +179,11 @@ ontime_select_target_cpu(struct task_struct *p, struct cpumask *fit_cpus)
 	 * First) Find min_util_cpu for each coregroup in fit cpus and candidate it.
 	 */
 	for_each_cpu(cpu, fit_cpus) {
-		int i, min_util_cpu = -1;
-		unsigned long coverage_util, min_util = ULONG_MAX;
+		int i;
+		int best_cpu = -1, backup_cpu = -1;
+		unsigned int min_exit_latency = UINT_MAX;
+		unsigned long min_util = ULONG_MAX;
+		unsigned long coverage_util;
 
 		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
 			continue;
@@ -186,7 +191,6 @@ ontime_select_target_cpu(struct task_struct *p, struct cpumask *fit_cpus)
 		coverage_util = capacity_orig_of(cpu) * get_coverage_ratio(cpu);
 
 		for_each_cpu_and(i, cpu_coregroup_mask(cpu), cpu_active_mask) {
-			unsigned long new_util;
 
 			if (!cpumask_test_cpu(i, tsk_cpus_allowed(p)))
 				continue;
@@ -194,22 +198,42 @@ ontime_select_target_cpu(struct task_struct *p, struct cpumask *fit_cpus)
 			if (cpu_rq(i)->ontime_migrating)
 				continue;
 
-			new_util = task_util(p) + cpu_util_wake(i, p);
+			if (idle_cpu(i)) {
+				/* 1. Find shallowest idle_cpu */
+				struct cpuidle_state *idle = idle_get_state(cpu_rq(cpu));
 
-			if (new_util * 100 >= coverage_util)
-				continue;
+				if (!idle) {
+					best_cpu = i;
+					break;
+				}
 
-			if (new_util < min_util) {
-				min_util = new_util;
-				min_util_cpu = i;
+				if (idle->exit_latency < min_exit_latency) {
+					min_exit_latency = idle->exit_latency;
+					best_cpu = i;
+				}
+			} else {
+				/* 2. Find cpu that have to spare */
+				unsigned long new_util = task_util(p) + cpu_util_wake(i, p);
+
+				if (new_util * 100 >= coverage_util)
+					continue;
+
+				if (new_util < min_util) {
+					min_util = new_util;
+					backup_cpu = i;
+				}
 			}
 		}
-
-		if (cpu_selected(min_util_cpu)) {
-			cpumask_set_cpu(min_util_cpu, &candidates);
+		if (cpu_selected(best_cpu)) {
+			cpumask_set_cpu(best_cpu, &candidates);
+			candidate_count++;
+		} else if (cpu_selected(backup_cpu)) {
+			cpumask_set_cpu(backup_cpu, &candidates);
 			candidate_count++;
 		}
 	}
+
+	rcu_read_unlock();
 
 	/*
 	 * Second) Find min_energy_cpu among the candidates and return it.
@@ -226,17 +250,17 @@ ontime_select_target_cpu(struct task_struct *p, struct cpumask *fit_cpus)
 
 			if (min_energy > new_energy) {
 				min_energy = new_energy;
-				min_energy_cpu = cpu;
+				energy_cpu = cpu;
 			}
 		}
 	} else if (candidate_count == 1) {
 		/*
 		 * If there is just one candidate, this will be min_energy_cpu.
 		 */
-		min_energy_cpu = cpumask_first(&candidates);
+		energy_cpu = cpumask_first(&candidates);
 	}
 
-	return min_energy_cpu;
+	return energy_cpu;
 }
 
 extern struct sched_entity *__pick_next_entity(struct sched_entity *se);
