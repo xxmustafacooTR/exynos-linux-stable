@@ -121,6 +121,14 @@ static unsigned long get_coverage_ratio(int cpu)
 		return 0;
 }
 
+static bool is_faster_than(int src, int dst)
+{
+	if (get_cpu_max_capacity(src) < get_cpu_max_capacity(dst))
+		return true;
+	else
+		return false;
+}
+
 static int
 ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 {
@@ -141,7 +149,7 @@ ontime_select_fit_cpus(struct task_struct *p, struct cpumask *fit_cpus)
 		list_for_each_entry(curr, &cond_list, list) {
 			int dst_cpu = cpumask_first(&curr->cpus);
 
-			if (get_cpu_mips(src_cpu) < get_cpu_mips(dst_cpu))
+			if (is_faster_than(src_cpu, dst_cpu))
 				cpumask_or(fit_cpus, fit_cpus, &curr->cpus);
 		}
 	} else if (ontime_load_avg(p) >= curr->lower_boundary) {
@@ -532,7 +540,7 @@ void ontime_migration(void)
 		 * If fit_cpus is smaller than current coregroup,
 		 * don't need to ontime migration.
 		 */
-		if (get_cpu_mips(cpu) >= get_cpu_mips(cpumask_first(&fit_cpus))) {
+		if (!is_faster_than(cpu, cpumask_first(&fit_cpus))) {
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
 			continue;
 		}
@@ -630,7 +638,7 @@ int ontime_can_migration(struct task_struct *p, int dst_cpu)
 		return true;
 	}
 
-	if (get_cpu_mips(dst_cpu) > get_cpu_mips(src_cpu)) {
+	if (is_faster_than(src_cpu, dst_cpu)) {
 		trace_ems_ontime_check_migrate(p, dst_cpu, true, "go to bigger");
 		return true;
 	}
