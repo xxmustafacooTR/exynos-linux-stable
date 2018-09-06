@@ -590,6 +590,32 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 /*
  * Tracepoint for logging FRT schedule activity
  */
+
+TRACE_EVENT(sched_fluid_activated_cpus,
+
+	TP_PROTO(int cpu, int util_sum, int busy_thr, unsigned int prefer_mask),
+
+	TP_ARGS(cpu, util_sum, busy_thr, prefer_mask),
+
+	TP_STRUCT__entry(
+		__field(	int,		cpu		)
+		__field(	int,		util_sum	)
+		__field(	int,		busy_thr	)
+		__field(	unsigned long,	prefer_mask	)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu;
+		__entry->util_sum	= util_sum;
+		__entry->busy_thr	= busy_thr;
+		__entry->prefer_mask	= prefer_mask;
+	),
+
+	TP_printk("cpu=%d util_sum=%d busy_thr=%d prefer_mask=%lu",
+		__entry->cpu,__entry->util_sum,
+		__entry->busy_thr, __entry->prefer_mask)
+);
+
 TRACE_EVENT(sched_fluid_stat,
 
 	TP_PROTO(struct task_struct *tsk, struct sched_avg *avg, int best, char* str),
