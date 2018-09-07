@@ -28,6 +28,7 @@ struct frt_dom {
 	struct cpumask		*activated_cpus;
 
 	struct list_head	list;
+	struct frt_dom		*next;
 	/* kobject for sysfs group */
 	struct kobject		kobj;
 };
@@ -287,7 +288,7 @@ disable:
 
 static int __init init_frt(void)
 {
-	struct frt_dom *dom;
+	struct frt_dom *dom, *prev, *head;
 	struct device_node *dn;
 	int cpu, tcpu, cnt = 0;
 	struct cpumask *ptr_mask;
@@ -305,19 +306,27 @@ static int __init init_frt(void)
 			continue;
 
 		dom = kzalloc(sizeof(struct frt_dom), GFP_KERNEL);
+		if (cpu == 0)
+			head = dom;
+
 		dom->activated_cpus = ptr_mask;
 
 		cpumask_copy(&dom->cpus, cpu_coregroup_mask(cpu));
 
 		frt_parse_dt(dn, dom, cnt++);
 
+		dom->next = head;
+		if (prev)
+			prev->next = dom;
+		prev = dom;
+
 		for_each_cpu(tcpu, &dom->cpus)
 			per_cpu(frt_rqs, tcpu) = dom;
+
 		frt_set_coverage_ratio(cpu);
 		frt_set_active_ratio(cpu);
 
 		list_add_tail(&dom->list, &frt_list);
-
 	}
 
 	frt_sysfs_init();
@@ -2673,23 +2682,24 @@ static int find_victim_rt_rq(struct task_struct *task, const struct cpumask *sg_
 
 static int find_idle_cpu(struct task_struct *task)
 {
-	int best_cpu = -1, cpu, cpu_prio, max_prio = -1, prefer_cpu;
-	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX;
+	int cpu, best_cpu = -1;
+	int cpu_prio, max_prio = -1;
+	u64 cpu_load, min_load = ULLONG_MAX;
 	struct cpumask candidate_cpus;
+	struct frt_dom *dom, *prefer_dom;
 
-	prefer_cpu = frt_find_prefer_cpu(task);
+	cpu = frt_find_prefer_cpu(task);
+	prefer_dom = dom = per_cpu(frt_rqs, cpu);
+	if (unlikely(!dom))
+		return best_cpu;
+
 	cpumask_and(&candidate_cpus, &task->cpus_allowed, cpu_active_mask);
 	cpumask_and(&candidate_cpus, &candidate_cpus, get_activated_cpus());
-
 	if (unlikely(cpumask_empty(&candidate_cpus)))
 		cpumask_copy(&candidate_cpus, &task->cpus_allowed);
 
-	while (!cpumask_empty(&candidate_cpus)) {
-		const struct cpumask* grp_mask = cpu_coregroup_mask(prefer_cpu);
-
-		for_each_cpu(cpu, grp_mask) {
-			cpumask_clear_cpu(cpu, &candidate_cpus);
-
+	do {
+		for_each_cpu_and(cpu, &dom->cpus, &candidate_cpus) {
 			if (!idle_cpu(cpu))
 				continue;
 			cpu_prio = cpu_rq(cpu)->rt.highest_prio.curr;
@@ -2710,25 +2720,20 @@ static int find_idle_cpu(struct task_struct *task)
 			return best_cpu;
 		}
 
-		/*
-		 * If heavy util rt task, search higher performance sched group.
-		 * In the opposite case, search lower performance sched group
-		 */
-		prefer_cpu = cpumask_first(grp_mask);
-		prefer_cpu += cpumask_weight(grp_mask);
-		if (prefer_cpu >= NR_CPUS)
-			prefer_cpu = 0;
-	}
+		dom = dom->next;
+	} while (dom != prefer_dom);
 
 	return best_cpu;
 }
 
 static int find_recessive_cpu(struct task_struct *task)
 {
-	int best_cpu = -1, cpu, prefer_cpu;
+	int cpu, best_cpu = -1;
 	struct cpumask *lowest_mask;
 	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX;
 	struct cpumask candidate_cpus;
+	struct frt_dom *dom, *prefer_dom;
+
 	lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask)) {
@@ -2739,38 +2744,29 @@ static int find_recessive_cpu(struct task_struct *task)
 	cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask);
 
 	cpumask_and(&candidate_cpus, &task->cpus_allowed, lowest_mask);
-	prefer_cpu = frt_find_prefer_cpu(task);
+	cpumask_and(&candidate_cpus, &candidate_cpus, cpu_active_mask);
+	cpu = frt_find_prefer_cpu(task);
+	prefer_dom = dom = per_cpu(frt_rqs, cpu);
+	if (unlikely(!dom))
+		return best_cpu;
 
-	while (!cpumask_empty(&candidate_cpus)) {
-		const struct cpumask* grp_mask = cpu_coregroup_mask(prefer_cpu);
-
-		for_each_cpu(cpu, grp_mask) {
-			cpumask_clear_cpu(cpu, &candidate_cpus);
+	do {
+		for_each_cpu_and(cpu, &dom->cpus, &candidate_cpus) {
 			cpu_load = frt_cpu_util_wake(cpu, task) + task_util(task);
 
 			if (cpu_load < min_load ||
-				(cpu_load == min_load && cpu == prefer_cpu)) {
+				(cpu_load == min_load && task_cpu(task) == cpu)) {
 				min_load = cpu_load;
 				best_cpu = cpu;
 			}
 		}
 
-		if (cpu_selected(best_cpu) &&
-			((capacity_orig_of(best_cpu) >= min_load) || (best_cpu == prefer_cpu))) {
+		if (cpu_selected(best_cpu))
 			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu,
 				rt_task(cpu_rq(best_cpu)->curr) ? "RT-RECESS" : "FAIR-RECESS");
-			return best_cpu;
-		}
 
-		/*
-		 * If heavy util rt task, search higher performance sched group.
-		 * In the opposite case, search lower performance sched group
-		 */
-		prefer_cpu = cpumask_first(grp_mask);
-		prefer_cpu += cpumask_weight(grp_mask);
-		if (prefer_cpu >= NR_CPUS)
-			prefer_cpu = 0;
-	}
+		dom = dom->next;
+	} while (dom != prefer_dom);
 
 	return best_cpu;
 }
