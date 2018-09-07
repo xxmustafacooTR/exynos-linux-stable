@@ -909,11 +909,15 @@ static int __init init_ontime(void)
 	struct device_node *dn;
 	int cpu, cnt = 0;
 
+	INIT_LIST_HEAD(&cond_list);
+
 	dn = of_find_node_by_path("/cpus/ems");
 	if (!dn)
 		return 0;
 
-	INIT_LIST_HEAD(&cond_list);
+
+	if (!cpumask_equal(cpu_possible_mask, cpu_all_mask))
+		return 0;
 
 	for_each_possible_cpu(cpu) {
 		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
