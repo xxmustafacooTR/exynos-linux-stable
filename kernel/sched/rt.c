@@ -2684,7 +2684,29 @@ static int find_victim_rt_rq(struct task_struct *task, const struct cpumask *sg_
 
 }
 
-static int find_idle_cpu(struct task_struct *task)
+static int check_cache_hot(struct task_struct *task, int flags, int *best_cpu)
+{
+	int cpu = smp_processor_id();
+	/*
+	 * 3. Cache hot : packing the callee and caller,
+	 *	when there is nothing to run except callee, or
+	 *	wake_flags are set.
+	 */
+	/* FUTURE WORK: Hierarchical cache hot */
+	if (!(flags & WF_SYNC))
+		return false;
+
+	if (cpumask_test_cpu(*best_cpu, cpu_coregroup_mask(cpu))) {
+		task->rt.sync_flag = 1;
+		*best_cpu = cpu;
+		trace_sched_fluid_stat(task, &task->rt.avg, *best_cpu, "CACHE-HOT");
+		return true;
+	}
+
+	return false;
+}
+
+static int find_idle_cpu(struct task_struct *task, int wake_flags)
 {
 	int cpu, best_cpu = -1;
 	int cpu_prio, max_prio = -1;
@@ -2720,6 +2742,9 @@ static int find_idle_cpu(struct task_struct *task)
 		}
 
 		if (cpu_selected(best_cpu)) {
+			if (check_cache_hot(task, wake_flags, &best_cpu))
+				return best_cpu;
+
 			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "IDLE-FIRST");
 			return best_cpu;
 		}
@@ -2730,7 +2755,7 @@ static int find_idle_cpu(struct task_struct *task)
 	return best_cpu;
 }
 
-static int find_recessive_cpu(struct task_struct *task)
+static int find_recessive_cpu(struct task_struct *task, int wake_flags)
 {
 	int cpu, best_cpu = -1;
 	struct cpumask *lowest_mask;
@@ -2765,9 +2790,14 @@ static int find_recessive_cpu(struct task_struct *task)
 			}
 		}
 
-		if (cpu_selected(best_cpu))
+		if (cpu_selected(best_cpu)) {
+			if (check_cache_hot(task, wake_flags, &best_cpu))
+				return best_cpu;
+
 			trace_sched_fluid_stat(task, &task->rt.avg, best_cpu,
 				rt_task(cpu_rq(best_cpu)->curr) ? "RT-RECESS" : "FAIR-RECESS");
+			return best_cpu;
+		}
 
 		dom = dom->next;
 	} while (dom != prefer_dom);
@@ -2778,7 +2808,6 @@ static int find_recessive_cpu(struct task_struct *task)
 static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 {
 	int cpu, best_cpu = -1;
-	int prefer_cpu = smp_processor_id();	/* Cache-hot with itself or waker (default). */
 
 	if (task->nr_cpus_allowed == 1) {
 		trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "NA ALLOWED");
@@ -2789,41 +2818,23 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 	 *
 	 * Fluid Sched Core selection procedure:
 	 *
-	 * 1. Cache hot : this cpu (waker if wake_list is null)
-	 * 2. idle CPU selection (prev_cpu first)
-	 * 3. recessive task first (prev_cpu first)
-	 * 4. victim task first (prev_cpu first)
+	 * 1. idle CPU selection (cache-hot cpu  first)
+	 * 2. recessive task first (cache-hot cpu first)
+	 * 3. victim task first (prev_cpu first)
 	 */
 
-	/*
-	 * 1. Cache hot : packing the callee and caller,
-	 *	when there is nothing to run except callee, or
-	 *	wake_flags are set.
-	 */
-	/* FUTURE WORK: Hierarchical cache hot */
-	if ((wake_flags || affordable_cpu(prefer_cpu, task_util(task))) &&
-		cpumask_test_cpu(prefer_cpu, cpu_online_mask)) {
-		task->rt.sync_flag = 1;
-		best_cpu = prefer_cpu;
-		trace_sched_fluid_stat(task, &task->rt.avg, best_cpu, "CACHE-HOT");
-		goto out;
-	}
-
-	/*
-	 * Find 2.IDLE CPU and 3.Recessive CPU
-	 */
-	/* 2. idle CPU selection */
-	best_cpu = find_idle_cpu(task);
+	/* 1. idle CPU selection */
+	best_cpu = find_idle_cpu(task, wake_flags);
 	if (cpu_selected(best_cpu))
 		goto out;
 
-	/* 3. recessive task first */
-	best_cpu = find_recessive_cpu(task);
+	/* 2. recessive task first */
+	best_cpu = find_recessive_cpu(task, wake_flags);
 	if (cpu_selected(best_cpu))
 		goto out;
 
 	/*
-	 * 4. victim task first
+	 * 3. victim task first
 	 */
 	for_each_cpu(cpu, cpu_active_mask) {
 		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
@@ -2832,10 +2843,6 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 		if (find_victim_rt_rq(task, cpu_coregroup_mask(cpu), &best_cpu) != -1)
 			break;
 	}
-
-	if (!cpu_selected(best_cpu))
-		best_cpu = prefer_cpu;
-
 out:
 
 	if (!cpumask_test_cpu(best_cpu, cpu_online_mask)) {
