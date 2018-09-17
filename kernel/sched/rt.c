@@ -2687,6 +2687,7 @@ static int find_victim_rt_rq(struct task_struct *task, const struct cpumask *sg_
 static int check_cache_hot(struct task_struct *task, int flags, int *best_cpu)
 {
 	int cpu = smp_processor_id();
+	return false;
 	/*
 	 * 3. Cache hot : packing the callee and caller,
 	 *	when there is nothing to run except callee, or
