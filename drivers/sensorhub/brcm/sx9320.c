@@ -418,15 +418,12 @@ static int sx9320_set_mode(struct sx9320_p *data, unsigned char mode)
 	return ret;
 }
 
-static void sx9320_read_ch_interrupt(struct sx9320_p *data, u8 status)
+static inline void sx9320_read_ch_interrupt(struct sx9320_p *data, u8 status)
 {
 	if (status & (PHX_STATUS_REG << data->phen))
 		data->ch1_state = TOUCH_STATE;
 	else
 		data->ch1_state = IDLE_STATE;
-
-	pr_info("[SX9320]: %s - ch1:%d, ch2:%d\n",
-		__func__, data->ch1_state, data->ch2_state);
 }
 
 static void sx9320_check_status(struct sx9320_p *data, int enable)
@@ -1225,7 +1222,6 @@ static void sx9320_touch_process(struct sx9320_p *data, u8 flag)
 	u8 status = 0;
 
 	sx9320_i2c_read(data, SX9320_STAT0_REG, &status);
-	pr_info("[SX9320]: %s - (status: 0x%x)\n", __func__, status);
 
 	sx9320_get_data(data);
 
