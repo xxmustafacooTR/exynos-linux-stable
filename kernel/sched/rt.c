@@ -2720,8 +2720,8 @@ static int find_idle_cpu(struct task_struct *task, int wake_flags)
 	if (unlikely(!dom))
 		return best_cpu;
 
-	cpumask_and(&candidate_cpus, &task->cpus_allowed, cpu_active_mask);
 	cpumask_and(&candidate_cpus, &candidate_cpus, get_activated_cpus());
+	cpumask_and(&candidate_cpus, &task->cpus_allowed, cpu_active_mask);
 	if (unlikely(cpumask_empty(&candidate_cpus)))
 		cpumask_copy(&candidate_cpus, &task->cpus_allowed);
 
@@ -2734,6 +2734,9 @@ static int find_idle_cpu(struct task_struct *task, int wake_flags)
 				continue;
 
 			cpu_load = frt_cpu_util_wake(cpu, task) + task_util(task);
+			if (cpu_load > capacity_orig_of(cpu))
+				continue;
+
 			if ((cpu_prio > max_prio) || (cpu_load < min_load) ||
 					(cpu_load == min_load && task_cpu(task) == cpu)) {
 				min_load = cpu_load;
@@ -2759,8 +2762,8 @@ static int find_idle_cpu(struct task_struct *task, int wake_flags)
 static int find_recessive_cpu(struct task_struct *task, int wake_flags)
 {
 	int cpu, best_cpu = -1;
+	u64 cpu_load, min_load = ULLONG_MAX;
 	struct cpumask *lowest_mask;
-	u64 cpu_load = ULLONG_MAX, min_load = ULLONG_MAX;
 	struct cpumask candidate_cpus;
 	struct frt_dom *dom, *prefer_dom;
 
@@ -2783,6 +2786,9 @@ static int find_recessive_cpu(struct task_struct *task, int wake_flags)
 	do {
 		for_each_cpu_and(cpu, &dom->cpus, &candidate_cpus) {
 			cpu_load = frt_cpu_util_wake(cpu, task) + task_util(task);
+
+			if (cpu_load > capacity_orig_of(cpu))
+				continue;
 
 			if (cpu_load < min_load ||
 				(cpu_load == min_load && task_cpu(task) == cpu)) {
