@@ -2853,6 +2853,8 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 			break;
 	}
 out:
+	if (best_cpu == -1)
+		best_cpu = task_rq(task)->cpu;
 
 	if (!cpumask_test_cpu(best_cpu, cpu_online_mask)) {
 		trace_sched_fluid_stat(task, &task->rt.avg, cpu, "NOTHING_VALID");
