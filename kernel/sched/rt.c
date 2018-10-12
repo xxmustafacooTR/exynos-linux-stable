@@ -31,6 +31,7 @@ struct frt_dom {
 	/* kobject for sysfs group */
 	struct kobject		kobj;
 };
+struct cpumask activated_mask;
 
 LIST_HEAD(frt_list);
 DEFINE_RAW_SPINLOCK(frt_lock);
@@ -292,29 +293,28 @@ static int __init init_frt(void)
 	struct frt_dom *dom, *prev, *head;
 	struct device_node *dn;
 	int cpu, tcpu, cnt = 0;
-	struct cpumask *ptr_mask;
 
 	dn = of_find_node_by_path("/cpus/ems");
 	if (!dn)
 		return 0;
 
 	INIT_LIST_HEAD(&frt_list);
-	ptr_mask = kzalloc(sizeof(struct cpumask), GFP_KERNEL);
-	if (!ptr_mask)
-		pr_err("FRT(%s): failed to allocate ptr_mask\n", __func__);
-	cpumask_setall(ptr_mask);
+	cpumask_setall(&activated_mask);
 
 	for_each_possible_cpu(cpu) {
 		if (cpu != cpumask_first(cpu_coregroup_mask(cpu)))
 			continue;
 
 		dom = kzalloc(sizeof(struct frt_dom), GFP_KERNEL);
-		if (!dom)
+		if (!dom) {
 			pr_err("FRT(%s): failed to allocate dom\n", __func__);
+			goto put_node;
+		}
+
 		if (cpu == 0)
 			head = dom;
 
-		dom->activated_cpus = ptr_mask;
+		dom->activated_cpus = &activated_mask;
 
 		cpumask_copy(&dom->cpus, cpu_coregroup_mask(cpu));
 
@@ -335,7 +335,9 @@ static int __init init_frt(void)
 	}
 	frt_sysfs_init();
 
+put_node:
 	of_node_put(dn);
+
 	return 0;
 
 } late_initcall(init_frt);
