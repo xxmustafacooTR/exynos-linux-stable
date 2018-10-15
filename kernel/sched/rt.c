@@ -39,7 +39,9 @@ DEFINE_RAW_SPINLOCK(frt_lock);
 DEFINE_PER_CPU_SHARED_ALIGNED(struct frt_dom *, frt_rqs);
 
 static struct kobject *frt_kobj;
+#define RATIO_SCALE_SHIFT	10
 #define cpu_util(rq) (rq->cfs.avg.util_avg + rq->rt.avg.util_avg)
+#define ratio_scale(v, r) (((v) * (r) * 10) >> RATIO_SCALE_SHIFT)
 
 static int frt_set_coverage_ratio(int cpu);
 static int frt_set_active_ratio(int cpu);
@@ -149,12 +151,12 @@ static int frt_set_active_ratio(int cpu)
 	unsigned long capacity;
 	struct frt_dom *dom = per_cpu(frt_rqs, cpu);
 
-	if (!dom)
+	if (!dom || !cpu_active(cpu))
 		return -1;
 
 	capacity = get_cpu_max_capacity(cpu) *
 			cpumask_weight(cpu_coregroup_mask(cpu));
-	dom->active_thr = (capacity * dom->active_ratio) / 100;
+	dom->active_thr = ratio_scale(capacity, dom->active_ratio);
 
 	return 0;
 }
@@ -164,10 +166,11 @@ static int frt_set_coverage_ratio(int cpu)
 	unsigned long capacity;
 	struct frt_dom *dom = per_cpu(frt_rqs, cpu);
 
-	if (!dom)
+	if (!dom || !cpu_active(cpu))
 		return -1;
+
 	capacity = get_cpu_max_capacity(cpu);
-	dom->coverage_thr = (capacity * dom->coverage_ratio) / 100;
+	dom->coverage_thr = ratio_scale(capacity, dom->coverage_ratio);
 
 	return 0;
 }
@@ -193,6 +196,7 @@ static void update_activated_cpus(void)
 	list_for_each_entry_reverse(dom, &frt_list, list) {
 		unsigned long dom_util_sum = 0;
 		unsigned long dom_active_thr = 0;
+		unsigned long capacity;
 		struct cpumask active_cpus;
 		int first_cpu, cpu;
 
@@ -206,8 +210,9 @@ static void update_activated_cpus(void)
 			struct rq *rq = cpu_rq(cpu);
 			dom_util_sum += cpu_util(rq);
 		}
-		dom_active_thr = (get_cpu_max_capacity(first_cpu) *
-			cpumask_weight(&active_cpus) * dom->active_ratio) / 100;
+
+		capacity = get_cpu_max_capacity(first_cpu) * cpumask_weight(&active_cpus);
+		dom_active_thr = ratio_scale(capacity, dom->active_ratio);
 
 		/* domain is idle */
 		if (dom_util_sum < dom_active_thr) {
