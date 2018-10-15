@@ -46,6 +46,10 @@ unsigned int get_cpu_max_capacity(unsigned int cpu)
 {
 	struct energy_table *table = &per_cpu(energy_table, cpu);
 
+	/* If energy table wasn't initialized, return 0 as capacity */
+	if (!table->states)
+		return 0;
+
 	return table->states[table->nr_states - 1].cap;
 }
 
