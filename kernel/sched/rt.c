@@ -290,7 +290,7 @@ disable:
 
 static int __init init_frt(void)
 {
-	struct frt_dom *dom, *prev, *head;
+	struct frt_dom *dom, *prev = NULL, *head;
 	struct device_node *dn;
 	int cpu, tcpu, cnt = 0;
 
