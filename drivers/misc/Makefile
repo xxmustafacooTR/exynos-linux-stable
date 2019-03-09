@@ -70,6 +70,9 @@ lkdtm-$(CONFIG_LKDTM)		+= lkdtm_usercopy.o
 CFLAGS_lkdtm_rodata.o		+= $(DISABLE_LTO)
 KCOV_INSTRUMENT_lkdtm_rodata.o	:= n
 
+# Gaming mode
+obj-$(CONFIG_GAMING_CONTROL)		+= gaming_control.o
+
 obj-$(CONFIG_TIMA_LOG)		+= tima_debug_log.o
 
 OBJCOPYFLAGS :=
