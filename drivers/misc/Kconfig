@@ -799,6 +799,14 @@ config KNOX_KAP
 	help
 	  Knox Active Protection mode
 
+config GAMING_CONTROL
+	tristate "Kernel gaming control"
+	help
+	  This adds support for in-kernel gaming control that hooks into
+	  specific drivers to enhance gaming experience. The driver fetches
+	  Android process list generated in sysfs to turn on gaming mode
+	  when the processes are running foreground
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
