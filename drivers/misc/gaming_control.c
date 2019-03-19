@@ -27,7 +27,6 @@
 #define GAMING_CONTROL_VERSION "0.2"
 
 #define TASK_STARTED 1
-#define TASK_KILLED 0
 
 char games_list[GAME_LIST_LENGTH] = {0};
 int gaming_mode;
@@ -84,10 +83,6 @@ void game_option(struct task_struct *tsk, enum game_opts opts)
 		gaming_mode = 1;
 		break;
 	case GAME_PAUSE:
-		gaming_mode = 0;
-		break;
-	case GAME_KILLED:
-		tsk->app_state = TASK_KILLED;
 		gaming_mode = 0;
 		break;
 	default:
