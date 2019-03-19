@@ -40,9 +40,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/signal.h>
 
-/* Gaming control */
-#include <linux/gaming_control.h>
-
 #include <asm/param.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -1207,9 +1204,6 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 {
 	unsigned long flags;
 	int ret = -ESRCH;
-
-	if ((sig == SIGKILL || sig == SIGTERM || sig == SIGABRT || sig == SIGQUIT)) 
-		game_option(p, GAME_KILLED);
 
 	if (lock_task_sighand(p, &flags)) {
 		ret = send_signal(sig, info, p, group);
