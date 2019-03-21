@@ -24,12 +24,46 @@
 #include <linux/gaming_control.h>
 
 #define GAME_LIST_LENGTH 1024
+#define NUM_SUPPORTED_RUNNING_GAMES 20
 #define GAMING_CONTROL_VERSION "0.2"
 
 #define TASK_STARTED 1
 
-char games_list[GAME_LIST_LENGTH] = {0};
+static char games_list[GAME_LIST_LENGTH] = {0};
+static int games_pid[NUM_SUPPORTED_RUNNING_GAMES] = {
+	[0 ... (NUM_SUPPORTED_RUNNING_GAMES - 1)] = -1
+};
+static int nr_running_games = 0;
 int gaming_mode;
+
+static void store_game_pid(int pid)
+{
+	int i;
+
+	for (i = 0; i < NUM_SUPPORTED_RUNNING_GAMES; i++) {
+		if (games_pid[i] == -1) {
+			games_pid[i] = pid;
+			nr_running_games++;
+	}	}
+}
+
+static void clear_dead_pids(void)
+{
+	int i;
+
+	for (i = 0; i < NUM_SUPPORTED_RUNNING_GAMES; i++) {
+		if (games_pid[i] != -1) {
+			if (find_task_by_vpid(games_pid[i]) == NULL) {
+				games_pid[i] = -1;
+				nr_running_games--;
+			}
+		}
+	}
+
+	/* If there's no running games, turn off game mode */
+	if (nr_running_games == 0)
+		gaming_mode = 0;
+}
 
 static int check_for_games(struct task_struct *tsk)
 {
@@ -67,6 +101,9 @@ void game_option(struct task_struct *tsk, enum game_opts opts)
 {
 	int ret;
 
+	/* Remove all zombie tasks PIDs */
+	clear_dead_pids();
+
 	ret = check_for_games(tsk);
 	if (!ret)
 		return;
@@ -76,6 +113,7 @@ void game_option(struct task_struct *tsk, enum game_opts opts)
 		if (tsk->app_state == TASK_STARTED)
 			return;
 
+		store_game_pid(tsk->pid);
 		tsk->app_state = TASK_STARTED;
 		gaming_mode = 1;
 		break;
