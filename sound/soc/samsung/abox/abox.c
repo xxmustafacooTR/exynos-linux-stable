@@ -5624,6 +5624,17 @@ static int abox_disable(struct device *dev)
 	if (state != CALLIOPE_DISABLED)
 		abox_cpu_pm_ipc(dev, false);
 	data->calliope_state = CALLIOPE_DISABLED;
+	{
+	  /* Ensure that ABOX Core is suspended
+	     ABOX core can be waken up by spurious interrupt.
+	   */
+		unsigned int val;
+		udelay(100);
+		exynos_pmu_read(ABOX_CPU_STANDBY, &val);
+		if (!(val & ABOX_CPU_STANDBY_WFI_MASK)) {
+			dev_warn(dev, "calliope suspend time out during S2R\n");
+		}
+	}
 	abox_log_drain_all(dev);
 	abox_request_dram_on(pdev, dev, false);
 	abox_save_register(data);
