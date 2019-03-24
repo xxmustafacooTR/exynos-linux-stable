@@ -29,8 +29,8 @@
 
 #define TASK_STARTED 1
 
-static char games_list[GAME_LIST_LENGTH] = {0};
-static int games_pid[NUM_SUPPORTED_RUNNING_GAMES] = {
+char games_list[GAME_LIST_LENGTH] = {0};
+int games_pid[NUM_SUPPORTED_RUNNING_GAMES] = {
 	[0 ... (NUM_SUPPORTED_RUNNING_GAMES - 1)] = -1
 };
 static int nr_running_games = 0;
