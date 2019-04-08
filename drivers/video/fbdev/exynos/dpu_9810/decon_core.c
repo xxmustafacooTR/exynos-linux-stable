@@ -80,7 +80,6 @@ void __iomem *regs_dphy_clk_0;
 void __iomem *regs_dphy_clk_1;
 void __iomem *regs_dphy_clk_2;
 #endif
-
 void tracing_mark_write(struct decon_device *decon, char id, char *str1, int value)
 {
 	char buf[DECON_TRACE_BUF_SIZE] = {0,};
@@ -108,7 +107,6 @@ void tracing_mark_write(struct decon_device *decon, char id, char *str1, int val
 	trace_puts(buf);
 #endif
 }
-
 static void decon_dump_using_dpp(struct decon_device *decon)
 {
 	int i;
