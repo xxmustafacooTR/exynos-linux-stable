@@ -26,10 +26,8 @@ enum game_opts {
 
 #ifdef CONFIG_GAMING_CONTROL
 extern void game_option(struct task_struct *tsk, enum game_opts opts);
-extern int gaming_mode;
 #else
 static void game_option(struct task_struct *tsk, enum game_opts opts) {}
-static int gaming_mode = 0;
 #endif /* CONFIG_GAMING_CONTROL */
 
 #endif /* _GAMING_CONTROL_H_ */
