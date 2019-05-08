@@ -105,13 +105,17 @@ static ssize_t gator_pmu_init_write(struct file *file, char const __user *buf, s
 {
     struct gator_interface *gi;
     int i;
+    
+    /*Reset gator cluster so all events will be written to /dev/gator/events each time the daemon writes to pmu_init*/
+    gator_cluster_count = 0;
 
     if (gator_events_perf_pmu_reread() != 0 ||
             gator_events_perf_pmu_create_files(gator_sb, gator_events_dir) != 0)
         return -EINVAL;
 
     if (gator_cluster_count == 0)
-      gator_clusters[gator_cluster_count++] = &gator_pmu_other;
+        /*This will overwrite the gator cluster set on the previous run.*/
+        gator_clusters[gator_cluster_count++] = &gator_pmu_other;
 
     /* cluster information */
     {
