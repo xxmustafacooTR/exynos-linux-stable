@@ -9023,6 +9023,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	/*create sysfs related with ufs*/
 	ufshcd_add_sysfs_nodes(hba);
 
+	device_enable_async_suspend(dev);
+
 	return 0;
 
 #if defined(CONFIG_PM_DEVFREQ)
