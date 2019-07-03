@@ -37,14 +37,16 @@ static int process_flag(int replace, const char *flag, const char *new_var)
 	int ret = 0;
 
 	/* Ensure all instances of a flag are removed */
-	while ((start_flag = strstr(new_command_line, flag))) {
-		end_flag = strchr(start_flag, ' ');
+	while ((start_flag = strnstr(new_command_line, flag, COMMAND_LINE_SIZE))) {
+		end_flag = strnchr(start_flag, last_char - start_flag, ' ');
 
 		/* this may happend when copied cmdline is filled up fully */
 		if (end_flag > last_char)
 			end_flag = last_char;
 
 		cmd_len = strlen(new_command_line);
+		if (unlikely(cmd_len > COMMAND_LINE_SIZE))
+			break;
 
 		next_flag = end_flag + 1;
 		rest_len = (size_t)(last_char - end_flag);
@@ -73,6 +75,8 @@ static int process_flag(int replace, const char *flag, const char *new_var)
 		/* remove token first, insert at the last */
 		if (replace) {
 			cmd_len = strlen(new_command_line);
+			if (unlikely(cmd_len > COMMAND_LINE_SIZE))
+				break;
 
 			sprintf(new_command_line + cmd_len, " %s%s", flag, new_var);
 
