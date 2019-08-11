@@ -111,20 +111,20 @@ static void sec_haptic_engine_run_packet(struct sec_haptic_drvdata *ddata,
 	if (intensity) {
 		sec_haptic_set_intensity(ddata, intensity);
 		if (!ddata->packet_running) {
-			pr_info("[haptic engine] motor run\n");
+			pr_debug("[haptic engine] motor run\n");
 			sec_haptic_enable(ddata, true);
 		}
 		ddata->packet_running = true;
 	} else {
 		if (ddata->packet_running) {
-			pr_info("[haptic engine] motor stop\n");
+			pr_debug("[haptic engine] motor stop\n");
 			sec_haptic_enable(ddata, false);
 		}
 		ddata->packet_running = false;
 		sec_haptic_set_intensity(ddata, intensity);
 	}
 
-	pr_info("%s [%d] freq:%d, intensity:%d, time:%d ratio: %d\n", __func__,
+	pr_debug("%s [%d] freq:%d, intensity:%d, time:%d ratio: %d\n", __func__,
 		ddata->packet_cnt, frequency, intensity, ddata->timeout, ddata->ratio);
 }
 
@@ -156,9 +156,9 @@ static void timed_output_enable(struct sec_haptic_drvdata *ddata, unsigned int v
 				pr_err("%s: error to enable i2c reg %d\n", __func__, ret);
 
 			if (ddata->multi_frequency)
-				pr_info("%d %u %ums\n", ddata->freq_num, ddata->duty, ddata->timeout);
+				pr_debug("%d %u %ums\n", ddata->freq_num, ddata->duty, ddata->timeout);
 			else
-				pr_info("%u %ums\n", ddata->duty, ddata->timeout);
+				pr_debug("%u %ums\n", ddata->duty, ddata->timeout);
 		}
 
 		mutex_unlock(&ddata->mutex);
@@ -190,7 +190,6 @@ static enum hrtimer_restart haptic_timer_func(struct hrtimer *timer)
 	struct sec_haptic_drvdata *ddata
 		= container_of(timer, struct sec_haptic_drvdata, timer);
 
-	pr_info("%s\n", __func__);
 	kthread_queue_work(&ddata->kworker, &ddata->kwork);
 	return HRTIMER_NORESTART;
 }
@@ -221,8 +220,6 @@ static void sec_haptic_work(struct kthread_work *work)
 
 	sec_haptic_enable(ddata, false);
 	sec_haptic_set_intensity(ddata, 0);
-
-	pr_info("timer off\n");
 
 unlock_without_vib_off:
 	mutex_unlock(&ddata->mutex);
@@ -309,7 +306,7 @@ static ssize_t intensity_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	pr_info("%s %d\n", __func__, intensity);
+	pr_debug("%s %d\n", __func__, intensity);
 
 	if ((intensity < 0) || (intensity > MAX_INTENSITY)) {
 		pr_err("[VIB]: %s out of range\n", __func__);
@@ -342,7 +339,7 @@ static ssize_t force_touch_intensity_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	pr_info("%s %d\n", __func__, intensity);
+	pr_debug("%s %d\n", __func__, intensity);
 
 	if ((intensity < 0) || (intensity > MAX_INTENSITY)) {
 		pr_err("[VIB]: %s out of range\n", __func__);
@@ -374,8 +371,6 @@ static ssize_t multi_freq_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	pr_info("%s %d\n", __func__, num);
-
 	ret = sec_haptic_set_frequency(ddata, num);
 	if (ret)
 		return ret;
@@ -402,7 +397,7 @@ static ssize_t haptic_engine_store(struct device *dev,
 		return count;
 
 	if (_data > PACKET_MAX_SIZE * VIB_PACKET_MAX)
-		pr_info("%s, [%d] packet size over\n", __func__, _data);
+		pr_err("%s, [%d] packet size over\n", __func__, _data);
 	else {
 		ddata->packet_size = _data / VIB_PACKET_MAX;
 		ddata->packet_cnt = 0;
@@ -631,7 +626,7 @@ extern int haptic_homekey_press(void)
 	sec_haptic_set_intensity(ddata, ddata->force_touch_intensity);
 	sec_haptic_enable(ddata, true);
 
-	pr_info("%s freq:%d, intensity:%d, time:%d\n", __func__,
+	pr_debug("%s freq:%d, intensity:%d, time:%d\n", __func__,
 			HOMEKEY_PRESS_FREQ, ddata->force_touch_intensity, ddata->timeout);
 	mutex_unlock(&ddata->mutex);
 
@@ -657,7 +652,7 @@ extern int haptic_homekey_release(void)
 	sec_haptic_set_intensity(ddata, ddata->force_touch_intensity);
 	sec_haptic_enable(ddata, true);
 
-	pr_info("%s freq:%d, intensity:%d, time:%d\n", __func__,
+	pr_debug("%s freq:%d, intensity:%d, time:%d\n", __func__,
 			HOMEKEY_RELEASE_FREQ, ddata->force_touch_intensity, ddata->timeout);
 	mutex_unlock(&ddata->mutex);
 
