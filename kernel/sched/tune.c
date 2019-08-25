@@ -1180,6 +1180,10 @@ schedtune_init(void)
 
 	schedtune_test_nrg(delta_pwr);
 
+#ifdef CONFIG_SCHED_EMS
+nodata:
+	rcu_read_unlock();
+#endif
 #ifdef CONFIG_CGROUP_SCHEDTUNE
 	schedtune_init_cgroups();
 #else
@@ -1190,9 +1194,11 @@ schedtune_init(void)
 
 	return 0;
 
+#ifndef CONFIG_SCHED_EMS
 nodata:
 	pr_warning("schedtune: disabled!\n");
 	rcu_read_unlock();
 	return -EINVAL;
+#endif
 }
 postcore_initcall(schedtune_init);
