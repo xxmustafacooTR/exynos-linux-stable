@@ -3245,7 +3245,7 @@ static void sec_bat_ext_event_work(struct work_struct *work)
 			battery->cable_type == SEC_BATTERY_CABLE_WIRELESS_TX) {
 			pr_info("%s : Call is off during Wireless Pack or TX\n",__func__);
 		}
-		
+
 		/* process phm */
 		if(battery->wc_rx_phm_mode) {
 				char wpc_en_status[2];
@@ -3908,7 +3908,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 #endif
 
 	if (current_cable_type == SEC_BATTERY_CABLE_HV_TA_CHG_LIMIT)
-		current_cable_type = SEC_BATTERY_CABLE_9V_TA;	   
+		current_cable_type = SEC_BATTERY_CABLE_9V_TA;
 
 	battery->cable_type = current_cable_type;
 	battery->wpc_vout_level = WIRELESS_VOUT_10V;
@@ -4166,7 +4166,7 @@ static int sec_bat_set_property(struct power_supply *psy,
 	int current_cable_type = SEC_BATTERY_CABLE_NONE;
 	int full_check_type = SEC_BATTERY_FULLCHARGED_NONE;
 	union power_supply_propval value = {0, };
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	dev_dbg(battery->dev,
 		"%s: (%d,%d)\n", __func__, psp, val->intval);
@@ -4436,7 +4436,7 @@ static int sec_bat_get_property(struct power_supply *psy,
 {
 	struct sec_battery_info *battery = power_supply_get_drvdata(psy);
 	union power_supply_propval value = {0, };
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -4685,7 +4685,7 @@ static int sec_ac_get_property(struct power_supply *psy,
 			       union power_supply_propval *val)
 {
 	struct sec_battery_info *battery = power_supply_get_drvdata(psy);
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -4780,7 +4780,7 @@ static int sec_wireless_set_property(struct power_supply *psy,
 				const union power_supply_propval *val)
 {
 	struct sec_battery_info *battery = power_supply_get_drvdata(psy);
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -4875,7 +4875,7 @@ static int sec_wireless_set_property(struct power_supply *psy,
 		case POWER_SUPPLY_EXT_PROP_CALL_EVENT:
 			if(val->intval == 1) {
 				pr_info("%s : PHM enabled\n",__func__);
-				battery->wc_rx_phm_mode = true; 			
+				battery->wc_rx_phm_mode = true;
 			}
 			break;
 		default:
