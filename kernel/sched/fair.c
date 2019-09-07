@@ -7720,12 +7720,6 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int sync = wake_flags & WF_SYNC;
 	int target_cpu;
 
-	if (sched_feat(EXYNOS_MS)) {
-		target_cpu = exynos_wakeup_balance(p, prev_cpu, sd_flag, sync);
-		if (target_cpu >= 0)
-			return target_cpu;
-	}
-
 	if (sd_flag & SD_BALANCE_WAKE) {
 		int _wake_cap = wake_cap(p, cpu, prev_cpu);
 
@@ -7741,6 +7735,12 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		record_wakee(p);
 		want_affine = (!wake_wide(p) && !_wake_cap &&
 			cpumask_test_cpu(cpu, tsk_cpus_allowed(p)));
+	}
+
+	if (sched_feat(EXYNOS_MS)) {
+		target_cpu = exynos_wakeup_balance(p, prev_cpu, sd_flag, sync);
+		if (target_cpu >= 0)
+			return target_cpu;
 	}
 
 	rcu_read_lock();
