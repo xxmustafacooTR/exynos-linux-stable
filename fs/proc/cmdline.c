@@ -99,8 +99,9 @@ static int __init proc_cmdline_init(void)
 	 * Remove various flags from command line seen by userspace in order to
 	 * pass SafetyNet CTS check.
 	 */
-	process_flag(FLAG_REPLACE, "androidboot.warranty_bit=", "0");
 	process_flag(FLAG_REPLACE, "androidboot.verifiedbootstate=", "green");
+	process_flag(FLAG_REPLACE, "androidboot.boot_recovery=", "0");
+	process_flag(FLAG_REPLACE, "androidboot.warranty_bit=", "0");
 
 	proc_create("cmdline", 0, NULL, &cmdline_proc_fops);
 	return 0;
