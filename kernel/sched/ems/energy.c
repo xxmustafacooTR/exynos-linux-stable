@@ -241,10 +241,9 @@ static int select_eco_cpu(struct eco_env *eenv)
 	return eco_cpu;
 }
 
-int select_energy_cpu(struct task_struct *p, int prev_cpu, int sd_flag, int sync)
+int select_energy_cpu(struct task_struct *p, int prev_cpu, int sd_flag)
 {
 	struct sched_domain *sd = NULL;
-	int cpu = smp_processor_id();
 	struct eco_env eenv = {
 		.p = p,
 		.prev_cpu = prev_cpu,
@@ -272,10 +271,6 @@ int select_energy_cpu(struct task_struct *p, int prev_cpu, int sd_flag, int sync
 	 */
 	if (!task_util(p))
 		return -1;
-
-	if (sysctl_sched_sync_hint_enable && sync)
-		if (cpumask_test_cpu(cpu, &p->cpus_allowed))
-			return cpu;
 
 	/*
 	 * Find eco-friendly target.
