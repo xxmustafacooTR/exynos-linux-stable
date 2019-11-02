@@ -275,7 +275,7 @@ int exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int 
 	 * A scheduling scheme based on cpu energy, find the least power consumption
 	 * cpu with energy table when assigning task.
 	 */
-	target_cpu = select_energy_cpu(p, prev_cpu, sd_flag, sync);
+	target_cpu = select_energy_cpu(p, prev_cpu, sd_flag);
 	if (cpu_selected(target_cpu)) {
 		strcpy(state, "energy cpu");
 		goto out;
