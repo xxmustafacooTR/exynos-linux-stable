@@ -667,6 +667,7 @@ struct ufs_hba {
 	u32 uic_error;
 	u32 saved_err;
 	u32 saved_uic_err;
+	u32 saved_uic_phy_err_cnt;
 	u32 tcx_replay_timer_expired_cnt;
 	u32 fcx_protection_timer_expired_cnt;
 

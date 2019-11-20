@@ -5502,7 +5502,13 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_DATA_LINK_LAYER);
 	if (reg & UIC_DATA_LINK_LAYER_ERROR_PA_INIT)
 		hba->uic_error |= UFSHCD_UIC_DL_PA_INIT_ERROR;
-	else if (hba->dev_quirks &
+	else if (reg & UIC_DATA_LINK_LAYER_ERROR_PA_ERROR_IND_RECEIVED) {
+		if (hba->saved_uic_phy_err_cnt > 10) {
+			hba->uic_error |= UFSHCD_UIC_DL_PA_INIT_ERROR;
+			hba->saved_uic_phy_err_cnt = 0;
+		} else
+			hba->saved_uic_phy_err_cnt++;
+	} else if (hba->dev_quirks &
 		   UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS) {
 		if (reg & UIC_DATA_LINK_LAYER_ERROR_NAC_RECEIVED)
 			hba->uic_error |=
@@ -5613,6 +5619,8 @@ static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
 	if (hba->errors)
 		ufshcd_check_errors(hba);
+	else
+		hba->saved_uic_phy_err_cnt = 0;
 
 	if (intr_status & UFSHCD_UIC_MASK)
 		ufshcd_uic_cmd_compl(hba, intr_status);
