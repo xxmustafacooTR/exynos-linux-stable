@@ -236,10 +236,70 @@ Description:
 What:		/sys/fs/f2fs/<disk>/extension_list
 Date:		Feburary 2018
 Contact:	"Chao Yu" <yuchao0@huawei.com>
-Description:
-		 Used to control configure extension list:
-		 - Query: cat /sys/fs/f2fs/<disk>/extension_list
-		 - Add: echo '[h/c]extension' > /sys/fs/f2fs/<disk>/extension_list
-		 - Del: echo '[h/c]!extension' > /sys/fs/f2fs/<disk>/extension_list
-		 - [h] means add/del hot file extension
-		 - [c] means add/del cold file extension
+Description:	Used to control configure extension list:
+		- Query: cat /sys/fs/f2fs/<disk>/extension_list
+		- Add: echo '[h/c]extension' > /sys/fs/f2fs/<disk>/extension_list
+		- Del: echo '[h/c]!extension' > /sys/fs/f2fs/<disk>/extension_list
+		- [h] means add/del hot file extension
+		- [c] means add/del cold file extension
+
+What:		/sys/fs/f2fs/<disk>/unusable
+Date		April 2019
+Contact:	"Daniel Rosenberg" <drosen@google.com>
+Description:	If checkpoint=disable, it displays the number of blocks that
+		are unusable.
+		If checkpoint=enable it displays the enumber of blocks that
+		would be unusable if checkpoint=disable were to be set.
+
+What:		/sys/fs/f2fs/<disk>/encoding
+Date		July 2019
+Contact:	"Daniel Rosenberg" <drosen@google.com>
+Description:	Displays name and version of the encoding set for the filesystem.
+		If no encoding is set, displays (none)
+
+What:		/sys/fs/f2fs/<disk>/free_segments
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of free segments in disk.
+
+What:		/sys/fs/f2fs/<disk>/cp_foreground_calls
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of checkpoint operations performed on demand. Available when
+		CONFIG_F2FS_STAT_FS=y.
+
+What:		/sys/fs/f2fs/<disk>/cp_background_calls
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of checkpoint operations performed in the background to
+		free segments. Available when CONFIG_F2FS_STAT_FS=y.
+
+What:		/sys/fs/f2fs/<disk>/gc_foreground_calls
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of garbage collection operations performed on demand.
+		Available when CONFIG_F2FS_STAT_FS=y.
+
+What:		/sys/fs/f2fs/<disk>/gc_background_calls
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of garbage collection operations triggered in background.
+		Available when CONFIG_F2FS_STAT_FS=y.
+
+What:		/sys/fs/f2fs/<disk>/moved_blocks_foreground
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of blocks moved by garbage collection in foreground.
+		Available when CONFIG_F2FS_STAT_FS=y.
+
+What:		/sys/fs/f2fs/<disk>/moved_blocks_background
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Number of blocks moved by garbage collection in background.
+		Available when CONFIG_F2FS_STAT_FS=y.
+
+What:		/sys/fs/f2fs/<disk>/avg_vblocks
+Date:		September 2019
+Contact:	"Hridya Valsaraju" <hridya@google.com>
+Description:	Average number of valid blocks.
+		Available when CONFIG_F2FS_STAT_FS=y.
