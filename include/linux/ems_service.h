@@ -20,11 +20,17 @@ enum stune_group {
 	STUNE_GROUP_COUNT,
 };
 
+struct kpp {
+	struct plist_node node;
+	int grp_idx;
+	bool active;
+};
+
 #ifdef CONFIG_SCHED_EMS
 /* prefer perf */
-extern int kernel_prefer_perf(int grp_idx);
-extern void request_kernel_prefer_perf(int grp_idx, int enable);
+extern int kpp_status(int grp_idx);
+extern void kpp_request(int grp_idx, struct kpp *req, int value);
 #else
-static inline int kernel_prefer_perf(int grp_idx) { }
-static inline void request_kernel_prefer_perf(int grp_idx, int enable) { }
+static inline int kpp_status(int grp_idx) { return 0; }
+static inline void kpp_request(int grp_idx, struct kpp *req, int value) { }
 #endif

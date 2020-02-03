@@ -18,21 +18,65 @@
 /**********************************************************************
  *                        Kernel Prefer Perf                          *
  **********************************************************************/
-static atomic_t kernel_prefer_perf_req[STUNE_GROUP_COUNT];
-int kernel_prefer_perf(int grp_idx)
+struct plist_head kpp_list[STUNE_GROUP_COUNT];
+
+static bool kpp_en;
+
+int kpp_status(int grp_idx)
 {
+	if (unlikely(!kpp_en))
+		return 0;
+
 	if (grp_idx >= STUNE_GROUP_COUNT)
 		return -EINVAL;
 
-	return atomic_read(&kernel_prefer_perf_req[grp_idx]);
+	if (plist_head_empty(&kpp_list[grp_idx]))
+		return 0;
+
+	return plist_last(&kpp_list[grp_idx])->prio;
 }
 
-void request_kernel_prefer_perf(int grp_idx, int value)
+static DEFINE_SPINLOCK(kpp_lock);
+
+void kpp_request(int grp_idx, struct kpp *req, int value)
 {
+	unsigned long flags;
+
+	if (unlikely(!kpp_en))
+		return;
+
 	if (grp_idx >= STUNE_GROUP_COUNT)
 		return;
 
-	atomic_set(&kernel_prefer_perf_req[grp_idx], value);
+	if (req->node.prio == value)
+		return;
+
+	spin_lock_irqsave(&kpp_lock, flags);
+
+	/*
+	 * If the request already added to the list updates the value, remove
+	 * the request from the list and add it again.
+	 */
+	if (req->active)
+		plist_del(&req->node, &kpp_list[req->grp_idx]);
+	else
+		req->active = 1;
+
+	plist_node_init(&req->node, value);
+	plist_add(&req->node, &kpp_list[grp_idx]);
+	req->grp_idx = grp_idx;
+
+	spin_unlock_irqrestore(&kpp_lock, flags);
+}
+
+static void __init init_kpp(void)
+{
+	int i;
+
+	for (i = 0; i < STUNE_GROUP_COUNT; i++)
+		plist_head_init(&kpp_list[i]);
+
+	kpp_en = 1;
 }
 
 struct prefer_perf {
@@ -144,22 +188,22 @@ out:
 	return service_cpu;
 }
 
-static ssize_t show_prefer_perf(struct kobject *kobj,
+static ssize_t show_kpp(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
 	int i, ret = 0;
 
 	/* shows the prefer_perf value of all schedtune groups */
 	for (i = 0; i < STUNE_GROUP_COUNT; i++)
-		ret += snprintf(buf + ret, 10, "%d ", kernel_prefer_perf(i));
+		ret += snprintf(buf + ret, 10, "%d ", kpp_status(i));
 
 	ret += snprintf(buf + ret, 10, "\n");
 
 	return ret;
 }
 
-static struct kobj_attribute prefer_perf_attr =
-__ATTR(kernel_prefer_perf, 0444, show_prefer_perf, NULL);
+static struct kobj_attribute kpp_attr =
+__ATTR(kernel_prefer_perf, 0444, show_kpp, NULL);
 
 static void __init build_prefer_cpus(void)
 {
@@ -210,9 +254,11 @@ static int __init init_service(void)
 {
 	int ret;
 
+	init_kpp();
+
 	build_prefer_cpus();
 
-	ret = sysfs_create_file(ems_kobj, &prefer_perf_attr.attr);
+	ret = sysfs_create_file(ems_kobj, &kpp_attr.attr);
 	if (ret)
 		pr_err("%s: faile to create sysfs file\n", __func__);
 

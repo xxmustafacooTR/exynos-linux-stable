@@ -696,7 +696,7 @@ int schedtune_prefer_perf(struct task_struct *p)
 	/* Get prefer_perf value */
 	rcu_read_lock();
 	st = task_schedtune(p);
-	prefer_perf = max(st->prefer_perf, kernel_prefer_perf(st->idx));
+	prefer_perf = max(st->prefer_perf, kpp_status(st->idx));
 	rcu_read_unlock();
 
 	return prefer_perf;
