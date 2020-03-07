@@ -744,7 +744,7 @@ static unsigned int ra_get_sfr_address(unsigned short idx,
 	return block->pa + reg->offset;
 }
 
-static void ra_get_pll_address(struct cmucal_clk *clk)
+static void __init ra_get_pll_address(struct cmucal_clk *clk)
 {
 	struct cmucal_pll *pll = to_pll_clk(clk);
 
