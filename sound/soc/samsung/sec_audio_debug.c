@@ -61,22 +61,6 @@ static struct sec_audio_log_data *p_debug_bootlog_data;
 static struct sec_audio_log_data *p_debug_pmlog_data;
 static unsigned int debug_buff_switch;
 
-int is_abox_rdma_enabled(int id)
-{
-	struct abox_data *data = abox_get_abox_data();
-
-	return (readl(data->sfr_base + ABOX_RDMA_BASE + (ABOX_RDMA_INTERVAL * id)
-		+ ABOX_RDMA_CTRL0) & ABOX_RDMA_ENABLE_MASK);
-}
-
-int is_abox_wdma_enabled(int id)
-{
-	struct abox_data *data = abox_get_abox_data();
-
-	return (readl(data->sfr_base + ABOX_WDMA_BASE + (ABOX_WDMA_INTERVAL * id)
-		+ ABOX_WDMA_CTRL) & ABOX_WDMA_ENABLE_MASK);
-}
-
 static void abox_debug_string_update_workfunc(struct work_struct *wk)
 {
 	struct abox_data *data = abox_get_abox_data();
@@ -189,58 +173,6 @@ void abox_debug_string_update(enum abox_debug_err_type type, void *addr)
 }
 EXPORT_SYMBOL_GPL(abox_debug_string_update);
 
-void adev_err(struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-
-	va_start(args, fmt);
-	vsnprintf(temp_buf, sizeof(temp_buf), fmt, args);
-	va_end(args);
-
-	dev_printk(KERN_ERR, dev, "%s", temp_buf);
-	sec_audio_log(3, dev, "%s", temp_buf);
-}
-
-void adev_warn(struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-
-	va_start(args, fmt);
-	vsnprintf(temp_buf, sizeof(temp_buf), fmt, args);
-	va_end(args);
-
-	dev_printk(KERN_WARNING, dev, "%s", temp_buf);
-	sec_audio_log(4, dev, "%s", temp_buf);
-}
-
-void adev_info(struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-
-	va_start(args, fmt);
-	vsnprintf(temp_buf, sizeof(temp_buf), fmt, args);
-	va_end(args);
-
-	dev_printk(KERN_INFO, dev, "%s", temp_buf);
-	sec_audio_log(6, dev, "%s", temp_buf);
-}
-
-void adev_dbg(struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-
-	va_start(args, fmt);
-	vsnprintf(temp_buf, sizeof(temp_buf), fmt, args);
-	va_end(args);
-
-	dev_printk(KERN_DEBUG, dev, "%s", temp_buf);
-	sec_audio_log(7, dev, "%s", temp_buf);
-}
-
 static int get_debug_buffer_switch(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
@@ -273,13 +205,6 @@ static const struct snd_kcontrol_new debug_controls[] = {
 			get_debug_buffer_switch,
 			set_debug_buffer_switch),
 };
-
-int register_debug_mixer(struct snd_soc_card *card)
-{
-	return snd_soc_add_card_controls(card, debug_controls,
-				ARRAY_SIZE(debug_controls));
-}
-EXPORT_SYMBOL_GPL(register_debug_mixer);
 
 static int audio_log_open_file(struct inode *inode, struct  file *file)
 {
@@ -340,16 +265,6 @@ static const struct file_operations audio_log_fops = {
 	.read = audio_log_read_file,
 	.llseek = default_llseek,
 };
-
-static void free_sec_audio_log(struct sec_audio_log_data *p_dbg_log_data)
-{
-	p_dbg_log_data->sz_log_buff = 0;
-	if (p_dbg_log_data->virtual)
-		vfree(p_dbg_log_data->audio_log_buffer);
-	else
-		kfree(p_dbg_log_data->audio_log_buffer);
-	p_dbg_log_data->audio_log_buffer = NULL;
-}
 
 int alloc_sec_audio_log(struct sec_audio_log_data *p_dbg_log_data, size_t buffer_len)
 {
@@ -454,75 +369,6 @@ static void copy_msgs(char *buff, struct sec_audio_log_data *p_dbg_log_data)
 		scnprintf(p_dbg_log_data->audio_log_buffer + p_dbg_log_data->buff_idx,
 				(strlen(buff) + 1), "%s", buff);
 }
-
-void sec_audio_log(int level, struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-	ssize_t temp_buff_idx = 0;
-	struct sec_audio_log_data *p_dbg_log_data = p_debug_log_data;
-
-	if (!p_dbg_log_data->sz_log_buff) {
-		return;
-	}
-
-	temp_buff_idx = make_prefix_msg(temp_buf, level, dev);
-
-	va_start(args, fmt);
-	temp_buff_idx +=
-		vsnprintf(temp_buf + temp_buff_idx,
-				LOG_MSG_BUFF_SZ - temp_buff_idx, fmt, args);
-	va_end(args);
-
-	copy_msgs(temp_buf, p_dbg_log_data);
-}
-EXPORT_SYMBOL_GPL(sec_audio_log);
-
-void sec_audio_bootlog(int level, struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-	ssize_t temp_buff_idx = 0;
-	struct sec_audio_log_data *p_dbg_log_data = p_debug_bootlog_data;
-
-	if (!p_dbg_log_data->sz_log_buff) {
-		return;
-	}
-
-	temp_buff_idx = make_prefix_msg(temp_buf, level, dev);
-
-	va_start(args, fmt);
-	temp_buff_idx +=
-		vsnprintf(temp_buf + temp_buff_idx,
-				LOG_MSG_BUFF_SZ - (temp_buff_idx + 1), fmt, args);
-	va_end(args);
-
-	copy_msgs(temp_buf, p_dbg_log_data);
-}
-EXPORT_SYMBOL_GPL(sec_audio_bootlog);
-
-void sec_audio_pmlog(int level, struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	char temp_buf[LOG_MSG_BUFF_SZ];
-	ssize_t temp_buff_idx = 0;
-	struct sec_audio_log_data *p_dbg_log_data = p_debug_pmlog_data;
-
-	if (!p_dbg_log_data->sz_log_buff) {
-		return;
-	}
-
-	temp_buff_idx = make_prefix_msg(temp_buf, level, dev);
-
-	va_start(args, fmt);
-	temp_buff_idx +=
-		vsnprintf(temp_buf + temp_buff_idx,
-				LOG_MSG_BUFF_SZ - (temp_buff_idx + 1), fmt, args);
-	va_end(args);
-
-	copy_msgs(temp_buf, p_dbg_log_data);
-}
-EXPORT_SYMBOL_GPL(sec_audio_pmlog);
 
 static int __init sec_audio_debug_init(void)
 {

@@ -101,6 +101,65 @@ struct gain_table {
 	unsigned int gain; /* offset value added to current register val */
 };
 
+void adev_err(struct device *dev, const char *fmt, ...)
+{
+}
+
+void adev_warn(struct device *dev, const char *fmt, ...)
+{
+}
+
+void adev_info(struct device *dev, const char *fmt, ...)
+{
+}
+
+void adev_dbg(struct device *dev, const char *fmt, ...)
+{
+}
+
+int is_abox_rdma_enabled(int id)
+{
+	return 0;
+}
+
+int is_abox_wdma_enabled(int id)
+{
+	return 0;
+}
+
+void abox_debug_string_update(enum abox_debug_err_type type, void *addr)
+{
+}
+EXPORT_SYMBOL_GPL(abox_debug_string_update);
+
+int alloc_sec_audio_log(struct sec_audio_log_data *p_dbg_log_data, size_t buffer_len)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(alloc_sec_audio_log);
+
+void sec_audio_log(int level, struct device *dev, const char *fmt, ...)
+{
+}
+EXPORT_SYMBOL_GPL(sec_audio_log);
+
+
+void sec_audio_bootlog(int level, struct device *dev, const char *fmt, ...)
+{
+}
+EXPORT_SYMBOL_GPL(sec_audio_bootlog);
+
+void sec_audio_pmlog(int level, struct device *dev, const char *fmt, ...)
+{
+}
+EXPORT_SYMBOL_GPL(sec_audio_pmlog);
+
+int register_debug_mixer(struct snd_soc_card *card)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(register_debug_mixer);
+
 static struct impedance_table {
 	struct gain_table hp_gain_table[8];
 	char imp_region[4];	/* impedance region */

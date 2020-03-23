@@ -49,7 +49,7 @@ snd-soc-littlemill-objs := littlemill.o
 snd-soc-bells-objs := bells.o
 snd-soc-arndale-rt5631-objs := arndale_rt5631.o
 snd-soc-star-madera-objs := star_madera.o jack_madera_sysfs_cb.o
-snd-soc-sec-audio-objs := sec_audio_sysfs.o sec_audio_debug.o
+snd-soc-sec-audio-objs := sec_audio_sysfs.o
 
 obj-$(CONFIG_SND_SOC_SAMSUNG_JIVE_WM8750) += snd-soc-jive-wm8750.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_NEO1973_WM8753) += snd-soc-neo1973-wm8753.o
