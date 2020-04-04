@@ -19,6 +19,7 @@
 #include <linux/pm_opp.h>
 #include <linux/exynos-ucc.h>
 #include <linux/sysfs_helpers.h>
+#include <linux/ems_service.h>
 
 #include <soc/samsung/cal-if.h>
 #include <soc/samsung/exynos-cpu_hotplug.h>
@@ -238,13 +239,20 @@ static struct ucc_req ucc_req =
 static int ucc_requested;
 static int ucc_requested_val = 0;
 static bool boosted;
+static struct kpp kpp_ta;
+static struct kpp kpp_fg;
+
 static inline void control_boost(int ucc_index, bool enable)
 {
 	if (boosted && !enable) {
+		kpp_request(STUNE_TOPAPP, &kpp_ta, 0);
+		kpp_request(STUNE_FOREGROUND, &kpp_fg, 0);
 		ucc_requested_val = 0;
 		ucc_update_request(&ucc_req, ucc_requested_val);
 		boosted = false;
 	} else if (!boosted && enable) {
+		kpp_request(STUNE_TOPAPP, &kpp_ta, 1);
+		kpp_request(STUNE_FOREGROUND, &kpp_fg, 1);
 		ucc_requested_val = ucc_index;
 		ucc_update_request(&ucc_req, ucc_requested_val);
 		boosted = true;
