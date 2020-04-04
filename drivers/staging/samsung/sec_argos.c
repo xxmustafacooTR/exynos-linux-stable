@@ -28,8 +28,8 @@
 #include <linux/sec_argos.h>
 #include <linux/ologk.h>
 
-#ifdef CONFIG_SCHED_EHMP
-#include <linux/ehmp.h>
+#ifdef CONFIG_SCHED_EMS
+#include <linux/ems.h>
 static struct gb_qos_request gb_req = {
 	.name = "argos_ehmp_boost",
 };
@@ -399,7 +399,7 @@ int argos_hmpboost_apply(int dev_num, bool enable)
 	if (enable) {
 		/* disable -> enable */
 		if (!*hmpboost_enable) {
-#ifdef CONFIG_SCHED_EHMP
+#ifdef CONFIG_SCHED_EMS
 			/* set global boost */
 			gb_qos_update_request(&gb_req, 100);
 #elif defined(CONFIG_SCHED_HMP)
@@ -411,7 +411,7 @@ int argos_hmpboost_apply(int dev_num, bool enable)
 	} else {
 		/* enable -> disable */
 		if (*hmpboost_enable) {
-#ifdef CONFIG_SCHED_EHMP
+#ifdef CONFIG_SCHED_EMS
 			/* unset global boost */
 			gb_qos_update_request(&gb_req, 0);
 #elif defined(CONFIG_SCHED_HMP)
