@@ -1,5 +1,6 @@
 #include <linux/input/input_booster.h>
 #include <linux/exynos-ucc.h>
+#include <linux/ems_service.h>
 
 static struct pm_qos_request cluster1_qos;
 static struct pm_qos_request cluster0_qos;
@@ -12,6 +13,8 @@ static struct ucc_req ucc_req = {
 static DEFINE_MUTEX(input_lock);
 bool current_hmp_boost = INIT_ZERO;
 bool current_ucc_boost = INIT_ZERO;
+static struct kpp kpp_ta;
+static struct kpp kpp_fg;
 
 struct inform {
     void *qos;
@@ -45,9 +48,11 @@ void set_hmp(int enable)
 	if (enable != current_hmp_boost) {
 		pr_booster("[Input Booster2] ******      set_ehmp : %d ( %s )\n", enable, __FUNCTION__);
 		if (enable) {
-			// Boost 1
+			kpp_request(STUNE_TOPAPP, &kpp_ta, 1);
+			kpp_request(STUNE_FOREGROUND, &kpp_fg, 1);
 		} else {
-			// Boost 0
+			kpp_request(STUNE_TOPAPP, &kpp_ta, 0);
+			kpp_request(STUNE_FOREGROUND, &kpp_fg, 0);
 		}
 		current_hmp_boost = enable;
 	}
