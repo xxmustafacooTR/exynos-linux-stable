@@ -17,7 +17,6 @@
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
 #include <linux/pm_opp.h>
-#include <linux/ehmp.h>
 #include <linux/exynos-ucc.h>
 #include <linux/gaming_control.h>
 #include <linux/sysfs_helpers.h>
@@ -246,14 +245,10 @@ static bool boosted;
 static inline void control_boost(int ucc_index, bool enable)
 {
 	if (boosted && !enable) {
-		request_kernel_prefer_perf(STUNE_TOPAPP, 0);
-		request_kernel_prefer_perf(STUNE_FOREGROUND, 0);
 		ucc_requested_val = 0;
 		ucc_update_request(&ucc_req, ucc_requested_val);
 		boosted = false;
 	} else if (!boosted && enable) {
-		request_kernel_prefer_perf(STUNE_TOPAPP, 1);
-		request_kernel_prefer_perf(STUNE_FOREGROUND, 1);
 		ucc_requested_val = ucc_index;
 		ucc_update_request(&ucc_req, ucc_requested_val);
 		boosted = true;
