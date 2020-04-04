@@ -58,8 +58,8 @@
 #include "hardware/fimc-is-hw-control.h"
 #endif
 
-#ifdef CONFIG_SCHED_EHMP
-#include <linux/ehmp.h>
+#ifdef CONFIG_SCHED_EMS
+#include <linux/ems.h>
 struct gb_qos_request gb_req = {
 	.name = "camera_ehmp_boost",
 };
