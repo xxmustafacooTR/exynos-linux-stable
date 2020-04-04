@@ -1828,6 +1828,7 @@ extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int walt_ravg_window;
 extern bool walt_disabled;
 
+extern unsigned long cpu_util(int cpu);
 unsigned long _task_util_est(struct task_struct *p);
 unsigned long task_util_est(struct task_struct *p);
 
