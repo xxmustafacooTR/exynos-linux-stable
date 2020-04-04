@@ -255,7 +255,7 @@
 			reg = <0x0 0x0000>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&ANANKE_ENERGY>;
 		};
 		cpu1: cpu@0001 {
 			device_type = "cpu";
@@ -263,7 +263,7 @@
 			reg = <0x0 0x0001>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&ANANKE_ENERGY>;
 		};
 		cpu2: cpu@0002 {
 			device_type = "cpu";
@@ -271,7 +271,7 @@
 			reg = <0x0 0x0002>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&ANANKE_ENERGY>;
 		};
 		cpu3: cpu@0003 {
 			device_type = "cpu";
@@ -279,7 +279,7 @@
 			reg = <0x0 0x0003>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&ANANKE_ENERGY>;
 		};
 		cpu4: cpu@0100 {
 			device_type = "cpu";
@@ -287,7 +287,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&MEERKAT_ENERGY>;
 		};
 		cpu5: cpu@0101 {
 			device_type = "cpu";
@@ -295,7 +295,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&MEERKAT_ENERGY>;
 		};
 		cpu6: cpu@0102 {
 			device_type = "cpu";
@@ -303,7 +303,7 @@
 			reg = <0x0 0x102>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&MEERKAT_ENERGY>;
 		};
 		cpu7: cpu@0103 {
 			device_type = "cpu";
@@ -311,7 +311,7 @@
 			reg = <0x0 0x103>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&MEERKAT_ENERGY>;
 		};
 		idle-states {
 			entry-method = "arm,psci";
@@ -336,106 +336,70 @@
 				status = "okay";
 			};
 		};
-		energy-costs {
-			CPU_COST_0: core-core0{
-				busy-cost-data = <
-					212     215
-					230     225
-					263     250
-					304	289
-					341	341
-					378	431
-					415	517
-					447	605
-					521	866
-					563	1037
-					600	1242
-					637	1452
-					683	1798
-					717	2025
-					747	2680
-					821	3180
-					886	3970
-					941	4861
-					959	5623
-					1015	6412
-					1024	7533
-				>;
-				idle-cost-data = <
-					10
-					0
-					0
-				>;
+
+		energy-data {
+			ANANKE_ENERGY: ananke-energy {
+				capacity-mips = <272>;
+				power-coefficient = <160>;
 			};
-			CPU_COST_1: core-core1{
-				busy-cost-data = <
-					46	22
-					61	31
-					72	39
-					84	51
-					96	63
-					107	77
-					127	105
-					148	149
-					171	231
-					182	240
-					198	250
-				>;
-				idle-cost-data = <
-					1
-					0
-					0
-				>;
+			MEERKAT_ENERGY: meerkat-energy {
+				capacity-mips = <785>;
+				power-coefficient = <800>;
 			};
-			CLUSTER_COST_0: cluster-core0{
-				busy-cost-data = <
-					212     61
-					230     64
-					263     70
-					304     76
-					341     93
-					378     123
-					415     151
-					447     181
-					521     268
-					563     325
-					600     393
-					637     463
-					683     579
-					717     654
-					747     873
-					821     1039
-					886     1302
-					941     1600
-					959     1854
-					1015	2117
-					1024	2490
-				>;
-				idle-cost-data = <
-					268
-					268
-					0
-				>;
+		};
+
+		ems {
+			/* Ontime Migration */
+			ontime {
+				/* little cores */
+				coregroup0 {
+					lower-boundary = <0>;
+					upper-boundary = <42>;
+					coverage-ratio = <100>;
+				};
+				/* big cores */
+				coregroup1 {
+					lower-boundary = <7>;
+					upper-boundary = <100>;
+					coverage-ratio = <75>;
+				};
 			};
-			CLUSTER_COST_1: cluster-core1{
-			busy-cost-data = <
-					46      1
-					61      3
-					72      4
-					84      7
-					96      9
-					107	12
-					127	18
-					148	26
-					171	43
-					182	53
-					198	58
-				>;
-				idle-cost-data = <
-					5
-					5
-					0
-				>;
+
+			/* Load Balance Trigger */
+			#define DEFAULT_RATIO	80
+			lbt {
+				overutil-level0 {
+					cpus =	"0-3",
+						"4-7";
+					ratio =	<25>,
+						<30>;
+				};
+				overutil-level1 {
+					cpus =	"0-7";
+					ratio =	<DEFAULT_RATIO>;
+				};
+			};
+
+			/* FRT Migration */
+			frt {
+				/* little cores */
+				coregroup0 {
+					coverage-ratio = <30>;
+					active-ratio = <25>;
+				};
+				/* big cores */
+				coregroup1 {
+					coverage-ratio = <30>;
+					active-ratio = <5>;
+				};
+			};
+
+			prefer-perf-service {
+				prefer-perf0 {
+					boost = <1>;
+					light-task-threshold = <10>;
+					prefer-cpus = "4-7", "0-3";
+				};
 			};
 		};
 	};
@@ -4985,19 +4949,20 @@
 			device_type = "freqvar-tune";
 			shared-cpus = "0-3";
 
-			boost_table = < 100 598000 60 715000 30 832000 20 949000 10 1053000 0 >;
-			up_rate_limit_table = < 5 >;
-			down_rate_limit_table = < 5 >;
+			boost_table = < 0 >;
+			up_rate_limit_table = < 5000 >;
+			down_rate_limit_table = < 5000 >;
 			upscale_ratio_table = < 80 >;
 		};
+
 		domain@1 {
 			device_type = "freqvar-tune";
 			shared-cpus = "4-7";
 
-			boost_table = < 20 858000 15 962000 5 1261000 0 >;
-			up_rate_limit_table = < 5 >;
-			down_rate_limit_table = < 5 >;
-			upscale_ratio_table = < 50 962000 65 1469000 80>;
+			boost_table = < 0 >;
+			up_rate_limit_table = < 5000 >;
+			down_rate_limit_table = < 5000 >;
+			upscale_ratio_table = < 80 1469000 100 >;
 		};
 	};
 
@@ -5033,7 +4998,7 @@
 			device_type = "schedutil-domain";
 			shared-cpus = "0-3";
 
-			enabled = <0>;		/* Disable */
+			enabled = <0>;          /* Disabled */
 			qos_min_class = <3>;
 		};
 
@@ -5041,8 +5006,8 @@
 			device_type = "schedutil-domain";
 			shared-cpus = "4-7";
 
-			enabled = <1>;		/* Enabled */
-			expired_time = <80>;	/* 80ms */
+			enabled = <1>;          /* Enabled */
+			expired_time = <80>;    /* 80ms */
 			qos_min_class = <5>;
 		};
 	};
