@@ -1,6 +1,5 @@
 #include <linux/input/input_booster.h>
 #include <linux/exynos-ucc.h>
-#include <linux/ehmp.h>
 
 static struct pm_qos_request cluster1_qos;
 static struct pm_qos_request cluster0_qos;
@@ -46,11 +45,9 @@ void set_hmp(int enable)
 	if (enable != current_hmp_boost) {
 		pr_booster("[Input Booster2] ******      set_ehmp : %d ( %s )\n", enable, __FUNCTION__);
 		if (enable) {
-			request_kernel_prefer_perf(STUNE_TOPAPP, 1);
-			request_kernel_prefer_perf(STUNE_FOREGROUND, 1);
+			// Boost 1
 		} else {
-			request_kernel_prefer_perf(STUNE_TOPAPP, 0);
-			request_kernel_prefer_perf(STUNE_FOREGROUND, 0);
+			// Boost 0
 		}
 		current_hmp_boost = enable;
 	}
