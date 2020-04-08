@@ -577,7 +577,6 @@ ifneq ($(GCC_TOOLCHAIN),)
 CLANG_FLAGS	+= --gcc-toolchain=$(GCC_TOOLCHAIN)
 endif
 KBUILD_CFLAGS	+= -Wno-sizeof-pointer-div
-CLANG_FLAGS	+= -no-integrated-as
 CLANG_FLAGS	+= -Werror=unknown-warning-option
 KBUILD_CFLAGS	+= $(CLANG_FLAGS)
 KBUILD_AFLAGS	+= $(CLANG_FLAGS)
@@ -587,6 +586,9 @@ endif
 KBUILD_CPPFLAGS += -Qunused-arguments
 endif
 
+ifneq ($(LLVM_IAS),1)
+CLANG_FLAGS	+= -no-integrated-as
+endif
 
 ifeq ($(mixed-targets),1)
 # ===========================================================================
