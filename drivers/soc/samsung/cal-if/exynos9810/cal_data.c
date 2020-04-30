@@ -218,7 +218,7 @@ int asv_ids_information(enum ids_info id)
 }
 #endif
 
-#if defined(CONFIG_SEC_PM_DEBUG) && defined(CONFIG_DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
 
 #define ASV_SUMMARY_SZ	(dvfs_cp - dvfs_mif + 1)
