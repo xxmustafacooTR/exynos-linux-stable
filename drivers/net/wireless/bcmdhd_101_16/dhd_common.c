@@ -117,12 +117,7 @@ int log_print_threshold = 0;
 #endif /* DHD_LOG_PRINT_RATE_LIMIT */
 
 /* For CUSTOMER_HW4/Hikey do not enable DHD_ERROR_MEM_VAL by default */
-int dhd_msg_level = DHD_ERROR_VAL | DHD_FWLOG_VAL | DHD_EVENT_VAL
-	/* For CUSTOMER_HW4 do not enable DHD_IOVAR_MEM_VAL by default */
-#if !defined(CUSTOMER_HW4) && !defined(BOARD_HIKEY)
-	| DHD_IOVAR_MEM_VAL
-#endif
-	| DHD_PKT_MON_VAL;
+int dhd_msg_level = 0;
 
 #ifdef DHD_DEBUG
 #include <sdiovar.h>
@@ -3835,13 +3830,9 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 			break;
 		}
 	case WLC_E_PROXD:
-		if (datalen >= sizeof(wl_proxd_event_t)) {
-			const wl_proxd_event_t *proxd =
-				(wl_proxd_event_t*)event_data;
-			DHD_LOG_MEM(("MACEVENT: %s, event:%d, status:%d\n",
-				event_name, proxd->type, reason));
+		{
+			break;
 		}
-		break;
 	case WLC_E_RPSNOA:
 		if (datalen >= sizeof(rpsnoa_stats_t)) {
 			const rpsnoa_stats_t *stat = event_data;

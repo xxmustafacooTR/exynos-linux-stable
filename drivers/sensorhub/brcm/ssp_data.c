@@ -791,14 +791,14 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 			break;
 
 		case MSG2AP_INST_SENSOR_INIT_DONE:
-			pr_err("[SSP]: MCU sensor init done\n");
+			pr_debug("[SSP]: MCU sensor init done\n");
 			complete(&data->hub_data->mcu_init_done);
 			break;
 // HIFI batch
 		case MSG2AP_INST_BYPASS_DATA:
 			sensor_type = pchRcvDataFrame[iDataIdx++];
 			if ((sensor_type < 0) || (sensor_type >= SENSOR_MAX)) {
-				pr_err("[SSP]: %s - Mcu data frame1 error %d\n", __func__,
+				pr_debug("[SSP]: %s - Mcu data frame1 error %d\n", __func__,
 						sensor_type);
 				return ERROR;
 			}
@@ -823,7 +823,7 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 					data->report_sensor_data[sensor_type](data, &sensorsdata);
 				else {
 					if (data->skipSensorData == 30) {
-						pr_info("[SSP]: sensor not added,but sensor(%d) came", sensor_type);
+						pr_debug("[SSP]: sensor not added,but sensor(%d) came", sensor_type);
 						data->skipSensorData = 0;
 					}
 					data->skipSensorData++;
@@ -836,7 +836,7 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 		case MSG2AP_INST_DEBUG_DATA:
 			sensor_type = print_mcu_debug(pchRcvDataFrame, &iDataIdx, iLength);
 			if (sensor_type) {
-				pr_err("[SSP]: %s - Mcu data frame3 error %d\n", __func__,
+				pr_debug("[SSP]: %s - Mcu data frame3 error %d\n", __func__,
 						sensor_type);
 				return ERROR;
 			}
@@ -861,7 +861,7 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 				goto error_return;
 
 			if ((sensorsdata.meta_data.sensor < 0) || (sensorsdata.meta_data.sensor >= SENSOR_MAX)) {
-				pr_err("[SSP]: %s - Mcu meta_data frame1 error %d\n", __func__,
+				pr_debug("[SSP]: %s - Mcu meta_data frame1 error %d\n", __func__,
 						sensorsdata.meta_data.sensor);
 				return ERROR;
 			}
@@ -871,7 +871,7 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 			data->bTimeSyncing = true;
 			break;
 		case MSG2AP_INST_GYRO_CAL:
-			pr_info("[SSP]: %s - Gyro caldata received from MCU\n",  __func__);
+			pr_debug("[SSP]: %s - Gyro caldata received from MCU\n",  __func__);
 			memcpy(caldata, pchRcvDataFrame + iDataIdx, sizeof(caldata));
 			if(data->IsAPsuspend) {
             	iDataIdx += sizeof(caldata);
@@ -897,7 +897,7 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 					set_GyroCalibrationInfoData(pchRcvDataFrame, &iDataIdx);
 				break;
 			default:
-				pr_info("[SSP] wrong sub inst for big data\n");
+				pr_debug("[SSP] wrong sub inst for big data\n");
 				break;
 			}
 			break;
@@ -914,10 +914,10 @@ int parse_dataframe(struct ssp_data *data, char *pchRcvDataFrame, int iLength)
 		data->pktErrCnt = 0;
 	return SUCCESS;
 error_return:
-	pr_err("[SSP] %s err Inst 0x%02x\n", __func__, msg_inst);
+	pr_debug("[SSP] %s err Inst 0x%02x\n", __func__, msg_inst);
 	data->pktErrCnt++;
 	if (data->pktErrCnt >= 2) {
-		pr_err("[SSP] %s packet is polluted\n", __func__);
+		pr_debug("[SSP] %s packet is polluted\n", __func__);
 		data->mcuAbnormal = true;
 		data->pktErrCnt = 0;
 		data->errorCount++;
