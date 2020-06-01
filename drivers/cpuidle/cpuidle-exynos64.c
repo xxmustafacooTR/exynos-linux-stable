@@ -85,7 +85,9 @@ static int exynos_enter_idle(struct cpuidle_device *dev,
 
 	entry_state = prepare_idle(dev->cpu, index);
 
+	cpuidle_set_idle_cpu(dev->cpu);
 	ret = enter_idle(entry_state);
+	cpuidle_clear_idle_cpu(dev->cpu);
 
 	post_idle(dev->cpu, index, ret);
 
