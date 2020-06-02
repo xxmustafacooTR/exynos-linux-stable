@@ -19,17 +19,5 @@
 #include "modem_prj.h"
 #include "link_device_memory.h"
 
-int save_vss_dump(struct link_device *mld, struct io_device *iod,
-		unsigned long arg);
-int save_acpm_dump(struct link_device *mld, struct io_device *iod,
-		unsigned long arg);
-int save_cplog_dump(struct link_device *mld, struct io_device *iod,
-		unsigned long arg);
-int save_shmem_dump(struct link_device *mld, struct io_device *iod,
-		unsigned long arg);
-
-void save_mem_dump(struct mem_link_device *mld);
-
-void mem_dump_work(struct work_struct *ws);
 
 #endif

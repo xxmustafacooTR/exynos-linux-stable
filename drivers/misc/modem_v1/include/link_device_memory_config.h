@@ -98,18 +98,6 @@
 @ingroup group_mem_ipc_device
 */
 
-#define GROUP_MEM_CP_CRASH
-/**
-@defgroup group_mem_cp_crash		CP Crash Dump
-@ingroup group_mem_link_device
-*/
-
-#define GROUP_MEM_LINK_DEBUG
-/**
-@defgroup group_mem_link_debug		Debugging
-@ingroup group_mem_link_device
-*/
-
 #define GROUP_MEM_LINK_IOSM_MESSAGE
 /**
 @defgroup group_mem_link_iosm_message	Link IOSM Message

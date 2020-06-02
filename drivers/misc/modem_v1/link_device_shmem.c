@@ -332,7 +332,6 @@ static void handle_no_cp_crash_ack(unsigned long arg)
 			ld->name);
 	} else {
 		mif_err("%s: ERR! No CRASH_ACK from CP\n", ld->name);
-		shmem_handle_cp_crash(mld, STATE_CRASH_EXIT);
 	}
 }
 
@@ -585,10 +584,6 @@ static void cmd_phone_start_handler(struct mem_link_device *mld)
 				send_ipc_irq(mld,
 					cmd2int(phone_start_count - 100));
 				mcu_ipc_reg_dump(0);
-			} else {
-				shmem_forced_cp_crash(mld,
-					CRASH_REASON_CP_RSV_0,
-					"Abnormal CP_START from CP");
 			}
 			return;
 		}
@@ -647,7 +642,6 @@ static void cmd_crash_reset_handler(struct mem_link_device *mld)
 
 	mif_err("%s<-%s: ERR! CP_CRASH_RESET\n", ld->name, mc->name);
 
-	shmem_handle_cp_crash(mld, STATE_CRASH_RESET);
 }
 
 static void cmd_crash_exit_handler(struct mem_link_device *mld)
@@ -671,7 +665,6 @@ static void cmd_crash_exit_handler(struct mem_link_device *mld)
 	else
 		mif_err("%s<-%s: ERR! CP_CRASH_EXIT\n", ld->name, mc->name);
 
-	shmem_handle_cp_crash(mld, STATE_CRASH_EXIT);
 }
 
 static void shmem_cmd_handler(struct mem_link_device *mld, u16 cmd)
@@ -836,8 +829,6 @@ static enum hrtimer_restart tx_timer_func(struct hrtimer *timer)
 					need_schedule = true;
 					continue;
 				} else {
-					shmem_forced_cp_crash(mld, CRASH_REASON_MIF_TX_ERR,
-						"check_tx_flow_ctrl error");
 					need_schedule = false;
 					goto exit;
 				}
@@ -855,8 +846,6 @@ static enum hrtimer_restart tx_timer_func(struct hrtimer *timer)
 				mask |= msg_mask(dev);
 				continue;
 			} else {
-				shmem_forced_cp_crash(mld, CRASH_REASON_MIF_TX_ERR,
-					"tx_frames_to_dev error");
 				need_schedule = false;
 				goto exit;
 			}
@@ -1049,9 +1038,6 @@ static enum hrtimer_restart sbd_tx_timer_func(struct hrtimer *timer)
 					need_schedule = true;
 					continue;
 				} else {
-					shmem_forced_cp_crash(mld,
-						CRASH_REASON_MIF_TX_ERR,
-						"check_sbd_tx_flow_ctrl error");
 					need_schedule = false;
 					goto exit;
 				}
@@ -1066,8 +1052,6 @@ static enum hrtimer_restart sbd_tx_timer_func(struct hrtimer *timer)
 				mask = MASK_SEND_DATA;
 				continue;
 			} else {
-				shmem_forced_cp_crash(mld, CRASH_REASON_MIF_TX_ERR,
-					"tx_frames_to_rb error");
 				need_schedule = false;
 				goto exit;
 			}
@@ -1356,8 +1340,6 @@ static void pass_skb_to_demux(struct mem_link_device *mld, struct sk_buff *skb)
 	if (unlikely(!iod)) {
 		mif_err("%s: ERR! No IOD for CH.%d\n", ld->name, ch);
 		dev_kfree_skb_any(skb);
-		shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RIL_BAD_CH,
-			"ERR! No IOD for CH.XX in pass_skb_to_demux()");
 		return;
 	}
 
@@ -1475,8 +1457,6 @@ bad_msg:
 		ld->name, arrow(RX), ld->mc->name,
 		hdr[0], hdr[1], hdr[2], hdr[3]);
 	set_rxq_tail(dev, in);	/* Reset tail (out) pointer */
-	shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RX_BAD_DATA,
-		"ERR! BAD MSG from CP in rxq_read()");
 
 no_mem:
 	return NULL;
@@ -1513,8 +1493,6 @@ static int rx_frames_from_dev(struct mem_link_device *mld,
 				ld->name, dev->name, ch, get_rxq_tail(dev));
 			pr_skb("CRASH", skb);
 			dev_kfree_skb_any(skb);
-			shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RX_BAD_DATA,
-				"ERR! No IOD from CP in rx_frames_from_dev()");
 			break;
 		}
 
@@ -1587,8 +1565,6 @@ static void pass_skb_to_net(struct mem_link_device *mld, struct sk_buff *skb)
 	if (unlikely(!priv)) {
 		mif_err("%s: ERR! No PRIV in skb@%pK\n", ld->name, skb);
 		dev_kfree_skb_any(skb);
-		shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RX_BAD_DATA,
-			"ERR! No PRIV in pass_skb_to_net()");
 		return;
 	}
 
@@ -1596,8 +1572,6 @@ static void pass_skb_to_net(struct mem_link_device *mld, struct sk_buff *skb)
 	if (unlikely(!iod)) {
 		mif_err("%s: ERR! No IOD in skb@%pK\n", ld->name, skb);
 		dev_kfree_skb_any(skb);
-		shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RX_BAD_DATA,
-			"ERR! No IOD in pass_skb_to_net()");
 		return;
 	}
 
@@ -1740,9 +1714,6 @@ static int rx_ipc_frames_from_zerocopy_adaptor(struct sbd_ring_buffer *rb)
 		if (!skb) {
 #ifdef DEBUG_MODEM_IF
 			panic("skb alloc failed.");
-#else
-			shmem_forced_cp_crash(mld, CRASH_REASON_MIF_ZMC,
-				"ERR! ZMC alloc failed");
 #endif
 			break;
 		}
@@ -1758,8 +1729,6 @@ static int rx_ipc_frames_from_zerocopy_adaptor(struct sbd_ring_buffer *rb)
 				mif_err("frm.ch:%d != rb.ch:%d\n", fch, ch);
 				pr_skb("CRASH", skb);
 				dev_kfree_skb_any(skb);
-				shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RX_BAD_DATA,
-					"frm.ch is not same with rb.ch");
 				continue;
 			}
 		}
@@ -1808,8 +1777,6 @@ static int rx_ipc_frames_from_rb(struct sbd_ring_buffer *rb)
 				mif_err("frm.ch:%d != rb.ch:%d\n", fch, ch);
 				pr_skb("CRASH", skb);
 				dev_kfree_skb_any(skb);
-				shmem_forced_cp_crash(mld, CRASH_REASON_MIF_RX_BAD_DATA,
-					"frm.ch is not same with rb.ch");
 				continue;
 			}
 		}
@@ -2456,18 +2423,6 @@ static int shmem_update_firm_info(struct link_device *ld, struct io_device *iod,
 		return -EFAULT;
 	}
 
-	return 0;
-}
-
-static int shmem_force_dump(struct link_device *ld, struct io_device *iod)
-{
-	struct mem_link_device *mld = to_mem_link_device(ld);
-	u32 crash_type = ld->crash_type;
-
-	mif_err("+++\n");
-	shmem_forced_cp_crash(mld, crash_type,
-		"forced crash is called by ioctl command");
-	mif_err("---\n");
 	return 0;
 }
 
@@ -3564,10 +3519,6 @@ struct link_device *shmem_create_link_device(struct platform_device *pdev)
 		ld->security_req = shmem_security_request;
 	}
 
-	ld->shmem_dump = save_shmem_dump;
-	ld->force_dump = shmem_force_dump;
-	ld->vss_dump = save_vss_dump;
-	ld->acpm_dump = save_acpm_dump;
 #ifdef CP_RAM_LOGGING
 	ld->cplog_dump = save_cplog_dump;
 #endif
