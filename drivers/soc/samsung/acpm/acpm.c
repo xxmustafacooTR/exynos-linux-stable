@@ -26,8 +26,6 @@
 #include "fw_header/framework.h"
 
 static int ipc_done;
-static unsigned long long ipc_time_start;
-static unsigned long long ipc_time_end;
 
 static struct acpm_info *exynos_acpm;
 
@@ -172,64 +170,6 @@ static int plugins_init(void)
 	return ret;
 }
 
-static int debug_log_level_get(void *data, unsigned long long *val)
-{
-
-	return 0;
-}
-
-static int debug_log_level_set(void *data, unsigned long long val)
-{
-	acpm_fw_log_level((unsigned int)val);
-
-	return 0;
-}
-
-static int debug_ipc_loopback_test_get(void *data, unsigned long long *val)
-{
-	struct ipc_config config;
-	int ret = 0;
-	unsigned int cmd[4] = {0, };
-
-	config.cmd = cmd;
-	config.cmd[0] = (1 << ACPM_IPC_PROTOCOL_TEST);
-	config.cmd[0] |= 0x3 << ACPM_IPC_PROTOCOL_ID;
-
-	config.response = true;
-	config.indirection = false;
-
-	ret = acpm_send_data(exynos_acpm->dev->of_node, 3, &config);
-
-	if (!ret)
-		*val = ipc_time_end - ipc_time_start;
-	else
-		*val = 0;
-
-	config.cmd = NULL;
-
-	return 0;
-}
-
-static int debug_ipc_loopback_test_set(void *data, unsigned long long val)
-{
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(debug_log_level_fops,
-		debug_log_level_get, debug_log_level_set, "%llu\n");
-DEFINE_SIMPLE_ATTRIBUTE(debug_ipc_loopback_test_fops,
-		debug_ipc_loopback_test_get, debug_ipc_loopback_test_set, "%llu\n");
-
-static void acpm_debugfs_init(struct acpm_info *acpm)
-{
-	struct dentry *den;
-
-	den = debugfs_create_dir("acpm_framework", NULL);
-	debugfs_create_file("ipc_loopback_test", 0644, den, acpm, &debug_ipc_loopback_test_fops);
-	debugfs_create_file("log_level", 0644, den, NULL, &debug_log_level_fops);
-}
-
 void *memcpy_align_4(void *dest, const void *src, unsigned int n)
 {
 	unsigned int *dp = dest;
@@ -303,7 +243,6 @@ static int acpm_send_data(struct device_node *node, unsigned int check_id,
 				&channel_num, &size)) {
 		ipc_done = -1;
 
-		ipc_time_start = sched_clock();
 		ret = acpm_ipc_send_data(channel_num, config);
 
 		if (config->cmd[0] & ACPM_IPC_PROTOCOL_DP_CMD) {
@@ -371,8 +310,6 @@ static int acpm_probe(struct platform_device *pdev)
 		pr_warn("No matching property: peritiemr_cnt\n");
 
 	exynos_acpm = acpm;
-
-	acpm_debugfs_init(acpm);
 
 	exynos_acpm_timer_clear();
 	return ret;

@@ -26,11 +26,6 @@
 #include "fw_header/framework.h"
 
 static struct acpm_ipc_info *acpm_ipc;
-static struct workqueue_struct *debug_logging_wq;
-static struct workqueue_struct *update_log_wq;
-static struct acpm_debug_info *acpm_debug;
-static bool is_acpm_stop_log = false;
-static bool acpm_stop_log_req = false;
 struct acpm_framework *acpm_initdata;
 void __iomem *acpm_srambase;
 struct regulator_ss_info regulator_ss[REGULATOR_SS_MAX];
@@ -46,39 +41,6 @@ static bool is_rt_dl_task_policy(void)
 void acpm_ipc_set_waiting_mode(bool mode)
 {
 	acpm_ipc->w_mode = mode;
-}
-
-void acpm_fw_log_level(unsigned int on)
-{
-	acpm_debug->debug_log_level = on;
-}
-
-void acpm_ramdump(void)
-{
-#ifdef CONFIG_EXYNOS_SNAPSHOT_ACPM
-	if (acpm_debug->dump_size)
-		memcpy(acpm_debug->dump_dram_base, acpm_debug->dump_base, acpm_debug->dump_size);
-#endif
-}
-
-void timestamp_write(void)
-{
-	unsigned int tmp_index;
-	if (spin_trylock(&acpm_debug->lock)) {
-		tmp_index = __raw_readl(acpm_debug->time_index);
-
-		tmp_index++;
-
-		if (tmp_index == acpm_debug->num_timestamps)
-			tmp_index = 0;
-
-		acpm_debug->timestamps[tmp_index] = sched_clock();
-
-		__raw_writel(tmp_index, acpm_debug->time_index);
-		exynos_acpm_timer_clear();
-
-		spin_unlock(&acpm_debug->lock);
-	}
 }
 
 struct regulator_ss_info *get_regulator_ss(int n)
@@ -128,111 +90,6 @@ unsigned int get_reg_voltage(struct regulator_ss_info reg_info, unsigned int sel
 		selector = selector & 0x3F;
 
 	return reg_info.min_uV + (reg_info.uV_step * (selector - reg_info.linear_min_sel));
-}
-
-void acpm_log_print(void)
-{
-	unsigned int front;
-	unsigned int rear;
-	unsigned int id;
-	unsigned int index;
-	unsigned int count;
-	unsigned char str[9] = {0,};
-	unsigned int val;
-	unsigned int log_header;
-	unsigned long long time;
-	unsigned int log_level;
-	unsigned int reg_id;
-
-	if (is_acpm_stop_log)
-		return ;
-	/* ACPM Log data dequeue & print */
-	front = __raw_readl(acpm_debug->log_buff_front);
-	rear = __raw_readl(acpm_debug->log_buff_rear);
-
-	while (rear != front) {
-		log_header = __raw_readl(acpm_debug->log_buff_base + acpm_debug->log_buff_size * rear);
-
-		/* log header information
-		 * id: [31:28]
-		 * log level : [27]
-		 * index: [26:22]
-		 * apm systick count: [15:0]
-		 */
-		id = (log_header & (0xF << LOG_ID_SHIFT)) >> LOG_ID_SHIFT;
-		log_level = (log_header & (0x1 << LOG_LEVEL)) >> LOG_LEVEL;
-		index = (log_header & (0x1f << LOG_TIME_INDEX)) >> LOG_TIME_INDEX;
-		count = log_header & 0xffff;
-
-		/* string length: log_buff_size - header(4) - integer_data(4) */
-		memcpy_align_4(str, acpm_debug->log_buff_base + (acpm_debug->log_buff_size * rear) + 4,
-				acpm_debug->log_buff_size - 8);
-
-		val = __raw_readl(acpm_debug->log_buff_base + acpm_debug->log_buff_size * rear +
-				acpm_debug->log_buff_size - 4);
-
-		time = acpm_debug->timestamps[index];
-
-		/* peritimer period: (1 * 256) / 24.576MHz*/
-		time += count * APM_PERITIMER_NS_PERIOD;
-
-		/* addr : [19:8], val : [7:0]*/
-		if (id == REGULATOR_INFO_ID) {
-			if (is_set_regmap == false)
-				set_reg_map();
-
-			if (is_set_regmap == false)
-				reg_id = NO_SET_REGMAP;
-			else
-				reg_id = get_reg_id(val >> 12);
-
-			if (reg_id == NO_SS_RANGE)
-				exynos_ss_regulator(time, "outSc", val >> 12, (val >> 4) & 0xFF, (val >> 4) & 0xFF, val & 0xF);
-			else if (reg_id == NO_SET_REGMAP)
-				exynos_ss_regulator(time, "noMap", val >> 12, (val >> 4) & 0xFF, (val >> 4) & 0xFF, val & 0xF);
-			else
-				exynos_ss_regulator(time, regulator_ss[reg_id].name, val >> 12,
-						get_reg_voltage(regulator_ss[reg_id], (val >> 4) & 0xFF),
-						(val >> 4) & 0xFF,
-						val & 0xF);
-		}
-		exynos_ss_acpm(time, str, val);
-
-		if (acpm_debug->debug_log_level == 1 || !log_level)
-			pr_info("[ACPM_FW] : %llu id:%u, %s, %x\n", time, id, str, val);
-
-		if (acpm_debug->log_buff_len == (rear + 1))
-			rear = 0;
-		else
-			rear++;
-
-		__raw_writel(rear, acpm_debug->log_buff_rear);
-		front = __raw_readl(acpm_debug->log_buff_front);
-	}
-
-	if (acpm_stop_log_req) {
-		is_acpm_stop_log = true;
-		acpm_ramdump();
-	}
-}
-
-void acpm_stop_log(void)
-{
-	acpm_stop_log_req = true;
-}
-
-static void acpm_update_log(struct work_struct *work)
-{
-	acpm_log_print();
-}
-
-static void acpm_debug_logging(struct work_struct *work)
-{
-	acpm_log_print();
-	timestamp_write();
-
-	queue_delayed_work(debug_logging_wq, &acpm_debug->periodic_work,
-			msecs_to_jiffies(acpm_debug->period));
 }
 
 int acpm_ipc_set_ch_mode(struct device_node *np, bool polling)
@@ -434,7 +291,6 @@ static void dequeue_policy(struct acpm_ipc_ch *channel)
 		front = __raw_readl(channel->rx_ch.front);
 	}
 
-	acpm_log_print();
 	spin_unlock(&channel->rx_lock);
 }
 
@@ -499,7 +355,6 @@ static int enqueue_indirection_cmd(struct acpm_ipc_ch *channel,
 						timeout_flag);
 
 				if (timeout_flag) {
-					acpm_log_print();
 					return -ETIMEDOUT;
 				} else {
 					rear = __raw_readl(channel->tx_ch.rear);
@@ -579,8 +434,6 @@ int __acpm_ipc_send_data(unsigned int channel_id, struct ipc_config *cfg, bool w
 	/* buffer full check */
 	UNTIL_EQUAL(true, tmp_index != __raw_readl(channel->tx_ch.rear), timeout_flag);
 	if (timeout_flag) {
-		acpm_log_print();
-		acpm_debug->debug_log_level = 1;
 		spin_unlock(&channel->tx_lock);
 		pr_err("[%s] tx buffer full! timeout!!!\n", __func__);
 		return -ETIMEDOUT;
@@ -681,77 +534,12 @@ retry:
 					__raw_readl(channel->tx_ch.rear),
 					__raw_readl(channel->tx_ch.front));
 
-			acpm_debug->debug_log_level = 1;
-			acpm_log_print();
-			acpm_debug->debug_log_level = 0;
-			acpm_ramdump();
-
 			msleep(1000);
 			s3c2410wdt_set_emergency_reset(0, 0);
 		}
-
-		queue_work(update_log_wq, &acpm_debug->update_log_work);
 	}
 
 	return 0;
-}
-
-static void log_buffer_init(struct device *dev, struct device_node *node)
-{
-	const __be32 *prop;
-	unsigned int num_timestamps = 0;
-	unsigned int len = 0;
-	unsigned int dump_base = 0;
-	unsigned int dump_size = 0;
-
-	prop = of_get_property(node, "num-timestamps", &len);
-	if (prop)
-		num_timestamps = be32_to_cpup(prop);
-
-	acpm_debug = devm_kzalloc(dev, sizeof(struct acpm_debug_info), GFP_KERNEL);
-	if (IS_ERR(acpm_debug))
-		return ;
-
-	acpm_debug->time_index = acpm_ipc->sram_base + acpm_ipc->initdata->ktime_index;
-	acpm_debug->num_timestamps = num_timestamps;
-	acpm_debug->timestamps = devm_kzalloc(dev,
-			sizeof(unsigned long long) * num_timestamps, GFP_KERNEL);
-	acpm_debug->log_buff_rear = acpm_ipc->sram_base + acpm_ipc->initdata->log_buf_rear;
-	acpm_debug->log_buff_front = acpm_ipc->sram_base + acpm_ipc->initdata->log_buf_front;
-	acpm_debug->log_buff_base = acpm_ipc->sram_base + acpm_ipc->initdata->log_data;
-	acpm_debug->log_buff_len = acpm_ipc->initdata->log_entry_len;
-	acpm_debug->log_buff_size = acpm_ipc->initdata->log_entry_size;
-
-	prop = of_get_property(node, "debug-log-level", &len);
-	if (prop)
-		acpm_debug->debug_log_level = be32_to_cpup(prop);
-
-	prop = of_get_property(node, "dump-base", &len);
-	if (prop)
-		dump_base = be32_to_cpup(prop);
-
-	prop = of_get_property(node, "dump-size", &len);
-	if (prop)
-		dump_size = be32_to_cpup(prop);
-
-	if (dump_base && dump_size) {
-		acpm_debug->dump_base = ioremap(dump_base, dump_size);
-		acpm_debug->dump_size = dump_size;
-	}
-
-	prop = of_get_property(node, "logging-period", &len);
-	if (prop)
-		acpm_debug->period = be32_to_cpup(prop);
-
-#ifdef CONFIG_EXYNOS_SNAPSHOT_ACPM
-	acpm_debug->dump_dram_base = kzalloc(acpm_debug->dump_size, GFP_KERNEL);
-	exynos_ss_printk("[ACPM] acpm framework SRAM dump to dram base: 0x%x\n",
-			virt_to_phys(acpm_debug->dump_dram_base));
-#endif
-	pr_info("[ACPM] acpm framework SRAM dump to dram base: 0x%llx\n",
-			virt_to_phys(acpm_debug->dump_dram_base));
-
-	spin_lock_init(&acpm_debug->lock);
 }
 
 int acpm_ipc_send_data(unsigned int channel_id, struct ipc_config *cfg)
@@ -879,20 +667,7 @@ static int acpm_ipc_probe(struct platform_device *pdev)
 
 	acpm_ipc->dev = &pdev->dev;
 
-	log_buffer_init(&pdev->dev, node);
-
 	channel_init();
-
-	update_log_wq = create_freezable_workqueue("acpm_update_log");
-	INIT_WORK(&acpm_debug->update_log_work, acpm_update_log);
-
-	if (acpm_debug->period) {
-		debug_logging_wq = create_freezable_workqueue("acpm_debug_logging");
-		INIT_DELAYED_WORK(&acpm_debug->periodic_work, acpm_debug_logging);
-
-		queue_delayed_work(debug_logging_wq, &acpm_debug->periodic_work,
-				msecs_to_jiffies(10000));
-	}
 
 	return ret;
 }
