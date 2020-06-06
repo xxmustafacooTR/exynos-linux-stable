@@ -158,7 +158,7 @@ static int sx9320_check_hallic_state(char *file_path, char hall_ic_status[])
 		set_fs(old_fs);
 		return -EIO;
 	} else {
-		strncpy(hall_ic_status, hall_sysfs, sizeof(hall_sysfs));
+		memcpy(hall_ic_status, hall_sysfs, sizeof(hall_sysfs));
 	}
 
 	filp_close(filep, current->files);
