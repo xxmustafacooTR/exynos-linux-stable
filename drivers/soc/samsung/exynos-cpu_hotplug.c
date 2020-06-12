@@ -257,7 +257,6 @@ static int do_cpu_hotplug(bool fast_hp)
 {
 	int ret = 0;
 	struct cpumask disable_cpus, enable_cpus;
-	char cpus_buf[10];
 
 	mutex_lock(&cpu_hotplug.lock);
 	/*
@@ -284,11 +283,6 @@ static int do_cpu_hotplug(bool fast_hp)
 	 */
 	cpumask_andnot(&enable_cpus, &enable_cpus, cpu_online_mask);
 	cpumask_and(&disable_cpus, &disable_cpus, cpu_online_mask);
-
-	scnprintf(cpus_buf, sizeof(cpus_buf), "%*pbl", cpumask_pr_args(&enable_cpus));
-	pr_info("%s: enable_cpus=%s fast_hp=%d\n", __func__, cpus_buf, fast_hp);
-	scnprintf(cpus_buf, sizeof(cpus_buf), "%*pbl", cpumask_pr_args(&disable_cpus));
-	pr_info("%s: disable_cpus=%s fast_hp=%d\n", __func__, cpus_buf, fast_hp);
 
 	if (!cpumask_empty(&enable_cpus))
 		ret = do_cpu_up(enable_cpus, fast_hp);
