@@ -1994,34 +1994,6 @@ static int vts_runtime_resume(struct device *dev)
 		}
 	}
 
-	/* Enable Audio data Dump */
-	if (data->audiodump_enabled) {
-		values[0] = VTS_ENABLE_AUDIODUMP;
-		values[1] = (VTS_ADUIODUMP_AFTER_MINS * 60);
-		values[2] = 0;
-		result = vts_start_ipc_transaction(dev, data,
-				VTS_IRQ_AP_TEST_COMMAND, &values,
-				0, 2);
-		if (result < 0) {
-			dev_err(dev, "Enable_AudioDump ipc failed\n");
-			goto error_firmware;
-		}
-	}
-
-	/* Enable VTS FW log Dump */
-	if (data->logdump_enabled) {
-		values[0] = VTS_ENABLE_LOGDUMP;
-		values[1] = (VTS_LOGDUMP_AFTER_MINS * 60);
-		values[2] = 0;
-		result = vts_start_ipc_transaction(dev, data,
-				VTS_IRQ_AP_TEST_COMMAND, &values,
-				0, 2);
-		if (result < 0) {
-			dev_err(dev, "Enable_LogDump ipc failed\n");
-			goto error_firmware;
-		}
-	}
-
 	dev_dbg(dev, "%s DRAM-setting and VTS-Mode is completed \n", __func__);
 	dev_info(dev, "%s Exit \n", __func__);
 
@@ -2090,97 +2062,32 @@ static ssize_t vtsdetectlib_version_show(struct device *dev,
 	return 7;
 }
 
-static ssize_t vts_audiodump_show(struct device *dev,
+static inline ssize_t vts_audiodump_show(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
 {
-	struct vts_data *data = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%d\n", data->audiodump_enabled);
+	return 0;
 }
 
-static ssize_t vts_audiodump_store(struct device *dev,
+static inline ssize_t vts_audiodump_store(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
 {
-	struct vts_data *data = dev_get_drvdata(dev);
-	u32 val = 0;
-	u32 values[3] = {0, 0, 0};
-	int result;
-	int err = kstrtouint(buf, 0, &val);
-
-	if (err < 0)
-		return err;
-	data->audiodump_enabled = (val ? true : false);
-
-	if (data->vts_ready) {
-		if (data->audiodump_enabled) {
-			values[0] = VTS_ENABLE_AUDIODUMP;
-			values[1] = (VTS_ADUIODUMP_AFTER_MINS * 60);
-		} else {
-			values[0] = VTS_DISABLE_AUDIODUMP;
-			values[1] = 0;
-		}
-		values[2] = 0;
-		result = vts_start_ipc_transaction(dev, data,
-				VTS_IRQ_AP_TEST_COMMAND, &values,
-				0, 2);
-		if (result < 0) {
-			dev_err(dev, "AudioDump[%d] ipc failed\n",
-				data->audiodump_enabled);
-		}
-	}
-
-	dev_info(dev, "%s: Audio dump %sabled\n",
-		__func__, (val ? "en" : "dis"));
-	return count;
+	return 0;
 }
 
-static ssize_t vts_logdump_show(struct device *dev,
+static inline ssize_t vts_logdump_show(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
 {
-	struct vts_data *data = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%d\n", data->logdump_enabled);
+	return 0;
 }
 
-static ssize_t vts_logdump_store(struct device *dev,
+static inline ssize_t vts_logdump_store(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
 {
-	struct vts_data *data = dev_get_drvdata(dev);
-	u32 val = 0;
-	u32 values[3] = {0, 0, 0};
-	int result;
-	int err = kstrtouint(buf, 0, &val);
-
-	if (err < 0)
-		return err;
-
-	data->logdump_enabled = (val ? true : false);
-
-	if (data->vts_ready) {
-		if (data->logdump_enabled) {
-			values[0] = VTS_ENABLE_LOGDUMP;
-			values[1] = (VTS_LOGDUMP_AFTER_MINS * 60);
-		} else {
-			values[0] = VTS_DISABLE_LOGDUMP;
-			values[1] = 0;
-		}
-		values[2] = 0;
-		result = vts_start_ipc_transaction(dev, data,
-				VTS_IRQ_AP_TEST_COMMAND, &values,
-				0, 2);
-		if (result < 0) {
-			dev_err(dev, "LogDump[%d] ipc failed\n",
-				data->logdump_enabled);
-		}
-	}
-
-	dev_info(dev, "%s: Log dump %sabled\n",
-		__func__, (val ? "en" : "dis"));
-	return count;
+	return 0;
 }
 
 static DEVICE_ATTR_RO(vtsfw_version);

@@ -19,7 +19,7 @@
  * Schedule log flush sram memory to kernel memory
  * @param[in]	dev		pointer to vts device
  */
-extern void vts_log_schedule_flush(struct device *dev, u32 index);
+static inline void vts_log_schedule_flush(struct device *dev, u32 index) {}
 
 /**
  * Register abox log buffer
@@ -28,9 +28,9 @@ extern void vts_log_schedule_flush(struct device *dev, u32 index);
  * @param[in]	logsz		log buffer size
  * @return	error code if any
  */
-extern int vts_register_log_buffer(
+static inline int vts_register_log_buffer(
 	struct device *dev,
 	u32 addroffset,
-	u32 logsz);
+	u32 logsz) { return 0; }
 
 #endif /* __SND_SOC_VTS_LOG_H */

@@ -29,12 +29,12 @@ enum vts_dump_mode {
  * @param[in]	addroffset	SRAM offset for PCM dta
  * @param[in]	size		size of pcm data
  */
-extern void vts_audiodump_schedule_flush(struct device *dev);
-extern void vts_logdump_schedule_flush(struct device *dev);
-extern void vts_dump_addr_register(
+static inline void vts_audiodump_schedule_flush(struct device *dev) {}
+static inline void vts_logdump_schedule_flush(struct device *dev) {}
+static inline  void vts_dump_addr_register(
 	struct device *dev,
 	u32 addroffset,
 	u32 dumpsz,
-	u32 dump_mode);
+	u32 dump_mode) {}
 
 #endif /* __SND_SOC_VTS_DUMP_H */
