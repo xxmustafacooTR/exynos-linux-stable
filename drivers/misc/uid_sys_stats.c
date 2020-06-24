@@ -67,10 +67,10 @@ struct task_entry {
 
 struct uid_entry {
 	uid_t uid;
-	cputime_t utime;
-	cputime_t stime;
-	cputime_t active_utime;
-	cputime_t active_stime;
+	u64 utime;
+	u64 stime;
+	u64 active_utime;
+	u64 active_stime;
 	int state;
 	struct io_stats io[UID_STATE_SIZE];
 	struct hlist_node hash;
