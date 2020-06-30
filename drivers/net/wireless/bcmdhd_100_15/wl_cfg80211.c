@@ -17157,10 +17157,14 @@ static struct notifier_block wl_cfg80211_netdev_notifier = {
  */
 static bool wl_cfg80211_netdev_notifier_registered = FALSE;
 
-static void wl_cfg80211_concurrent_roam(struct bcm_cfg80211 *cfg, int enable)
+void wl_cfg80211_concurrent_roam(struct bcm_cfg80211 *cfg, int enable)
 {
 	u32 connected_cnt  = wl_get_drv_status_all(cfg, CONNECTED);
 	bool p2p_connected  = wl_cfgp2p_vif_created(cfg);
+#ifdef WL_NAN
+        bool nan_connected  = wl_cfgnan_is_dp_active(bcmcfg_to_prmry_ndev(cfg));
+#endif /* WL_NAN */
+
 	struct net_info *iter, *next;
 
 	if (!(cfg->roam_flags & WL_ROAM_OFF_ON_CONCURRENT))
@@ -17169,7 +17173,12 @@ static void wl_cfg80211_concurrent_roam(struct bcm_cfg80211 *cfg, int enable)
 	WL_DBG(("roam off:%d p2p_connected:%d connected_cnt:%d \n",
 		enable, p2p_connected, connected_cnt));
 	/* Disable FW roam when we have a concurrent P2P connection */
-	if (enable && p2p_connected && connected_cnt > 1) {
+        if (enable &&
+                ((p2p_connected && connected_cnt > 1) ||
+#ifdef WL_NAN
+                nan_connected ||
+#endif /* WL_NAN */
+                FALSE)) {
 
 		/* Mark it as to be reverted */
 		cfg->roam_flags |= WL_ROAM_REVERT_STATUS;
