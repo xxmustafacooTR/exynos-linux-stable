@@ -803,6 +803,9 @@ enum aa_scene_mode {
 	AA_SCENE_MODE_FAST_AE           = 134,
 	AA_SCENE_MODE_ILLUMINANCE       = 135,
 	AA_SCENE_MODE_SUPER_NIGHT       = 136,
+	AA_SCENE_MODE_BOKEH_VIDEO       = 137,
+	AA_SCENE_MODE_SINGLETAKE        = 138,
+	AA_SCENE_MODE_DIRECTORS_VIEW    = 139,
 };
 
 enum aa_effect_mode {
@@ -1067,7 +1070,8 @@ struct camera2_aa_ctl {
 	uint32_t			vendor_captureHint;
 	int32_t				vendor_captureEV;
 	uint32_t			vendor_ssrmHint;
-	uint32_t			vendor_reserved[5];
+	uint32_t			vendor_personalPresetIndex;
+	uint32_t			vendor_reserved[4];
 };
 
 struct camera2_aa_dm {

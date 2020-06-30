@@ -2501,4 +2501,5 @@ do {	\
 	}	\
 } while (0)
 extern s32 wl_cfg80211_handle_macaddr_change(struct net_device *dev, u8 *macaddr);
+extern void wl_cfg80211_concurrent_roam(struct bcm_cfg80211 *cfg, int enable);
 #endif /* _wl_cfg80211_h_ */
