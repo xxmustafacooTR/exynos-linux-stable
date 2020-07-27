@@ -572,6 +572,8 @@ static int exynos_cpufreq_pm_qos_callback(struct notifier_block *nb,
 {
 	int pm_qos_class = *((int *)v);
 	struct exynos_cpufreq_domain *domain;
+	struct cpufreq_policy *policy;
+	struct cpumask mask;
 	int ret;
 
 	pr_debug("update PM QoS class %d to %ld kHz\n", pm_qos_class, val);
@@ -579,6 +581,17 @@ static int exynos_cpufreq_pm_qos_callback(struct notifier_block *nb,
 	domain = find_domain_pm_qos_class(pm_qos_class);
 	if (!domain)
 		return NOTIFY_BAD;
+
+	cpumask_and(&mask, &domain->cpus, cpu_online_mask);
+	if (cpumask_empty(&mask))
+		return NOTIFY_BAD;
+
+	policy = cpufreq_cpu_get(cpumask_first(&mask));
+	if (!policy)
+		return NOTIFY_BAD;
+
+	if (pm_qos_class == domain->pm_qos_max_class)
+		update_qos_capacity(cpumask_first(&domain->cpus), val, policy->cpuinfo.max_freq);
 
 	ret = need_update_freq(domain, pm_qos_class, val);
 	if (ret < 0)
@@ -1448,6 +1461,8 @@ static int __init exynos_cpufreq_init(void)
 
 		set_boot_qos(domain);
 	}
+
+	set_energy_table_status(true);
 
 	pr_info("Initialized Exynos cpufreq driver\n");
 

@@ -7,8 +7,8 @@
 
 #include <trace/events/ems.h>
 
-#include "ems.h"
 #include "../sched.h"
+#include "ems.h"
 
 /*
  * Currently, PCF is composed of a selection algorithm based on distributed
@@ -28,7 +28,7 @@ int select_perf_cpu(struct task_struct *p)
 	rcu_read_lock();
 
 	for_each_cpu_and(cpu, &p->cpus_allowed, cpu_active_mask) {
-		unsigned long capacity_orig = capacity_orig_of(cpu);
+		unsigned long capacity_orig = capacity_orig_of_sse(cpu, p->sse);
 		unsigned long wake_util;
 
 		/*
@@ -76,7 +76,7 @@ int select_perf_cpu(struct task_struct *p)
 		 * computations. Since a high performance cpu has a large capacity,
 		 * cpu having a high performance is likely to be selected.
 		 */
-		wake_util = cpu_util_wake(cpu, p);
+		wake_util = ml_cpu_util_wake(cpu, p);
 		if ((capacity_orig - wake_util) < max_spare_cap)
 			continue;
 

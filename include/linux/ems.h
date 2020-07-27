@@ -24,6 +24,7 @@ struct gb_qos_request {
 
 struct task_band {
 	int id;
+	int sse;
 	pid_t tgid;
 	raw_spinlock_t lock;
 
@@ -35,19 +36,19 @@ struct task_band {
 	unsigned long last_update_time;
 };
 
-#ifdef CONFIG_SCHED_EMS
-extern struct kobject *ems_kobj;
-extern unsigned int get_cpu_max_capacity(unsigned int cpu);
+struct rq;
 
-extern struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
-		struct task_struct *p);
+extern struct kobject *ems_kobj;
+extern unsigned int get_cpu_max_capacity(unsigned int cpu, int sse);
+#ifdef CONFIG_SCHED_EMS
+/* core */
+extern void init_ems(void);
+
+extern struct sched_group *lb_fit_idlest_group(struct sched_domain *sd,
+               struct task_struct *p);
 
 /* task util initialization */
 extern void exynos_init_entity_util_avg(struct sched_entity *se);
-
-/* active balance */
-extern int exynos_need_active_balance(enum cpu_idle_type idle,
-				struct sched_domain *sd, int src_cpu, int dst_cpu);
 
 /* wakeup balance */
 extern int
@@ -70,19 +71,43 @@ extern void gb_qos_update_request(struct gb_qos_request *req, u32 new_value);
 /* task band */
 extern void sync_band(struct task_struct *p, bool join);
 extern void newbie_join_band(struct task_struct *newbie);
-extern int alloc_bands(void);
 extern void update_band(struct task_struct *p, long old_util);
 extern int band_playing(struct task_struct *p, int cpu);
-#else
-static inline struct sched_group *exynos_fit_idlest_group(struct sched_domain *sd,
-		struct task_struct *p) { return NULL; }
-static inline void exynos_init_entity_util_avg(struct sched_entity *se) { }
 
-static inline int exynos_need_active_balance(enum cpu_idle_type idle,
-				struct sched_domain *sd, int src_cpu, int dst_cpu)
-{
-	return 0;
-}
+/* multi load  */
+void update_multi_load(u64 delta, int cpu, struct sched_avg *sa,
+		unsigned long weight, int running, struct cfs_rq *cfs_rq);
+void init_multi_load(struct sched_entity *se);
+void detach_entity_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se);
+void attach_entity_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se);
+void remove_entity_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se);
+void apply_removed_multi_load(struct cfs_rq *cfs_rq);
+void update_tg_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se);
+void cfs_se_util_change_multi_load(struct task_struct *p, struct sched_avg *avg);
+void enqueue_multi_load(struct cfs_rq *cfs_rq, struct task_struct *p);
+void dequeue_multi_load(struct cfs_rq *cfs_rq, struct task_struct *p, bool task_sleep);
+
+/* P.A.R.T */
+void update_cpu_active_ratio(struct rq *rq, struct task_struct *p, int type);
+void part_cpu_active_ratio(unsigned long *util, unsigned long *max, int cpu);
+void set_part_period_start(struct rq *rq);
+
+/* load balance */
+extern void lb_add_cfs_task(struct rq *rq, struct sched_entity *se);
+extern int lb_check_priority(int src_cpu, int dst_cpu);
+extern struct list_head *lb_prefer_cfs_tasks(int src_cpu, int dst_cpu);
+extern int lb_need_active_balance(enum cpu_idle_type idle,
+				struct sched_domain *sd, int src_cpu, int dst_cpu);
+
+/* check the status of energy table */
+extern bool energy_initialized;
+extern void set_energy_table_status(bool status);
+extern bool get_energy_table_status(void);
+#else
+static inline struct sched_group *lb_fit_idlest_group(struct sched_domain *sd,
+               struct task_struct *p) { return NULL; }
+static inline void init_ems(void);
+static inline void exynos_init_entity_util_avg(struct sched_entity *se) { }
 
 static inline int
 exynos_wakeup_balance(struct task_struct *p, int prev_cpu, int sd_flag, int sync)
@@ -109,14 +134,47 @@ static inline void gb_qos_update_request(struct gb_qos_request *req, u32 new_val
 
 static inline void sync_band(struct task_struct *p, bool join) { }
 static inline void newbie_join_band(struct task_struct *newbie) { }
-static inline int alloc_bands(void)
-{
-	return 0;
-}
 static inline void update_band(struct task_struct *p, long old_util) { }
 static inline int band_playing(struct task_struct *p, int cpu)
 {
 	return 0;
+}
+
+static inline void update_multi_load(u64 delta, int cpu, struct sched_avg *sa,
+		unsigned long weight, int running, struct cfs_rq *cfs_rq) { }
+static inline void init_multi_load(struct sched_entity *se) { }
+static inline void detach_entity_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se) { }
+static inline void attach_entity_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se) { }
+static inline void remove_entity_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se) { }
+static inline void apply_removed_multi_load(struct cfs_rq *cfs_rq) { }
+static inline void update_tg_multi_load(struct cfs_rq *cfs_rq, struct sched_entity *se) { }
+static inline void cfs_se_util_change_multi_load(struct task_struct *p, struct sched_avg *avg) { }
+static inline void enqueue_multi_load(struct cfs_rq *cfs_rq, struct task_struct *p) { }
+static inline void dequeue_multi_load(struct cfs_rq *cfs_rq, struct task_struct *p, bool task_sleep) { }
+
+/* P.A.R.T */
+static inline void update_cpu_active_ratio(struct rq *rq, struct task_struct *p, int type) { }
+static inline void part_cpu_active_ratio(unsigned long *util, unsigned long *max, int cpu) { }
+static inline void set_part_period_start(struct rq *rq) { }
+
+static inline void lb_add_cfs_task(struct rq *rq, struct sched_entity *se) { }
+static inline int lb_check_priority(int src_cpu, int dst_cpu)
+{
+	return 0;
+}
+static inline struct list_head *lb_prefer_cfs_tasks(int src_cpu, int dst_cpu)
+{
+	return NULL;
+}
+static inline int lb_need_active_balance(enum cpu_idle_type idle,
+				struct sched_domain *sd, int src_cpu, int dst_cpu)
+{
+	return 0;
+}
+static inline void set_energy_table_status(bool status) { }
+static inline bool get_energy_table_status(void)
+{
+	return false;
 }
 #endif /* CONFIG_SCHED_EMS */
 
@@ -124,8 +182,42 @@ static inline int band_playing(struct task_struct *p, int cpu)
 extern void init_sched_energy_table(struct cpumask *cpus, int table_size,
 				unsigned long *f_table, unsigned int *v_table,
 				int max_f, int min_f);
+extern void update_qos_capacity(int cpu, unsigned long freq, unsigned long max);
 #else
 static inline void init_sched_energy_table(struct cpumask *cpus, int table_size,
 				unsigned long *f_table, unsigned int *v_table,
 				int max_f, int min_f) { }
+static inline void update_qos_capacity(int cpu, unsigned long freq, unsigned long max) { }
 #endif
+
+/* Fluid Real Time */
+extern unsigned int frt_disable_cpufreq;
+
+/*
+ * Maximum number of boost groups to support
+ * When per-task boosting is used we still allow only limited number of
+ * boost groups for two main reasons:
+ * 1. on a real system we usually have only few classes of workloads which
+ *    make sense to boost with different values (e.g. background vs foreground
+ *    tasks, interactive vs low-priority tasks)
+ * 2. a limited number allows for a simpler and more memory/time efficient
+ *    implementation especially for the computation of the per-CPU boost
+ *    value
+ */
+#define BOOSTGROUPS_COUNT 5
+
+struct boost_groups {
+	/* Maximum boost value for all RUNNABLE tasks on a CPU */
+	int boost_max;
+	struct {
+		/* True when this boost group maps an actual cgroup */
+		bool valid;
+		/* The boost for tasks on that boost group */
+		int boost;
+		/* Count of RUNNABLE tasks on that boost group */
+		unsigned tasks;
+	} group[BOOSTGROUPS_COUNT];
+	/* CPU's boost group locking */
+	raw_spinlock_t lock;
+};
+

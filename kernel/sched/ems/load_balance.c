@@ -5,10 +5,11 @@
  * Lakkyung Jung <lakkyung.jung@samsung.com>
  */
 
+#include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/cpuidle.h>
 #include <linux/pm_qos.h>
-#include <linux/sched/energy.h>
+#include <linux/sched_energy.h>
 #include <linux/ems.h>
 
 #include <trace/events/ems.h>
@@ -50,6 +51,37 @@ struct list_head *lb_prefer_cfs_tasks(int src_cpu, int dst_cpu)
 		return tasks;
 
 	return lb_cfs_tasks(src_rq, !sse);
+}
+
+static inline int task_fits(struct task_struct *p, long capacity)
+{
+       return capacity * 1024 > task_util(p) * 1248;
+}
+
+struct sched_group *
+lb_fit_idlest_group(struct sched_domain *sd, struct task_struct *p)
+{
+       struct sched_group *group = sd->groups;
+       struct sched_group *fit_group = NULL;
+       unsigned long fit_capacity = ULONG_MAX;
+
+       do {
+               int i;
+
+               /* Skip over this group if it has no CPUs allowed */
+               if (!cpumask_intersects(sched_group_cpus(group),
+                                       &p->cpus_allowed))
+                       continue;
+
+               for_each_cpu(i, sched_group_cpus(group)) {
+                       if (capacity_of(i) < fit_capacity && task_fits(p, capacity_of(i))) {
+                               fit_capacity = capacity_of(i);
+                               fit_group = group;
+                       }
+               }
+       } while (group = group->next, group != sd->groups);
+
+       return fit_group;
 }
 
 static inline int
@@ -137,9 +169,12 @@ static inline int get_topology_depth(void)
 
 static inline int get_last_level(struct lbt_overutil *ou)
 {
-	int level;
+	int level, depth = get_topology_depth();
 
-	for (level = 0; &ou[level] != NULL; level++) {
+	for (level = 0; level <= depth ; level++) {
+		if (&ou[level] == NULL)
+			return -1;
+
 		if (ou[level].top == true)
 			return level;
 	}
@@ -170,7 +205,12 @@ bool lbt_overutilized(int cpu, int level)
 void update_lbt_overutil(int cpu, unsigned long capacity)
 {
 	struct lbt_overutil *ou = per_cpu(lbt_overutil, cpu);
-	int level, last = get_last_level(ou);
+	int level, last;
+
+	if (!ou)
+		return;
+
+	last = get_last_level(ou);
 
 	for (level = 0; level <= last; level++) {
 		if (ou[level].ratio == DISABLE_OU)
