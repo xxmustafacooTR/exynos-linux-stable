@@ -341,10 +341,20 @@
 			ANANKE_ENERGY: ananke-energy {
 				capacity-mips = <272>;
 				power-coefficient = <160>;
+				capacity-mips-s = <215>;
+				power-coefficient-s = <130>;
+
+				capacity-weight = <1>;
+				energy-weight = <1>;
 			};
 			MEERKAT_ENERGY: meerkat-energy {
 				capacity-mips = <785>;
 				power-coefficient = <800>;
+				capacity-mips-s = <365>;
+				power-coefficient-s = <506>;
+
+				capacity-weight = <1>;
+				energy-weight = <3>;
 			};
 		};
 
@@ -355,13 +365,17 @@
 				coregroup0 {
 					lower-boundary = <0>;
 					upper-boundary = <42>;
+					lower-boundary-s = <0>;
+					upper-boundary-s = <30>;
 					coverage-ratio = <100>;
 				};
 				/* big cores */
 				coregroup1 {
 					lower-boundary = <7>;
 					upper-boundary = <100>;
-					coverage-ratio = <75>;
+					lower-boundary-s = <10>;
+					upper-boundary-s = <100>;
+					coverage-ratio = <80>;
 				};
 			};
 
@@ -394,11 +408,26 @@
 				};
 			};
 
+			part {
+				/* little cores */
+				coregroup0 {
+					active-ratio-limit = <43>;
+					active-ratio-boost = <42>;
+				};
+				/* big cores */
+				coregroup1 {
+					active-ratio-limit = <30>;
+					active-ratio-boost = <0>;
+				};
+			};
+
 			prefer-perf-service {
 				prefer-perf0 {
 					boost = <1>;
 					light-task-threshold = <10>;
+					light-task-threshold-s = <6>;
 					prefer-cpus = "4-7", "0-3";
+					light-prefer-cpus = "0-3";
 				};
 			};
 		};
@@ -4952,7 +4981,7 @@
 			boost_table = < 100 598000 60 715000 30 832000 20 949000 10 1053000 0 >;
 			up_rate_limit_table = < 5000 >;
 			down_rate_limit_table = < 5000 >;
-			upscale_ratio_table = < 80 >;
+			st_table = < 5 >;
 		};
 
 		domain@1 {
@@ -4962,7 +4991,7 @@
 			boost_table = < 20 858000 15 962000 5 1261000 0 >;
 			up_rate_limit_table = < 5000 >;
 			down_rate_limit_table = < 5000 >;
-			upscale_ratio_table = < 80 1469000 100 >;
+			st_table = < 5 >;
 		};
 	};
 
