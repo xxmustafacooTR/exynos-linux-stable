@@ -93,13 +93,12 @@ static int select_idle_cpu(struct task_struct *p)
 
 		for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_coregroup_mask(cpu)) {
 			unsigned long capacity_orig = capacity_orig_of(i);
-			unsigned long new_util, wake_util;
+			unsigned long new_util;
 
-			wake_util = cpu_util_wake(i, p);
-			new_util = wake_util + task_util_est(p);
-			new_util = max(new_util, boosted_task_util(p));
+			new_util = ml_task_attached_cpu_util(i, p);
+			new_util = max(new_util, ml_boosted_task_util(p));
 
-			trace_ems_prefer_idle(p, task_cpu(p), i, capacity_orig, task_util_est(p),
+			trace_ems_prefer_idle(p, task_cpu(p), i, capacity_orig, ml_task_util_est(p),
 							new_util, idle_cpu(i));
 
 			if (new_util > capacity_orig)

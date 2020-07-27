@@ -270,46 +270,10 @@ schedtune_accept_deltas(int nrg_delta, int cap_delta,
 			perf_boost_idx, perf_constrain_idx);
 }
 
-/*
- * Maximum number of boost groups to support
- * When per-task boosting is used we still allow only limited number of
- * boost groups for two main reasons:
- * 1. on a real system we usually have only few classes of workloads which
- *    make sense to boost with different values (e.g. background vs foreground
- *    tasks, interactive vs low-priority tasks)
- * 2. a limited number allows for a simpler and more memory/time efficient
- *    implementation especially for the computation of the per-CPU boost
- *    value
- */
-#define BOOSTGROUPS_COUNT 5
-
 /* Array of configured boostgroups */
 static struct schedtune *allocated_group[BOOSTGROUPS_COUNT] = {
 	&root_schedtune,
 	NULL,
-};
-
-/* SchedTune boost groups
- * Keep track of all the boost groups which impact on CPU, for example when a
- * CPU has two RUNNABLE tasks belonging to two different boost groups and thus
- * likely with different boost values.
- * Since on each system we expect only a limited number of boost groups, here
- * we use a simple array to keep track of the metrics required to compute the
- * maximum per-CPU boosting value.
- */
-struct boost_groups {
-	/* Maximum boost value for all RUNNABLE tasks on a CPU */
-	int boost_max;
-	struct {
-		/* True when this boost group maps an actual cgroup */
-		bool valid;
-		/* The boost for tasks on that boost group */
-		int boost;
-		/* Count of RUNNABLE tasks on that boost group */
-		unsigned tasks;
-	} group[BOOSTGROUPS_COUNT];
-	/* CPU's boost group locking */
-	raw_spinlock_t lock;
 };
 
 /* Boost groups affecting each CPU in the system */
@@ -545,6 +509,17 @@ static void schedtune_attach(struct cgroup_taskset *tset)
 		sync_band(task, css_st(css)->band);
 }
 
+static void band_switch(struct schedtune *st)
+{
+	struct css_task_iter it;
+	struct task_struct *p;
+
+	css_task_iter_start(&st->css, &it);
+	while ((p = css_task_iter_next(&it)))
+		sync_band(p, st->band);
+	css_task_iter_end(&it);
+}
+
 /*
  * NOTE: This function must be called while holding the lock on the CPU RQ
  */
@@ -751,7 +726,12 @@ band_write(struct cgroup_subsys_state *css, struct cftype *cft,
 	    u64 band)
 {
 	struct schedtune *st = css_st(css);
+
+	if (st->band == band)
+		return 0;
+
 	st->band = band;
+	band_switch(st);
 
 	return 0;
 }
