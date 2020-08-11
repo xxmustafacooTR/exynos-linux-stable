@@ -118,21 +118,21 @@ static int usi_v2_resume_noirq(struct device *dev)
 
 #ifdef ENABLE_SENSORS_FPRINT_SECURE
 	if (data->ch_id == CONFIG_SENSORS_FP_USI_NUMBER) {
-		dev_info(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			"usi configuration for secure channel is skipped(FP)\n");
 		return 0;
 	}
 #endif
 #ifdef CONFIG_ESE_SECURE
 	if (data->ch_id == CONFIG_ESE_SECURE_USI_MODE) {
-		dev_info(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			"usi configuration for secure channel is skipped(eSE)\n");
 		return 0;
 	}
 #endif
 	if (data->mode && data->base) {
 		writel(data->mode, data->base);
-		dev_info(&pdev->dev, "%s mode:%d\n", __func__, data->mode);
+		dev_dbg(&pdev->dev, "%s mode:%d\n", __func__, data->mode);
 		ret = 0;
 	} else {
 		dev_err(&pdev->dev, "%s wrong usi_v2 data\n", __func__);

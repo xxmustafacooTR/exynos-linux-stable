@@ -405,7 +405,7 @@ static int exynos9810_tmu_initialize(struct platform_device *pdev)
 
 		/* Save sensor id */
 		data->sensor_info[count].sensor_num = sensor;
-		dev_info(&pdev->dev, "Sensor number = %d\n", sensor);
+		dev_dbg(&pdev->dev, "Sensor number = %d\n", sensor);
 
 		/* Check thermal calibration type */
 		data->sensor_info[count].cal_type = cal_type;
@@ -1738,14 +1738,14 @@ static int exynos_tmu_resume(struct device *dev)
 
 	exynos_acpm_tmu_set_read_temp(data->tzd->id, &temp, &stat);
 
-	pr_info("%s: thermal zone %d temp %d stat %d\n",
+	pr_debug("%s: thermal zone %d temp %d stat %d\n",
 			__func__, data->tzd->id, temp, stat);
 
 	enable_irq(data->irq);
 	suspended_count--;
 
 	if (!suspended_count)
-		pr_info("%s: TMU resume complete\n", __func__);
+		pr_debug("%s: TMU resume complete\n", __func__);
 #else
 	exynos_tmu_initialize(pdev);
 	exynos_tmu_control(pdev, true);
