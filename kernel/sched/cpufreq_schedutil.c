@@ -253,7 +253,7 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, u64 time)
 	rt = (rt * max_cap) >> SCHED_CAPACITY_SHIFT;
 
 #ifdef CONFIG_SCHED_EMS
-	*util = ml_boosted_cpu_util(cpu);
+	*util = ml_boosted_cpu_util(cpu) + rt;
 #else
 	*util = boosted_cpu_util(cpu, rt);
 #endif
