@@ -160,6 +160,8 @@ static int __init exynos_idle_driver_init(struct cpuidle_driver *drv,
 	return 0;
 }
 
+struct class *idle_class;
+
 static int __init exynos_idle_init(void)
 {
 	int ret, cpu, i;
@@ -208,6 +210,8 @@ static int __init exynos_idle_init(void)
 	register_reboot_notifier(&exynos_cpuidle_reboot_nb);
 
 	cpuidle_profile_register(&exynos_idle_driver[0]);
+	/* clsss for exynos cpuidle : /sys/class/cpuidle */
+	idle_class = class_create(THIS_MODULE, "cpuidle");
 
 	init_exynos_ucc();
 
