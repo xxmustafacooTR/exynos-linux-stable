@@ -90,7 +90,7 @@ static void srpmb_worker(struct work_struct *data)
 
 	__pm_stay_awake(&rpmb_ctx->wakesrc);
 
-	dev_info(&sr_pdev->dev, "start rpmb workqueue with command(%d)\n", req->type);
+	dev_dbg(&sr_pdev->dev, "start rpmb workqueue with command(%d)\n", req->type);
 
 	switch(req->type) {
 	case GET_WRITE_COUNTER:
@@ -223,7 +223,7 @@ static void srpmb_worker(struct work_struct *data)
 	}
 
 	__pm_relax(&rpmb_ctx->wakesrc);
-	dev_info(&sr_pdev->dev, "finish rpmb workqueue with command(%d)\n", req->type);
+	dev_dbg(&sr_pdev->dev, "finish rpmb workqueue with command(%d)\n", req->type);
 }
 
 static int srpmb_suspend_notifier(struct notifier_block *nb, unsigned long event,
@@ -302,7 +302,7 @@ int init_wsm(struct device *dev)
 			&rpmb_ctx->phy_addr, GFP_KERNEL);
 
 	if (rpmb_ctx->vir_addr && rpmb_ctx->phy_addr) {
-		dev_info(dev, "srpmb dma addr: virt_pK(%pK), phy(%llx)\n",
+		dev_dbg(dev, "srpmb dma addr: virt_pK(%pK), phy(%llx)\n",
 			rpmb_ctx->vir_addr, (uint64_t)rpmb_ctx->phy_addr);
 
 		rpmb_ctx->irq = irq_of_parse_and_map(sr_pdev->dev.of_node, 0);
