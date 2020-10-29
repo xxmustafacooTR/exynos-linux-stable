@@ -68,12 +68,8 @@
 	stp \ptr, \regB, [\regC], \val
 	.endm
 
-	.weak memcpy
 ENTRY(__memcpy)
-#ifdef CONFIG_RKP_CFP_JOPP
-FALLTHROUGH(memcpy)
-#endif
-ENTRY(memcpy)
+WEAK(memcpy)
 #include "copy_template.S"
 	ret
 ENDPIPROC(memcpy)
