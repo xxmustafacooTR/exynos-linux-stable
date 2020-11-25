@@ -7,4 +7,4 @@
 * Boeffla Wakelocks Blocker
 * Gestures S2W & S2S
 
-![Logo](https://ultimate-rom.com/Ultimate_ROM_Sign_Small.jpg)
+![Logo](https://ultimate-rom.com//Ultimate_ROM_Sign_Small.jpg)
