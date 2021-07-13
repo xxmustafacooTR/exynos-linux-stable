@@ -519,7 +519,7 @@ static struct brd_device *brd_alloc(int i)
 	disk->flags		= GENHD_FL_EXT_DEVT;
 	sprintf(disk->disk_name, "ram%d", i);
 	set_capacity(disk, rd_size * 2);
-	disk->queue->backing_dev_info->capabilities |= BDI_CAP_SYNCHRONOUS_IO;
+	disk->queue->backing_dev_info.capabilities |= BDI_CAP_SYNCHRONOUS_IO;
 
 	return brd;
 
