@@ -16,6 +16,7 @@
 
 struct kobject *exynos_cpu_hotplug_kobj(void);
 bool exynos_cpu_hotplug_enabled(void);
+bool exynos_cpu_hotplug_gov_enabled(void);
 void exynos_cpu_hotplug_gov_activated(void);
 
 void exynos_hpgov_update_rq_load(int cpu);
