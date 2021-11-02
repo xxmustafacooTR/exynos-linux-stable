@@ -250,9 +250,7 @@ struct fsxattr {
 #define FS_IOC32_SETVERSION		_IOW('v', 2, int)
 #define FS_IOC_FSGETXATTR		_IOR ('X', 31, struct fsxattr)
 #define FS_IOC_FSSETXATTR		_IOW ('X', 32, struct fsxattr)
-#if defined(CONFIG_SDP) && !defined(CONFIG_FSCRYPT_SDP)
-#define FS_IOC_INVAL_MAPPING		_IO('f', 13)	/* CONFIG_EPM FMP */
-#endif
+
 /*
  * File system encryption support
  */
@@ -278,9 +276,6 @@ struct fsxattr {
 #define FS_ENCRYPTION_MODE_SPECK128_256_XTS	7 /* Removed, do not use. */
 #define FS_ENCRYPTION_MODE_SPECK128_256_CTS	8 /* Removed, do not use. */
 #define FS_ENCRYPTION_MODE_ADIANTUM		9
-
-#define FS_PRIVATE_ENCRYPTION_MODE_AES_256_CBC	126
-#define FS_PRIVATE_ENCRYPTION_MODE_AES_256_XTS	127
 
 struct fscrypt_policy {
 	__u8 version;
