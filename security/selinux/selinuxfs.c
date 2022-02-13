@@ -41,6 +41,10 @@
 #include "objsec.h"
 #include "conditional.h"
 
+#ifdef CONFIG_SECURITY_SELINUX_NEVER_ENFORCE
+static bool fake_enforce = false;
+#endif
+
 /* Policy capability filenames */
 static char *policycap_names[] = {
 	"network_peer_controls",
@@ -135,6 +139,11 @@ static ssize_t sel_read_enforce(struct file *filp, char __user *buf,
 	char tmpbuf[TMPBUFLEN];
 	ssize_t length;
 
+#ifdef CONFIG_SECURITY_SELINUX_NEVER_ENFORCE
+	if (fake_enforce)
+	length = scnprintf(tmpbuf, TMPBUFLEN, "%d", 1);
+	else
+#endif
 	length = scnprintf(tmpbuf, TMPBUFLEN, "%d", selinux_enforcing);
 	return simple_read_from_buffer(buf, count, ppos, tmpbuf, length);
 }
@@ -164,6 +173,12 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 		goto out;
 
 #ifdef CONFIG_SECURITY_SELINUX_NEVER_ENFORCE
+	// Fake Enforce Support
+	if (new_value == 2)
+		fake_enforce = true;
+	else
+		fake_enforce = false;
+
 	// If build is user build and permissive option is set, selinux is always permissive
 	new_value = 0;
 	length = task_has_security(current, SECURITY__SETENFORCE);
