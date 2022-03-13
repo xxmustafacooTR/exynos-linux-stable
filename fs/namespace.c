@@ -1248,16 +1248,14 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 			return ERR_PTR(-ENOMEM);
 		}
 	}
-	if (flags & MS_KERNMOUNT) {
+	if (flags & MS_KERNMOUNT)
 #ifdef CONFIG_RKP_NS_PROT
 		rkp_set_mnt_flags(mnt->mnt,MNT_INTERNAL);
-		root = mount_fs(type, flags, name, mnt->mnt, data);
+	root = mount_fs(type, flags, name, mnt->mnt, data);
 #else
 		mnt->mnt.mnt_flags = MNT_INTERNAL;
-		root = mount_fs(type, flags, name, &mnt->mnt, data);
+	root = mount_fs(type, flags, name, &mnt->mnt, data);
 #endif
-	}
-
 	if (IS_ERR(root)) {
 		mnt_free_id(mnt);
 		free_vfsmnt(mnt);
