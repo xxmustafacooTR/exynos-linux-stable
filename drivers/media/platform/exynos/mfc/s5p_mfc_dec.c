@@ -429,7 +429,7 @@ static int vidioc_s_fmt_vid_cap_mplane(struct file *file, void *priv,
 		mfc_err_ctx("Unsupported format for destination.\n");
 		return -EINVAL;
 	}
-	ctx->dst_fmt = fmt;	
+	ctx->dst_fmt = fmt;
 	ctx->raw_buf.num_planes = ctx->dst_fmt->num_planes;
 	mfc_info_ctx("Dec output pixelformat : %s\n", ctx->dst_fmt->name);
 
@@ -463,6 +463,7 @@ static int mfc_force_close_inst(struct s5p_mfc_dev *dev, struct s5p_mfc_ctx *ctx
 	}
 
 	/* Free resources */
+	ctx->inst_no = MFC_NO_INSTANCE_SET;
 	s5p_mfc_release_instance_context(ctx);
 	s5p_mfc_change_state(ctx, MFCINST_INIT);
 
@@ -722,6 +723,7 @@ static int vidioc_querybuf(struct file *file, void *priv,
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
+	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret = -EINVAL;
 
 	mfc_debug_enter();
@@ -751,7 +753,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 			return -EIO;
 		}
 
-		s5p_mfc_qos_update_framerate(ctx);
+		s5p_mfc_qos_update_framerate(ctx, 0);
 
 		if (!buf->m.planes[0].bytesused) {
 			buf->m.planes[0].bytesused = buf->m.planes[0].length;
@@ -762,9 +764,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		}
 		ret = vb2_qbuf(&ctx->vq_src, buf);
 	} else {
+		s5p_mfc_qos_update_framerate(ctx, 1);
 		ret = vb2_qbuf(&ctx->vq_dst, buf);
 		mfc_debug(2, "End of enqueue(%d) : %d\n", buf->index, ret);
 	}
+
+	atomic_inc(&dev->queued_cnt);
 
 	mfc_debug_leave();
 	return ret;
@@ -791,7 +796,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", buf->type);
 		return -EINVAL;
 	}
-	
+
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		ret = vb2_dqbuf(&ctx->vq_src, buf, file->f_flags & O_NONBLOCK);
 	} else {
@@ -898,6 +903,9 @@ static int mfc_dec_ext_info(struct s5p_mfc_ctx *ctx)
 	int val = 0;
 
 	val |= DEC_SET_DYNAMIC_DPB;
+	val |= DEC_SET_OPERATING_FPS;
+	val |= DEC_SET_PRIORITY;
+
 	if (FW_SUPPORT_SKYPE(dev))
 		val |= DEC_SET_SKYPE_FLAG;
 
@@ -1144,6 +1152,16 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_MPEG_VIDEO_BLACK_BAR_DETECT:
 		dec->detect_black_bar = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
+		ctx->operating_framerate = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[QoS] user set the operating frame rate: %d\n", ctrl->value);
+		break;
+	case V4L2_CID_MPEG_VIDEO_PRIORITY:
+		ctx->prio = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[PRIO] user set priority: %d\n", ctrl->value);
 		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
