@@ -299,7 +299,7 @@ static void mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 		reg |= (0x1 << 20);
 	}
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
-	
+
 	/*
 	 * frame rate
 	 * delta is timestamp diff

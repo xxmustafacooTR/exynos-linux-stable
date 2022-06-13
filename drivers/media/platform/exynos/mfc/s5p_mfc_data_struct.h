@@ -185,6 +185,13 @@ enum s5p_mfc_ctrl_mode {
 	MFC_CTRL_MODE_CST	= 0x2,
 };
 
+enum mfc_idle_mode {
+	MFC_IDLE_MODE_NONE	= 0,
+	MFC_IDLE_MODE_RUNNING	= 1,
+	MFC_IDLE_MODE_IDLE	= 2,
+	MFC_IDLE_MODE_CANCEL	= 3,
+};
+
 struct s5p_mfc_ctx;
 
 enum s5p_mfc_debug_cause {
@@ -210,6 +217,18 @@ enum s5p_mfc_debug_cause {
 	MFC_LAST_INFO_POWER			= 29,
 	MFC_LAST_INFO_SHUTDOWN			= 30,
 	MFC_LAST_INFO_DRM			= 31,
+};
+
+enum mfc_real_time {
+	/* real-time */
+	MFC_RT                  = 0,
+	/* low-priority real-time */
+	MFC_RT_LOW              = 1,
+	/* constrained real-time */
+	MFC_RT_CON              = 2,
+	/* non real-time */
+	MFC_NON_RT              = 3,
+	MFC_RT_UNDEFINED        = 4,
 };
 
 struct s5p_mfc_debug {
@@ -730,6 +749,14 @@ struct s5p_mfc_dev {
 	struct workqueue_struct *watchdog_wq;
 	struct work_struct watchdog_work;
 
+	atomic_t hw_run_cnt;
+	atomic_t queued_cnt;
+	struct mutex idle_qos_mutex;
+	enum mfc_idle_mode idle_mode;
+	struct timer_list mfc_idle_timer;
+	struct workqueue_struct *mfc_idle_wq;
+	struct work_struct mfc_idle_work;
+
 	/* for DRM */
 	int curr_ctx_is_drm;
 	int num_drm_inst;
@@ -793,7 +820,6 @@ struct s5p_mfc_h264_enc_params {
 	s8 loop_filter_beta;
 	enum v4l2_mpeg_video_h264_entropy_mode entropy_mode;
 	u8 _8x8_transform;
-	u32 rc_framerate;
 	u8 rc_frame_qp;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
@@ -851,7 +877,6 @@ struct s5p_mfc_mpeg4_enc_params {
 	u16 vop_frm_delta;
 	u8 rc_b_frame_qp;
 	/* Common for MPEG4, H263 */
-	u32 rc_framerate;
 	u8 rc_frame_qp;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
@@ -867,7 +892,6 @@ struct s5p_mfc_mpeg4_enc_params {
  */
 struct s5p_mfc_vp9_enc_params {
 	/* VP9 Only */
-	u32 rc_framerate;
 	u8 vp9_version;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
@@ -891,7 +915,6 @@ struct s5p_mfc_vp9_enc_params {
  */
 struct s5p_mfc_vp8_enc_params {
 	/* VP8 Only */
-	u32 rc_framerate;
 	u8 vp8_version;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
@@ -919,7 +942,6 @@ struct s5p_mfc_hevc_enc_params {
 	u8 level;
 	u8 tier_flag;
 	/* HEVC Only */
-	u32 rc_framerate;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
 	u8 rc_min_qp_p;
@@ -997,6 +1019,9 @@ struct s5p_mfc_enc_params {
 	u32 rc_bitrate;
 	u32 rc_framerate;
 	u16 rc_reaction_coeff;
+	u16 rc_frame_delta;	/* MFC6.1 Only */
+	u32 rc_framerate_res;
+
 	u32 config_qp;
 	u32 dynamic_qp;
 	u8 frame_tag;
@@ -1015,9 +1040,6 @@ struct s5p_mfc_enc_params {
 	u8 roi_enable;
 	u8 ivf_header_disable;	/* VP8, VP9 */
 	u8 fixed_target_bit;
-
-	u16 rc_frame_delta;	/* MFC6.1 Only */
-	u32 rc_framerate_res;
 
 	u32 i_frm_ctrl_mode;
 	u32 i_frm_ctrl;
@@ -1155,6 +1177,7 @@ struct mfc_user_shared_handle {
 	int fd;
 	struct ion_handle *ion_handle;
 	void *vaddr;
+	size_t data_size;
 };
 
 struct s5p_mfc_raw_info {
@@ -1299,6 +1322,9 @@ struct s5p_mfc_ctx {
 	wait_queue_head_t cmd_wq;
 	struct s5p_mfc_listable_wq hwlock_wq;
 
+	int prio;
+	enum mfc_real_time rt;
+
 	struct s5p_mfc_fmt *src_fmt;
 	struct s5p_mfc_fmt *dst_fmt;
 
@@ -1384,6 +1410,7 @@ struct s5p_mfc_ctx {
 	unsigned int qos_ratio;
 	unsigned long framerate;
 	unsigned long last_framerate;
+	unsigned long operating_framerate;
 
 	struct mfc_timestamp ts_array[MFC_TIME_INDEX];
 	struct list_head ts_list;

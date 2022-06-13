@@ -361,6 +361,7 @@ static int s5p_mfc_dec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mfc_err_dev("no mfc device to run\n");
 		return -EINVAL;
 	}
+	mfc_update_real_time(ctx);
 
 	/* If context is ready then dev = work->data;schedule it to run */
 	if (s5p_mfc_dec_ctx_ready(ctx)) {
@@ -467,7 +468,7 @@ static void mfc_dec_dst_stop_streaming(struct s5p_mfc_ctx *ctx)
 
 	dec->dynamic_used = 0;
 	dec->err_reuse_flag = 0;
-	dec->dec_only_release_flag = 0;	
+	dec->dec_only_release_flag = 0;
 
 	s5p_mfc_cleanup_queue(&ctx->buf_queue_lock, &ctx->dst_buf_queue);
 

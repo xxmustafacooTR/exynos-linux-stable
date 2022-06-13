@@ -590,6 +590,7 @@ static int vidioc_querybuf(struct file *file, void *priv,
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
+	struct s5p_mfc_dev *dev = ctx->dev;
 	int i, ret = -EINVAL;
 
 	mfc_debug_enter();
@@ -639,6 +640,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		ret = vb2_qbuf(&ctx->vq_dst, buf);
 	}
 
+	atomic_inc(&dev->queued_cnt);
+
 	mfc_debug_leave();
 	return ret;
 }
@@ -667,7 +670,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", buf->type);
 		return -EINVAL;
 	}
-	
+
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		ret = vb2_dqbuf(&ctx->vq_src, buf, file->f_flags & O_NONBLOCK);
 	else
@@ -692,7 +695,7 @@ static int vidioc_streamon(struct file *file, void *priv,
 
 	if (!V4L2_TYPE_IS_MULTIPLANAR(type)) {
 		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", type);
-		return -EINVAL;		
+		return -EINVAL;
 	}
 
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -784,6 +787,8 @@ static int mfc_enc_ext_info(struct s5p_mfc_ctx *ctx)
 	val |= ENC_SET_FIXED_SLICE;
 	val |= ENC_SET_PVC_MODE;
 	val |= ENC_SET_DROP_CONTROL;
+	val |= ENC_SET_OPERATING_FPS;
+	val |= ENC_SET_PRIORITY;
 
 	if (FW_HAS_RATIO_INTRA_CTRL(dev))
 		val |= ENC_SET_RATIO_OF_INTRA;
@@ -867,6 +872,9 @@ static int mfc_enc_get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ct
 		break;
 	case V4L2_CID_MPEG_VIDEO_BPG_HEADER_SIZE:
 		ctrl->value = enc->header_size;
+		break;
+	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
+		ctrl->value = s5p_mfc_qos_get_framerate(ctx);
 		break;
 	default:
 		mfc_err_ctx("Invalid control: 0x%08x\n", ctrl->id);
@@ -962,6 +970,11 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	int ret = 0;
 
 	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDEO_PRIORITY:
+		ctx->prio = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[PRIO] user set priority: %d\n", ctrl->value);
+		break;
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
 		p->gop_size = ctrl->value;
 		break;
@@ -1054,7 +1067,7 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->rc_mb = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_H264_RC_FRAME_RATE:
-		p->codec.h264.rc_framerate = ctrl->value;
+		p->rc_framerate = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
 		p->codec.h264.rc_frame_qp = ctrl->value;
@@ -1265,7 +1278,7 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.mpeg4.vop_frm_delta = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_H263_RC_FRAME_RATE:
-		p->codec.mpeg4.rc_framerate = ctrl->value;
+		p->rc_framerate = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H263_I_FRAME_QP:
 		p->codec.mpeg4.rc_frame_qp = ctrl->value;
@@ -1289,7 +1302,7 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.vp8.vp8_version = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_RC_FRAME_RATE:
-		p->codec.vp8.rc_framerate = ctrl->value;
+		p->rc_framerate = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP8_MIN_QP:
 		p->codec.vp8.rc_min_qp = ctrl->value;
@@ -1361,7 +1374,7 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.vp9.vp9_version = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP9_RC_FRAME_RATE:
-		p->codec.vp9.rc_framerate = ctrl->value;
+		p->rc_framerate = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP9_MIN_QP:
 		p->codec.vp9.rc_min_qp = ctrl->value;
@@ -1431,7 +1444,7 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.hevc.rc_b_frame_qp = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_RC_FRAME_RATE:
-		p->codec.hevc.rc_framerate = ctrl->value;
+		p->rc_framerate = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
 		p->codec.hevc.rc_min_qp = ctrl->value;
@@ -1654,6 +1667,11 @@ static int mfc_enc_set_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_DROP_CONTROL:
 		p->drop_control = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
+		ctx->operating_framerate = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[QoS] user set the operating frame rate: %d\n", ctrl->value);
 		break;
 	default:
 		mfc_err_ctx("Invalid control: 0x%08x\n", ctrl->id);
