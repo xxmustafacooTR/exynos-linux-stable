@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/nls.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget_configfs.h>
@@ -14,7 +15,6 @@
 #include <linux/platform_device.h>
 #include <linux/kdev_t.h>
 #include <linux/usb/ch9.h>
-#include <linux/delay.h>
 
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 extern int acc_ctrlrequest(struct usb_composite_dev *cdev,
@@ -402,6 +402,7 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 #endif
 
 	pr_info("%s: +++\n", __func__);
+	mdelay(50);
 
 	if (strlen(page) < len)
 		return -EOVERFLOW;
@@ -1056,7 +1057,7 @@ static inline struct gadget_info *os_desc_item_to_gadget_info(
 
 static ssize_t os_desc_use_show(struct config_item *item, char *page)
 {
-	return sprintf(page, "%d",
+	return sprintf(page, "%d\n",
 			os_desc_item_to_gadget_info(item)->use_os_desc);
 }
 
@@ -1080,7 +1081,7 @@ static ssize_t os_desc_use_store(struct config_item *item, const char *page,
 
 static ssize_t os_desc_b_vendor_code_show(struct config_item *item, char *page)
 {
-	return sprintf(page, "%d",
+	return sprintf(page, "0x%02x\n",
 			os_desc_item_to_gadget_info(item)->b_vendor_code);
 }
 
@@ -1219,7 +1220,7 @@ static inline struct usb_os_desc_ext_prop
 
 static ssize_t ext_prop_type_show(struct config_item *item, char *page)
 {
-	return sprintf(page, "%d", to_usb_os_desc_ext_prop(item)->type);
+	return sprintf(page, "%d\n", to_usb_os_desc_ext_prop(item)->type);
 }
 
 static ssize_t ext_prop_type_store(struct config_item *item,
@@ -2153,12 +2154,12 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		pr_info("usb: %s: Connect gadget: enabled=%d, dev->enabled=%d\n",
 				__func__, enabled, dev->enabled);
 
-	if (!dev->composite.gadget_driver.udc_name) {
-		pr_info("usb: %s: UDC is NULL\n", __func__);
-		dev->enabled = true;
-		mutex_unlock(&dev->lock);
-		return -ENODEV;
-	}
+		if (!dev->composite.gadget_driver.udc_name) {
+			pr_info("usb: %s: UDC is NULL\n", __func__);
+			dev->enabled = true;
+			mutex_unlock(&dev->lock);
+			return -ENODEV;
+		}
 
 #ifdef CONFIG_USB_NOTIFY_PROC_LOG
 		store_usblog_notify(NOTIFY_USBMODE_EXTRA, "enable 1", NULL);
@@ -2239,6 +2240,7 @@ static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						functions_store);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
+
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 static ssize_t
 bcdUSB_show(struct device *pdev, struct device_attribute *attr, char *buf)
