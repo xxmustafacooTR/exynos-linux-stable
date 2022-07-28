@@ -226,6 +226,10 @@ static DEFINE_MUTEX (thermal_suspend_lock);
 #endif
 static bool is_cpu_hotplugged_out;
 
+#define LITTLE_CPU_SHIFT 2 /* Shift little thermal freqs this times */
+
+extern unsigned long arg_cpu_max_c1;
+
 /* list of multiple instance for each thermal sensor */
 static LIST_HEAD(dtm_dev_list);
 
@@ -1403,7 +1407,19 @@ static int exynos_tmu_parse_ect(struct exynos_tmu_data *data)
 
 		__tz->ntrips = __tz->num_tbps = function->num_of_range;
 		pr_info("Trip count parsed from ECT : %d, zone : %s", function->num_of_range, tz->type);
+		
+		/* increase little cpu thermal values */
+		if (ect_strcmp(function->function_name, "LITTLE") == 0) {
+			int s;
 
+			for (s = 0; s < LITTLE_CPU_SHIFT; ++s) {
+				for (i = function->num_of_range-3; i > -1; --i) /* one -1 from function, one -1 from range list calculation, one -1 from not touching last */
+					function->range_list[i+1].max_frequency = function->range_list[i].max_frequency;
+
+			function->range_list[s].max_frequency = arg_cpu_max_c1;
+			}
+		}
+		
 		for (i = 0; i < function->num_of_range; ++i) {
 			temperature = function->range_list[i].lower_bound_temperature;
 			freq = function->range_list[i].max_frequency;
