@@ -17,6 +17,15 @@
 
 #define ARRAY_SIZE32(array)		((u32)ARRAY_SIZE(array))
 
+extern unsigned long arg_cpu_max_c1;
+extern unsigned long arg_cpu_min_c1;
+extern unsigned long arg_cpu_max_c2;
+extern unsigned long arg_cpu_min_c2;
+extern unsigned long arg_gpu_min;
+extern unsigned long arg_gpu_max;
+extern unsigned long arg_mif_min;
+extern unsigned long arg_mif_max;
+
 /* Variable */
 
 static struct ect_info ect_list[];
@@ -855,12 +864,51 @@ err_domain_list_allocation:
 	return ret;
 }
 
+#define GLOBAL_MHZ 1794
+#define GPU_MHZ 338
+
 static int ect_parse_gen_param_table(int parser_version, void *address, struct ect_gen_param_table *size)
 {
+	int i;
+
 	ect_parse_integer(&address, &size->num_of_col);
 	ect_parse_integer(&address, &size->num_of_row);
 
 	size->parameter = address;
+	
+	for (i = 0; i < size->num_of_row; ++i) {
+		int max_clock;
+
+		if (ect_strcmp(size->table_name, "MINMAX_dvfs_cpucl0") == 0) {
+			max_clock = arg_cpu_max_c1 / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MIN_FREQ] = arg_cpu_min_c1 / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MAX_FREQ] = max_clock;
+			if (GLOBAL_MHZ < max_clock)
+				max_clock = GLOBAL_MHZ;
+			size->parameter[i * size->num_of_col + MINMAX_BOOT_FREQ] = max_clock;
+		} else if (ect_strcmp(size->table_name, "MINMAX_dvfs_cpucl1") == 0) {
+			max_clock = arg_cpu_max_c2 / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MIN_FREQ] = arg_cpu_min_c2 / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MAX_FREQ] = max_clock;
+			if (GLOBAL_MHZ < max_clock)
+				max_clock = GLOBAL_MHZ;
+			size->parameter[i * size->num_of_col + MINMAX_BOOT_FREQ] = max_clock;
+		} else if (ect_strcmp(size->table_name, "MINMAX_dvfs_mif") == 0) {
+			max_clock = arg_mif_max / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MIN_FREQ] = arg_mif_min / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MAX_FREQ] = max_clock;
+			if (GLOBAL_MHZ < max_clock)
+				max_clock = GLOBAL_MHZ;
+			size->parameter[i * size->num_of_col + MINMAX_BOOT_FREQ] = max_clock;
+		} else if (ect_strcmp(size->table_name, "MINMAX_dvfs_g3d") == 0) {
+			max_clock = arg_gpu_max / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MIN_FREQ] = arg_gpu_min / 1000;
+			size->parameter[i * size->num_of_col + MINMAX_MAX_FREQ] = max_clock;
+			if (GPU_MHZ < max_clock)
+				max_clock = GPU_MHZ;
+			size->parameter[i * size->num_of_col + MINMAX_BOOT_FREQ] = max_clock;
+		}
+	}
 
 	return 0;
 }
