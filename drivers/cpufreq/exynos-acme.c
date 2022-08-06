@@ -1100,6 +1100,40 @@ static __init int cpufreq_read_cpu_min_c2(char *cpu_min_c2)
 }
 __setup("cpu_min_c2=", cpufreq_read_cpu_min_c2);
 
+unsigned long arg_gpu_min = 260000;
+
+static __init int cpufreq_read_gpu_min(char *gpu_min)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(gpu_min, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_gpu_min = ui_khz;
+	printk("gpu_min=%lu\n", arg_gpu_min);
+	return ret;
+}
+__setup("gpu_min=", cpufreq_read_gpu_min);
+
+unsigned long arg_mif_min = 421000;
+
+static __init int cpufreq_read_mif_min(char *mif_min)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(mif_min, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_mif_min = ui_khz;
+	printk("mif_min=%lu\n", arg_mif_min);
+	return ret;
+}
+__setup("mif_min=", cpufreq_read_mif_min);
+
 unsigned long arg_cpu_max_c1 = 2002000;
 
 static int __init cpufreq_read_cpu_max_c1(char *cpu_max_c1)
@@ -1133,6 +1167,40 @@ static __init int cpufreq_read_cpu_max_c2(char *cpu_max_c2)
 	return ret;
 }
 __setup("cpu_max_c2=", cpufreq_read_cpu_max_c2);
+
+unsigned long arg_gpu_max = 598000;
+
+static __init int cpufreq_read_gpu_max(char *gpu_max)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(gpu_max, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_gpu_max = ui_khz;
+	printk("gpu_max=%lu\n", arg_gpu_max);
+	return ret;
+}
+__setup("gpu_max=", cpufreq_read_gpu_max);
+
+unsigned long arg_mif_max = 1794000;
+
+static __init int cpufreq_read_mif_max(char *mif_max)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(mif_max, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_mif_max = ui_khz;
+	printk("mif_max=%lu\n", arg_mif_max);
+	return ret;
+}
+__setup("mif_max=", cpufreq_read_mif_max);
 
 static __init int init_domain(struct exynos_cpufreq_domain *domain,
 					struct device_node *dn)
