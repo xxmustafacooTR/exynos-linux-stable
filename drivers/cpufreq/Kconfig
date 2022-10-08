@@ -47,10 +47,8 @@ config CPU_FREQ_STAT_DETAILS
 
 config CPU_FREQ_TIMES
        bool "CPU frequency time-in-state statistics"
-       default y
        help
-         This driver exports CPU time-in-state information through procfs file
-         system.
+         Export CPU time-in-state information through procfs.
 
          If in doubt, say N.
 
