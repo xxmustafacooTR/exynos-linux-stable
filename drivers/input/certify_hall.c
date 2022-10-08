@@ -22,6 +22,11 @@
 #include <linux/spinlock.h>
 #include <linux/wakelock.h>
 #include <linux/hall.h>
+#include <linux/sec_sysfs.h>
+
+#if defined(CONFIG_HALL_NEW_NODE)
+extern struct device *hall_ic;
+#endif
 
 struct device *sec_device_create(void *drvdata, const char *fmt);
 
@@ -47,7 +52,7 @@ static ssize_t certify_hall_detect_show(struct device *dev,
 
 	return strlen(buf);
 }
-static DEVICE_ATTR(certify_hall_detect, 0664, certify_hall_detect_show, NULL);
+static DEVICE_ATTR(certify_hall_detect, 0444, certify_hall_detect_show, NULL);
 
 static struct attribute *certify_hall_attrs[] = {
 	&dev_attr_certify_hall_detect.attr,
@@ -256,7 +261,11 @@ static int certify_hall_probe(struct platform_device *pdev)
 
 	init_certify_hall_ic_irq(input);
 
+#if defined(CONFIG_HALL_NEW_NODE)
+	error = sysfs_create_group(&hall_ic->kobj, &certify_hall_attr_group);
+#else
 	error = sysfs_create_group(&sec_key->kobj, &certify_hall_attr_group);
+#endif
 	if (error) {
 		dev_err(dev, "Unable to export keys/switches, error: %d\n",
 			error);
