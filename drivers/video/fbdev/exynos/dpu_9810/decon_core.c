@@ -4078,7 +4078,7 @@ static void decon_shutdown(struct platform_device *pdev)
 		return;
 	}
 
-	decon_info("%s + state:%d\n", __func__, decon->state);
+	decon_info("%s + decon%d state:%d\n", __func__, decon->id, decon->state);
 	DPU_EVENT_LOG(DPU_EVT_DECON_SHUTDOWN, &decon->sd, ktime_set(0, 0));
 
 	if (decon->dt.psr_mode == DECON_MIPI_COMMAND_MODE)
