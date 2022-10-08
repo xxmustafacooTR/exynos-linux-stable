@@ -115,27 +115,27 @@ void dpu_debug_printk(const char *function_name, const char *format, ...);
 #define decon_err(fmt, ...)							\
 	do {									\
 		if (decon_log_level >= 3) {					\
-			pr_err(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_err(pr_fmt("decon: "fmt), ##__VA_ARGS__);			\
 		}								\
 	} while (0)
 
 #define decon_warn(fmt, ...)							\
 	do {									\
 		if (decon_log_level >= 4) {					\
-			pr_warn(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_warn(pr_fmt("decon: "fmt), ##__VA_ARGS__);			\
 		}								\
 	} while (0)
 
 #define decon_info(fmt, ...)							\
 	do {									\
 		if (decon_log_level >= 6)					\
-			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_info(pr_fmt("decon: "fmt), ##__VA_ARGS__);			\
 	} while (0)
 
 #define decon_dbg(fmt, ...)							\
 	do {									\
 		if (decon_log_level >= 7)					\
-			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
+			pr_info(pr_fmt("decon: "fmt), ##__VA_ARGS__);			\
 	} while (0)
 
 #define DPU_DEBUG_WIN(fmt, args...)						\
@@ -573,6 +573,8 @@ struct decon_win_config {
 		DECON_WIN_STATE_BUFFER,
 		DECON_WIN_STATE_UPDATE,
 		DECON_WIN_STATE_CURSOR,
+		DECON_WIN_STATE_MRESOL = 0x10000,
+		DECON_WIN_STATE_FINGERPRINT = 0x20000,
 	} state;
 
 	/* Reusability:This struct is used for IDMA and ODMA */
