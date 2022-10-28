@@ -1882,10 +1882,8 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 	decon_systrace(decon, 'C', "decon_reg_start", 1);
 	if (decon_reg_start(decon->id, &psr) < 0) {
 #if defined(CONFIG_EXYNOS_COMMON_PANEL)
-		if (decon_is_bypass(decon)) {
-			decon_systrace(decon, 'C', "decon_reg_start", 0);
+		if (decon_is_bypass(decon))
 			goto trigger_done;
-		}
 #endif
 		decon_up_list_saved();
 		decon_dump(decon, REQ_DSI_DUMP);
@@ -1894,11 +1892,12 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 #endif
 		BUG();
 	}
-	decon_systrace(decon, 'C', "decon_reg_start", 0);
 
 #if defined(CONFIG_EXYNOS_COMMON_PANEL)
 trigger_done:
 #endif
+	decon_systrace(decon, 'C', "decon_reg_start", 0);
+
 	decon_set_cursor_unmask(decon, has_cursor_win);
 
 	DPU_EVENT_LOG(DPU_EVT_TRIG_UNMASK, &decon->sd, ktime_set(0, 0));
