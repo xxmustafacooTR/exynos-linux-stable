@@ -303,7 +303,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89
+HOSTCFLAGS   := -Wall -Wmissing-prototypes -O2 -fomit-frame-pointer -std=gnu89
 HOSTCXXFLAGS = -O2
 
 # Decide whether to build built-in, modular, or both.
@@ -389,7 +389,7 @@ LINUXINCLUDE    := \
 LINUXINCLUDE	+= $(filter-out $(LINUXINCLUDE),$(USERINCLUDE))
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__
-KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
+KBUILD_CFLAGS   := -Wall -Wundef -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
@@ -692,6 +692,32 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, int-in-bool-context)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, attribute-alias)
+# Disable noisy GCC 9.1 / Clang warnings
+KBUILD_CFLAGS	+= $(call cc-disable-warning, misleading-indentation)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, sizeof-pointer-memaccess)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, switch-unreachable)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, duplicate-decl-specifier)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, logical-not-parentheses)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, memset-elt-size)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, pointer-compare)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, switch-bool)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, bool-operation)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, sizeof-pointer-div)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, psabi)
+KBUILD_CFLAGS   += $(call cc-disable-warning, incompatible-pointer-types)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, array-compare)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, address)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, stringop-overread)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, unused-but-set-variable)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, enum-conversion)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, parentheses-equality)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, void-pointer-to-enum-cast)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, sizeof-array-div)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, bitwise-instead-of-logical)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, strict-prototypes)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, pointer-bool-conversion)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, literal-conversion)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, constant-logical-operand)
 
 ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
 KBUILD_CFLAGS	+= $(call cc-option,-ffunction-sections,)
@@ -919,9 +945,6 @@ KBUILD_CFLAGS   += $(call cc-option,-fconserve-stack)
 
 # disallow errors like 'EXPORT_GPL(foo);' with missing header
 KBUILD_CFLAGS   += $(call cc-option,-Werror=implicit-int)
-
-# require functions to have arguments in prototypes, not empty 'int foo()'
-KBUILD_CFLAGS   += $(call cc-option,-Werror=strict-prototypes)
 
 # Prohibit date/time macros, which would make the build non-deterministic
 KBUILD_CFLAGS   += $(call cc-option,-Werror=date-time)
