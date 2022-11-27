@@ -210,7 +210,13 @@ static int __init enforcing_setup(char *str)
 {
 	unsigned long enforcing;
 	if (!kstrtoul(str, 0, &enforcing))
+#ifdef CONFIG_SECURITY_SELINUX_NEVER_ENFORCE
+		selinux_enforcing = 0;
+#elif defined(CONFIG_ALWAYS_ENFORCE)
+		selinux_enforcing = 1;
+#else
 		selinux_enforcing = enforcing ? 1 : 0;
+#endif
 
 	return 1;
 }
