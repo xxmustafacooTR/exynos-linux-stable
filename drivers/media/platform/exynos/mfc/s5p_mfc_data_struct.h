@@ -404,6 +404,11 @@ struct s5p_mfc_qos {
 };
 #endif
 
+struct s5p_mfc_feature {
+	unsigned int support;
+	unsigned int version;
+};
+
 struct s5p_mfc_platdata {
 	enum mfc_ip_version ip_ver;
 	int clock_rate;
@@ -414,6 +419,7 @@ struct s5p_mfc_platdata {
 	int max_mb;
 	struct s5p_mfc_qos *qos_table;
 #endif
+	struct s5p_mfc_feature enc_ts_delta;
 };
 
 /************************ NAL_Q data structure ************************/
@@ -423,7 +429,7 @@ struct s5p_mfc_platdata {
 #define NAL_Q_OUT_ENTRY_SIZE		256
 
 #define NAL_Q_IN_DEC_STR_SIZE		112
-#define NAL_Q_IN_ENC_STR_SIZE		204
+#define NAL_Q_IN_ENC_STR_SIZE		208
 #define NAL_Q_OUT_DEC_STR_SIZE		248
 #define NAL_Q_OUT_ENC_STR_SIZE		64
 
@@ -497,8 +503,9 @@ typedef struct __EncoderInputStr {
 	int ExtCtbQpAddr;
 	int WeightUpper;
 	int RcMode;
+	int TimeStampDelta;
 	char reserved[NAL_Q_IN_ENTRY_SIZE - NAL_Q_IN_ENC_STR_SIZE];
-} EncoderInputStr; /* 51*4 = 204 bytes */
+} EncoderInputStr; /* 52*4 = 208 bytes */
 
 typedef struct __DecoderOutputStr {
 	int StartCode; /* 0xAAAAAAAA; Decoder output structure marker */
@@ -985,8 +992,10 @@ struct s5p_mfc_enc_params {
 	u8 pad_luma;
 	u8 pad_cb;
 	u8 pad_cr;
+
 	u8 rc_frame;
 	u32 rc_bitrate;
+	u32 rc_framerate;
 	u16 rc_reaction_coeff;
 	u32 config_qp;
 	u32 dynamic_qp;
@@ -997,16 +1006,18 @@ struct s5p_mfc_enc_params {
 	u8 num_refs_for_p;	/* H.264, HEVC, VP8, VP9 */
 	u8 rc_mb;		/* H.264: MFCv5, MPEG4/H.263: MFCv6 */
 	u8 rc_pvc;
+	u8 drop_control;
 	u16 vbv_buf_size;
 	enum v4l2_mpeg_video_header_mode seq_hdr_mode;
 	enum v4l2_mpeg_mfc51_video_frame_skip_mode frame_skip_mode;
-	u8 fixed_target_bit;
 	u8 num_hier_max_layer;
 	u8 weighted_enable;
 	u8 roi_enable;
 	u8 ivf_header_disable;	/* VP8, VP9 */
+	u8 fixed_target_bit;
 
 	u16 rc_frame_delta;	/* MFC6.1 Only */
+	u32 rc_framerate_res;
 
 	u32 i_frm_ctrl_mode;
 	u32 i_frm_ctrl;
@@ -1378,6 +1389,7 @@ struct s5p_mfc_ctx {
 	struct list_head ts_list;
 	int ts_count;
 	int ts_is_full;
+	int ts_last_interval;
 
 	int buf_process_type;
 

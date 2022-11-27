@@ -41,6 +41,7 @@
 #include <gpexbe_mem_usage.h>
 #include <gpexbe_smc.h>
 #include <gpex_gts.h>
+#include <gpexwa_ehmp.h>
 
 #include <runtime_test_runner.h>
 
@@ -87,6 +88,8 @@ struct exynos_context *gpex_platform_init(struct device **dev)
 	gpex_tsg_init(dev);
 
 	gpexbe_mem_usage_init();
+	
+	gpexwa_ehmp_init();
 
 	runtime_test_runner_init();
 
@@ -102,6 +105,7 @@ void gpex_platform_term()
 
 	gpexbe_mem_usage_term();
 
+	gpexwa_ehmp_term();
 	gpex_tsg_term();
 	gpexbe_smc_term();
 	gpex_ifpo_term();
