@@ -937,7 +937,7 @@
 		reg = <0x0 0x16021000 0x1000>, <0x0 0x16071000 0x1000>, <0x0 0x16070000 0x110>;
 		/* DPU_DMA IRQ, DPP IRQ */
 		interrupts = <0 INTREQ__DPU_DMA_G0 0>, <0 INTREQ__DPU_DPP_G0 0>;
-
+		dpp,hold-rpm-on-boot;
 		/* power domain */
 		samsung,power-domain = <&pd_dpu>;
 	};
@@ -3477,6 +3477,7 @@
 		ip_ver = <17>;
 		clock_rate = <400000000>;
 		min_rate = <100000>;
+		enc_ts_delta = <1 2167304>;
 		num_qos_steps = <8>;
 		max_qos_steps = <9>;
 		max_mb = <4757298>;
