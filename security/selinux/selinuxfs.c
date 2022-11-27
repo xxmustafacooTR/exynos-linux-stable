@@ -163,6 +163,34 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 	if (sscanf(page, "%d", &new_value) != 1)
 		goto out;
 
+#ifdef CONFIG_SECURITY_SELINUX_NEVER_ENFORCE
+	// If build is user build and permissive option is set, selinux is always permissive
+	new_value = 0;
+	length = task_has_security(current, SECURITY__SETENFORCE);
+	audit_log(current->audit_context, GFP_KERNEL, AUDIT_MAC_STATUS,
+		"config_never_enforce - true; enforcing=%d old_enforcing=%d auid=%u ses=%u",
+		new_value, selinux_enforcing,
+		from_kuid(&init_user_ns, audit_get_loginuid(current)),
+		audit_get_sessionid(current));
+	selinux_enforcing = new_value;
+	selnl_notify_setenforce(new_value);
+	selinux_status_update_setenforce(new_value);
+#elif defined(CONFIG_ALWAYS_ENFORCE)
+	// If build is user build and enforce option is set, selinux is always enforcing
+	new_value = 1;
+	length = task_has_security(current, SECURITY__SETENFORCE);
+	audit_log(current->audit_context, GFP_KERNEL, AUDIT_MAC_STATUS,
+		"config_always_enforce - true; enforcing=%d old_enforcing=%d auid=%u ses=%u",
+		new_value, selinux_enforcing,
+		from_kuid(&init_user_ns, audit_get_loginuid(current)),
+		audit_get_sessionid(current));
+#if !defined(CONFIG_RKP_KDP)
+	selinux_enforcing = new_value;
+#endif
+	avc_ss_reset(0);
+	selnl_notify_setenforce(new_value);
+	selinux_status_update_setenforce(new_value);
+#else
 	if (new_value != selinux_enforcing) {
 		length = task_has_security(current, SECURITY__SETENFORCE);
 		if (length)
@@ -178,6 +206,7 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 		selnl_notify_setenforce(selinux_enforcing);
 		selinux_status_update_setenforce(selinux_enforcing);
 	}
+#endif
 
 	length = count;
 out:
