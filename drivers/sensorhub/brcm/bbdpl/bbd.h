@@ -19,9 +19,11 @@
 #define __BBD_H__
 
 #pragma pack(4)
+#ifndef CC_USE_CLANG
 typedef unsigned char   uint8_t;
 typedef unsigned short  uint16_t;
 typedef unsigned        uint32_t;
+#endif
 
 union long_union_t
 {
