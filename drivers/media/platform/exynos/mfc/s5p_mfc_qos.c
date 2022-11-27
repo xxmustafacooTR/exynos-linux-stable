@@ -627,6 +627,7 @@ static int mfc_qos_dec_add_timestamp(struct s5p_mfc_ctx *ctx,
 
 static unsigned long mfc_qos_get_fps_by_timestamp(struct s5p_mfc_ctx *ctx, struct timeval *time)
 {
+	struct list_head *head = &ctx->ts_list;
 	struct mfc_timestamp *temp_ts;
 	int found;
 	int index = 0;
@@ -687,6 +688,10 @@ static unsigned long mfc_qos_get_fps_by_timestamp(struct s5p_mfc_ctx *ctx, struc
 		mfc_info_ctx("Min interval = %d, It is %ld fps\n",
 				min_interval, max_framerate);
 	}
+	
+	/* Calculation the last frame fps for drop control */
+	temp_ts = list_entry(head->prev, struct mfc_timestamp, list);
+	ctx->ts_last_interval = temp_ts->interval;
 
 	if (!ctx->ts_is_full) {
 		if (debug_ts == 1)
