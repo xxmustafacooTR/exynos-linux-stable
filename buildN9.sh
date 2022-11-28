@@ -10,7 +10,10 @@ export ARCH=arm64 && export SUBARCH=arm64
 ZIP_DIR="/home/$USER/Android/Kernel/Zip"
 CUR_DIR=$PWD
 
-make exynos9810-crownlte_defconfig -j$(nproc --all)
+cp -vr $CUR_DIR/arch/arm64/configs/exynos9810_defconfig $CUR_DIR/arch/arm64/configs/exynos9810_temp_defconfig
+echo "" >> $CUR_DIR/arch/arm64/configs/exynos9810_temp_defconfig
+cat $CUR_DIR/arch/arm64/configs/exynos9810-crownlte_defconfig >> $CUR_DIR/arch/arm64/configs/exynos9810_temp_defconfig
+make exynos9810_temp_defconfig -j$(nproc --all)
 
 make -j$(nproc --all)
 
