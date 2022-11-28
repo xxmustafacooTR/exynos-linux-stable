@@ -7,12 +7,9 @@ export CC=/home/$USER/Android/Toolchains/clang/bin/clang
 export CLANG_TRIPLE=/home/$USER/Android/Toolchains/clang/bin/aarch64-linux-gnu-
 
 export ARCH=arm64 && export SUBARCH=arm64
-ZIP_DIR="/home/$USER/Android/Kernel/Zip"
 CUR_DIR=$PWD
-
-make exynos9810-star2lte_defconfig -j$(nproc --all)
-
-make -j$(nproc --all)
-
-cp -vr $CUR_DIR/arch/arm64/boot/Image $ZIP_DIR/Kernel/star2lte/zImage
-cp -vr $CUR_DIR/arch/arm64/boot/dtb.img $ZIP_DIR/Kernel/star2lte/dtb.img
+printf "Cleaning\n"
+cd $CUR_DIR
+rm -rf vmlinux.* drivers/gator_5.27/gator_src_md5.h scripts/dtbtool_exynos/dtbtool arch/arm64/boot/dtb.img arch/arm64/boot/dts/exynos/*dtb* arch/arm64/configs/exynos9810_temp_defconfig
+make -j$(nproc) clean
+make -j$(nproc) mrproper
