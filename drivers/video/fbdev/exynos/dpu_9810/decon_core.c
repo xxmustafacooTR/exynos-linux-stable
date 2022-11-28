@@ -225,7 +225,7 @@ extern unsigned int get_panel_bigdata(void);
  * 3. 23 ~ 16 : dsim underrun count
  * 4. 15 ~  8 : 0x0e panel register
  * 5.  7 ~  0 : 0x0a panel register
- * */
+ */
 
 static unsigned int gen_decon_bug_bigdata(struct decon_device *decon)
 {
@@ -443,6 +443,33 @@ void decon_set_black_window(struct decon_device *decon)
 			lcd->xres, lcd->yres, win_regs.start_pos,
 			win_regs.end_pos);
 	win_regs.colormap = 0x000000;
+	win_regs.pixel_count = lcd->xres * lcd->yres;
+	win_regs.whole_w = lcd->xres;
+	win_regs.whole_h = lcd->yres;
+	win_regs.offset_x = 0;
+	win_regs.offset_y = 0;
+	decon_info("pixel_count(%d), whole_w(%d), whole_h(%d), x(%d), y(%d)\n",
+			win_regs.pixel_count, win_regs.whole_w,
+			win_regs.whole_h, win_regs.offset_x,
+			win_regs.offset_y);
+	decon_reg_set_window_control(decon->id, decon->dt.dft_win,
+			&win_regs, true);
+	decon_reg_update_req_window(decon->id, decon->dt.dft_win);
+}
+
+void decon_set_color_window(struct decon_device *decon, u32 color)
+{
+	struct decon_window_regs win_regs;
+	struct decon_lcd *lcd = decon->lcd_info;
+	memset(&win_regs, 0, sizeof(struct decon_window_regs));
+	win_regs.wincon = wincon(0x8, 0xFF, 0xFF, 0xFF, DECON_BLENDING_NONE,
+			decon->dt.dft_win);
+	win_regs.start_pos = win_start_pos(0, 0);
+	win_regs.end_pos = win_end_pos(0, 0, lcd->xres, lcd->yres);
+	decon_info("xres %d yres %d win_start_pos %x win_end_pos %x\n",
+			lcd->xres, lcd->yres, win_regs.start_pos,
+			win_regs.end_pos);
+	win_regs.colormap = color;
 	win_regs.pixel_count = lcd->xres * lcd->yres;
 	win_regs.whole_w = lcd->xres;
 	win_regs.whole_h = lcd->yres;
@@ -850,7 +877,7 @@ static int _decon_disable(struct decon_device *decon, enum decon_state state)
 		decon_info("decon2 disable: flush worker done %d\n", decon2_event_count);
 		dp_logger_print("decon2 disable: flush worker done %d\n", decon2_event_count);
 	}
-
+	
 	decon_to_psr_info(decon, &psr);
 	decon_reg_set_int(decon->id, &psr, 0);
 
@@ -1160,7 +1187,7 @@ int decon_wait_for_vsync(struct decon_device *decon, u32 timeout)
 
 	decon_to_psr_info(decon, &psr);
 
-#if defined(CONFIG_EXYNOS_COMMON_PANEL) || defined(CONFIG_EXYNOS_MASS_PANEL)
+#if defined(CONFIG_EXYNOS_COMMON_PANEL)
 	if (decon_is_bypass(decon))
 		return 0;
 #endif
@@ -1840,7 +1867,9 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 	}
 
 #if defined(CONFIG_EXYNOS_CONTENT_PATH_PROTECTION)
+	decon_systrace(decon, 'C', "protected_content", 1);
 	decon_set_protected_content(decon, regs);
+	decon_systrace(decon, 'C', "protected_content", 0);
 #endif
 
 #if defined(CONFIG_EXYNOS_AFBC)
@@ -1849,8 +1878,10 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 
 	decon_reg_all_win_shadow_update_req(decon->id);
 	decon_to_psr_info(decon, &psr);
+	
+	decon_systrace(decon, 'C', "decon_reg_start", 1);
 	if (decon_reg_start(decon->id, &psr) < 0) {
-#if defined(CONFIG_EXYNOS_COMMON_PANEL) || defined(CONFIG_EXYNOS_MASS_PANEL)
+#if defined(CONFIG_EXYNOS_COMMON_PANEL)
 		if (decon_is_bypass(decon)) {
 			decon_systrace(decon, 'C', "decon_reg_start", 0);
 			goto trigger_done;
@@ -1863,8 +1894,9 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 #endif
 		BUG();
 	}
+	decon_systrace(decon, 'C', "decon_reg_start", 0);
 
-#if defined(CONFIG_EXYNOS_COMMON_PANEL) || defined(CONFIG_EXYNOS_MASS_PANEL)
+#if defined(CONFIG_EXYNOS_COMMON_PANEL)
 trigger_done:
 #endif
 	decon_set_cursor_unmask(decon, has_cursor_win);
@@ -1932,7 +1964,6 @@ static void decon_release_old_bufs(struct decon_device *decon,
 		int *plane_cnt)
 {
 	int i, j;
-
 	for (i = 0; i < decon->dt.max_win; i++)
 		for (j = 0; j < plane_cnt[i]; ++j)
 			decon_free_dma_buf(decon, &dma_bufs[i][j]);
@@ -2141,6 +2172,7 @@ static void decon_update_regs(struct decon_device *decon,
 	struct decon_dma_buf_data old_dma_bufs[decon->dt.max_win][MAX_PLANE_CNT];
 	int old_plane_cnt[MAX_DECON_WIN];
 	struct decon_mode_info psr;
+	u64 timestamp;
 
 	video_emul_en = 0;
 #if defined(CONFIG_SUPPORT_HMD) && defined(CONFIG_EXYNOS_COMMON_PANEL)
@@ -2172,15 +2204,23 @@ video_emul_check_done:
 
 	decon_systrace(decon, 'C', "decon_fence_wait", 0);
 
+	timestamp = local_clock();
+
 	decon_check_used_dpp(decon, regs);
 
+	decon_systrace(decon, 'C', "decon_update_vgf", 1);
 	decon_update_vgf_info(decon, regs, true);
+	decon_systrace(decon, 'C', "decon_update_vgf", 0);
 
+	decon_systrace(decon, 'C', "decon_update_hdr", 1);
 	decon_update_hdr_info(decon, regs);
+	decon_systrace(decon, 'C', "decon_update_hdr", 0);
 
+	decon_systrace(decon, 'C', "decon_update_bts", 1);
 	/* add calc and update bw : cur > prev */
 	decon->bts.ops->bts_calc_bw(decon, regs);
 	decon->bts.ops->bts_update_bw(decon, regs, 0);
+	decon_systrace(decon, 'C', "decon_update_bts", 0);
 
 	DPU_EVENT_LOG_WINCON(&decon->sd, regs);
 
@@ -2222,6 +2262,7 @@ video_emul_check_done:
 #endif
 		BUG();
 	}
+
 #ifdef CONFIG_SUPPORT_HMD
 	if (video_emul_en)
 		goto end;
@@ -2741,7 +2782,9 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = decon_set_vsync_int(info, active);
 		break;
 
+	case S3CFB_WIN_CONFIG_OLD_ALT:
 	case S3CFB_WIN_CONFIG_OLD:
+	case S3CFB_WIN_CONFIG_ALT:
 		memset(&win_data, 0, sizeof(struct decon_win_config_data));
 	case S3CFB_WIN_CONFIG:
 		DPU_EVENT_LOG(DPU_EVT_WIN_CONFIG, &decon->sd, ktime_set(0, 0));
@@ -2994,6 +3037,7 @@ int decon_release(struct fb_info *info, int user)
 {
 	struct decon_win *win = info->par;
 	struct decon_device *decon = win->decon;
+	int fb_count = atomic_read(&info->count);
 
 	decon_info("%s + : %d\n", __func__, decon->id);
 	if (decon->dt.out_type == DECON_OUT_DP)
@@ -3006,6 +3050,11 @@ int decon_release(struct fb_info *info, int user)
 	}
 
 	if (decon->dt.out_type == DECON_OUT_DSI) {
+		if (fb_count > 2) {
+			decon_info("%s: fb_count is %d\n", __func__, fb_count);
+			return 0;
+		}
+
 		decon_hiber_block_exit(decon);
 		/* Unused DECON state is DECON_STATE_INIT */
 		if (IS_DECON_ON_STATE(decon))
@@ -3219,6 +3268,7 @@ static int decon_fb_alloc_memory(struct decon_device *decon, struct decon_win *w
 	struct dsim_device *dsim;
 	struct device *dev;
 	unsigned int real_size, virt_size, size;
+	unsigned int dual_sz = 1;
 	dma_addr_t map_dma;
 #if defined(CONFIG_ION_EXYNOS)
 	struct ion_handle *handle;
@@ -3230,12 +3280,15 @@ static int decon_fb_alloc_memory(struct decon_device *decon, struct decon_win *w
 	decon_dbg("%s +\n", __func__);
 	dev_info(decon->dev, "allocating memory for display\n");
 
-	real_size = lcd_info->xres * lcd_info->yres;
-	virt_size = lcd_info->xres * (lcd_info->yres * 2);
+	if (decon->dt.dsi_mode == DSI_MODE_DUAL_DSI)
+		dual_sz = 2;
+
+	real_size = lcd_info->xres * dual_sz * lcd_info->yres;
+	virt_size = lcd_info->xres * dual_sz * (lcd_info->yres * 2);
 
 	dev_info(decon->dev, "real_size=%u (%u.%u), virt_size=%u (%u.%u)\n",
-		real_size, lcd_info->xres, lcd_info->yres,
-		virt_size, lcd_info->xres, lcd_info->yres * 2);
+		real_size, lcd_info->xres * dual_sz, lcd_info->yres,
+		virt_size, lcd_info->xres * dual_sz, lcd_info->yres * 2);
 
 	size = (real_size > virt_size) ? real_size : virt_size;
 	size *= DEFAULT_BPP / 8;
@@ -3389,6 +3442,7 @@ static int decon_acquire_window(struct decon_device *decon, int idx)
 	struct fb_var_screeninfo *var;
 	struct decon_lcd *lcd_info = decon->lcd_info;
 	int ret, i;
+	unsigned int dual_sz = 1;
 
 	decon_dbg("acquire DECON window%d\n", idx);
 
@@ -3404,6 +3458,9 @@ static int decon_acquire_window(struct decon_device *decon, int idx)
 	win->fbinfo = fbinfo;
 	win->decon = decon;
 	win->idx = idx;
+	
+	if (decon->dt.dsi_mode == DSI_MODE_DUAL_DSI)
+		dual_sz = 2;
 
 	if (decon->dt.out_type == DECON_OUT_DSI
 		|| decon->dt.out_type == DECON_OUT_DP) {
@@ -3413,7 +3470,7 @@ static int decon_acquire_window(struct decon_device *decon, int idx)
 		win->videomode.lower_margin = lcd_info->vfp;
 		win->videomode.hsync_len = lcd_info->hsa;
 		win->videomode.vsync_len = lcd_info->vsa;
-		win->videomode.xres = lcd_info->xres;
+		win->videomode.xres = lcd_info->xres * dual_sz;
 		win->videomode.yres = lcd_info->yres;
 		fb_videomode_to_var(&fbinfo->var, &win->videomode);
 	}
@@ -3737,6 +3794,8 @@ static int decon_initial_display(struct decon_device *decon, bool is_colormap)
 #if defined(CONFIG_EXYNOS_COMMON_PANEL)
 	int connected;
 #endif
+	u32 dual_sz = 1;
+	u32 xres;
 
 	if (decon->id || (decon->dt.out_type != DECON_OUT_DSI)) {
 		decon->state = DECON_STATE_OFF;
@@ -3782,18 +3841,21 @@ static int decon_initial_display(struct decon_device *decon, bool is_colormap)
 		goto decon_init_done;
 	}
 #endif
+	if (decon->dt.dsi_mode == DSI_MODE_DUAL_DSI)
+		dual_sz = 2;
+	xres = fbinfo->var.xres * dual_sz;
 
 	memset(&win_regs, 0, sizeof(struct decon_window_regs));
 	win_regs.wincon = wincon(0x8, 0xFF, 0xFF, 0xFF, DECON_BLENDING_NONE,
 			decon->dt.dft_win);
 	win_regs.start_pos = win_start_pos(0, 0);
-	win_regs.end_pos = win_end_pos(0, 0, fbinfo->var.xres, fbinfo->var.yres);
+	win_regs.end_pos = win_end_pos(0, 0, xres, fbinfo->var.yres);
 	decon_dbg("xres %d yres %d win_start_pos %x win_end_pos %x\n",
-			fbinfo->var.xres, fbinfo->var.yres, win_regs.start_pos,
+			xres, fbinfo->var.yres, win_regs.start_pos,
 			win_regs.end_pos);
 	win_regs.colormap = 0x00ff00;
-	win_regs.pixel_count = fbinfo->var.xres * fbinfo->var.yres;
-	win_regs.whole_w = fbinfo->var.xres_virtual;
+	win_regs.pixel_count = xres * fbinfo->var.yres;
+	win_regs.whole_w = fbinfo->var.xres_virtual * dual_sz;
 	win_regs.whole_h = fbinfo->var.yres_virtual;
 	win_regs.offset_x = fbinfo->var.xoffset;
 	win_regs.offset_y = fbinfo->var.yoffset;
@@ -3810,9 +3872,9 @@ static int decon_initial_display(struct decon_device *decon, bool is_colormap)
 	memset(&config, 0, sizeof(struct decon_win_config));
 	config.dpp_parm.addr[0] = fbinfo->fix.smem_start;
 	config.format = DECON_PIXEL_FORMAT_BGRA_8888;
-	config.src.w = fbinfo->var.xres;
+	config.src.w = xres;
 	config.src.h = fbinfo->var.yres;
-	config.src.f_w = fbinfo->var.xres;
+	config.src.f_w = xres;
 	config.src.f_h = fbinfo->var.yres;
 	config.dst.w = config.src.w;
 	config.dst.h = config.src.h;
@@ -4011,6 +4073,9 @@ static int decon_probe(struct platform_device *pdev)
 	ret = decon_initial_display(decon, false);
 	if (ret)
 		goto err_display;
+
+	/* colormap test for bring up */
+//	decon_set_color_window(decon, 0xff00ff);
 
 	decon_info("decon%d registered successfully", decon->id);
 

@@ -212,7 +212,7 @@ static int displayport_full_link_training(void)
 
 	if (!displayport->hpd_current_state) {
 		displayport_info("hpd is low in full link training\n");
-		return 0;
+		return -ENODEV;
 	}
 
 	link_rate = val[1];
@@ -1107,7 +1107,9 @@ void displayport_hpd_changed(int state)
 
 		displayport_info("link training in hpd_changed\n");
 		ret = displayport_link_training();
-		if (ret < 0) {
+		if (ret == -ENODEV) {
+			goto HPD_FAIL;
+		} else if (ret < 0) {
 			displayport_dbg("link training fail\n");
 			displayport_set_switch_poor_connect();
 			goto HPD_FAIL;
@@ -1868,7 +1870,12 @@ static int displayport_make_audio_infoframe_data(struct infoframe *audio_infofra
 	audio_infoframe->data[0] = ((u8)audio_config_data->audio_channel_cnt - 1);
 
 	/* Data Byte 4, how various speaker locations are allocated */
-	audio_infoframe->data[3] = 0;
+	if (audio_config_data->audio_channel_cnt == 8)
+		audio_infoframe->data[3] = 0x13;
+	else if (audio_config_data->audio_channel_cnt == 6)
+		audio_infoframe->data[3] = 0x0b;
+	else
+		audio_infoframe->data[3] = 0;
 
 	displayport_info("audio_infoframe: type and ch_cnt %02x, SF and bit size %02x, ch_allocation %02x\n",
 			audio_infoframe->data[0], audio_infoframe->data[1], audio_infoframe->data[3]);
@@ -2493,7 +2500,9 @@ static int displayport_timing2conf(struct v4l2_dv_timings *timings)
 {
 	int i;
 
-	for (i = 0; i < supported_videos_pre_cnt; i++) {
+	/* to select last index when there are same timings, use descending order
+	 * for FEATURE_USE_PREFERRED_TIMING_1ST */
+	for (i = supported_videos_pre_cnt - 1; i >= 0; i--) {
 		if (displayport_match_timings(&supported_videos[i].dv_timings,
 					timings, 0))
 			return i;
@@ -2813,6 +2822,11 @@ static int displayport_parse_dt(struct displayport_device *displayport, struct d
 	displayport->gpio_usb_dir = of_get_named_gpio(np, "dp,usb_con_sel", 0);
 	if (!gpio_is_valid(displayport->gpio_usb_dir))
 		displayport_err("failed to get gpio dp_usb_con_sel\n");
+	
+	if (of_property_read_u32(dev->of_node, "dp,dex_resolution", &displayport->dex_res)) {
+		displayport->dex_res = 0;
+		displayport_info("dex_res not exist\n");
+	}
 
 	displayport_info("%s done\n", __func__);
 
@@ -2895,7 +2909,7 @@ static void displayport_aux_sel(struct displayport_device *displayport)
 {
 	if (gpio_is_valid(displayport->gpio_usb_dir) &&
 			gpio_is_valid(displayport->gpio_sw_sel)) {
-		displayport->dp_sw_sel = gpio_get_value(displayport->gpio_usb_dir);
+		displayport->dp_sw_sel = !gpio_get_value(displayport->gpio_usb_dir);
 		gpio_direction_output(displayport->gpio_sw_sel, !(displayport->dp_sw_sel));
 		displayport_info("Get direction from ccic %d\n", displayport->dp_sw_sel);
 #ifdef CONFIG_SEC_DISPLAYPORT_BIGDATA

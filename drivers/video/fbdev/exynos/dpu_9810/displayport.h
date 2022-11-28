@@ -635,6 +635,7 @@ struct displayport_device {
 	u8 dex_ver[2];
 	enum dex_support_type dex_adapter_type;
 	videoformat dex_video_pick;
+	int dex_res;
 
 	enum drm_state drm_start_state;
 	enum drm_state drm_smc_state;
