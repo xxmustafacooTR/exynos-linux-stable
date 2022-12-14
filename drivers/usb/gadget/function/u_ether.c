@@ -1561,7 +1561,7 @@ int gether_alloc_request(struct gether *link)
 
 	result = alloc_requests(dev, link, qlen(dev->gadget,
 				dev->qmult));
-
+	printk("usb: %s qlen %d\n", __func__, qlen(dev->gadget, dev->qmult));
 	return result;
 }
 
