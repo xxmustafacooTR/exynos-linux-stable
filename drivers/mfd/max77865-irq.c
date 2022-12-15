@@ -194,8 +194,7 @@ static irqreturn_t max77865_irq_thread(int irq, void *data)
 		pr_debug("[%s] fuelgauge interrupt\n", __func__);
 		pr_debug("[%s]IRQ_BASE(%d), NESTED_IRQ(%d)\n",
 			__func__, max77865->irq_base, max77865->irq_base + MAX77865_FG_IRQ_ALERT);
-		handle_nested_irq(max77865->irq_base + MAX77865_FG_IRQ_ALERT);
-		return IRQ_HANDLED;
+		irq_reg[FUEL_INT] = 1 << 1;
 	}
 
 	if (irq_src & MAX77865_IRQSRC_TOP) {

@@ -241,6 +241,7 @@
 
 		battery,swelling_drop_float_voltage = <4150>;
 		battery,swelling_high_rechg_voltage = <4000>;
+		battery,swelling_low_rechg_thr = <150>;
 		battery,swelling_low_rechg_voltage = <4000>;
 		battery,wa_float_voltage = <4050>;
 

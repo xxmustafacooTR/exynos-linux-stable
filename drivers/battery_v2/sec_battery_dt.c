@@ -1045,18 +1045,27 @@ int sec_bat_parse_dt(struct device *dev,
 		pr_info("%s: swelling_low_rechg_voltage is Empty\n", __func__);
 				pdata->swelling_low_rechg_voltage = 4000;
 	}
+	
+	ret = of_property_read_u32(np, "battery,swelling_low_rechg_thr",
+		(unsigned int *)&pdata->swelling_low_rechg_thr);
+	if (ret) {
+		pr_info("%s: swelling_low_rechg_thr is Empty\n", __func__);
+		pdata->swelling_low_rechg_thr = 150;
+	}
 
 	pr_info("%s : SWELLING_HIGH_TEMP(%d) SWELLING_HIGH_TEMP_RECOVERY(%d)\n"
 		"SWELLING_LOW_TEMP_1st(%d) SWELLING_LOW_TEMP_RECOVERY_1st(%d) "
 		"SWELLING_LOW_TEMP_2nd(%d) SWELLING_LOW_TEMP_RECOVERY_2nd(%d) "
 		"SWELLING_LOW_CURRENT(%d, %d), SWELLING_HIGH_CURRENT(%d, %d)\n"
-		"SWELLING_LOW_RCHG_VOL(%d), SWELLING_HIGH_RCHG_VOL(%d)\n",
+		"SWELLING_LOW_RCHG_VOL(%d), SWELLING_HIGH_RCHG_VOL(%d)\n"
+		"SWELLING_LOW_TEMP_RCHG_THRESHOLD(%d)\n",
 		__func__, pdata->swelling_high_temp_block, pdata->swelling_high_temp_recov,
 		pdata->swelling_low_temp_block_1st, pdata->swelling_low_temp_recov_1st,
 		pdata->swelling_low_temp_block_2nd, pdata->swelling_low_temp_recov_2nd,
 		pdata->swelling_low_temp_current, pdata->swelling_low_temp_topoff,
 		pdata->swelling_high_temp_current, pdata->swelling_high_temp_topoff,
-		pdata->swelling_low_rechg_voltage, pdata->swelling_high_rechg_voltage);
+		pdata->swelling_low_rechg_voltage, pdata->swelling_high_rechg_voltage,
+		pdata->swelling_low_rechg_thr);
 #endif
 
 #if defined(CONFIG_CALC_TIME_TO_FULL)
