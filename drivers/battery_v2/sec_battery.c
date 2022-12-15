@@ -674,7 +674,7 @@ static int sec_bat_check_pdic_temp(struct sec_battery_info *battery, int input_c
 static int sec_bat_check_pd_input_current(struct sec_battery_info *battery, int input_current)
 {
 	if (battery->current_event & SEC_BAT_CURRENT_EVENT_SELECT_PDO) {
-		input_current = battery->input_current;
+		input_current = SELECT_PDO_INPUT_CURRENT;
 		pr_info("%s: change input_current(%d), cable_type(%d)\n", __func__, input_current, battery->cable_type);
 	}
 
@@ -801,7 +801,6 @@ int sec_bat_set_charging_current(struct sec_battery_info *battery)
 #if defined(CONFIG_CCIC_NOTIFIER)
 			else if (battery->cable_type == SEC_BATTERY_CABLE_PDIC && battery->pdata->chg_temp_check) {
 				input_current = sec_bat_check_pdic_temp(battery, input_current);
-				input_current = sec_bat_check_pd_input_current(battery, input_current);
 			}
 #endif
 			else if (battery->pdata->chg_temp_check) {
@@ -809,6 +808,12 @@ int sec_bat_set_charging_current(struct sec_battery_info *battery)
 					sec_bat_check_afc_temp(battery, &input_current, &charging_current);
 			}
 		}
+#endif
+
+#if defined(CONFIG_CCIC_NOTIFIER)
+		/* check select pdo current */
+		if (battery->cable_type == SEC_BATTERY_CABLE_PDIC)
+			input_current = sec_bat_check_pd_input_current(battery, input_current);
 #endif
 
 		input_current = sec_bat_check_afc_input_current(battery, input_current);
@@ -1384,7 +1389,7 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 			/* float voltage - 150mV */
 			recharging_voltage =\
 				(battery->pdata->chg_float_voltage /\
-				battery->pdata->chg_float_voltage_conv) - 150;
+				battery->pdata->chg_float_voltage_conv) - battery->pdata->swelling_low_rechg_thr;
 			dev_info(battery->dev, "%s: recharging voltage changed by low temp(%d)\n",
 					__func__, recharging_voltage);
 		}
