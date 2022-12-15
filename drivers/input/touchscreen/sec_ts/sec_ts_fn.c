@@ -57,6 +57,9 @@ static void get_force_calibration(void *device_data);
 static void get_gap_data_x_all(void *device_data);
 static void get_gap_data_y_all(void *device_data);
 #ifdef USE_PRESSURE_SENSOR
+#ifdef CONFIG_CUSTOM_FORCETOUCH
+static void set_pressure_status_mode(void *device_data);
+#endif
 static void run_force_pressure_calibration(void *device_data);
 static void get_pressure_calibration_count(void *device_data);
 static void set_pressure_test_mode(void *device_data);
@@ -167,6 +170,9 @@ static struct sec_cmd sec_cmds[] = {
 	{SEC_CMD("get_gap_data_x_all", get_gap_data_x_all),},
 	{SEC_CMD("get_gap_data_y_all", get_gap_data_y_all),},
 #ifdef USE_PRESSURE_SENSOR
+#ifdef CONFIG_CUSTOM_FORCETOUCH
+	{SEC_CMD("set_pressure_status_mode", set_pressure_status_mode),},
+#endif
 	{SEC_CMD("run_force_pressure_calibration", run_force_pressure_calibration),},
 	{SEC_CMD("get_pressure_calibration_count", get_pressure_calibration_count),},
 	{SEC_CMD("set_pressure_test_mode", set_pressure_test_mode),},
@@ -5831,6 +5837,37 @@ static void get_force_calibration(void *device_data)
 }
 
 #ifdef USE_PRESSURE_SENSOR
+#ifdef CONFIG_CUSTOM_FORCETOUCH
+static void set_pressure_status_mode(void *device_data)
+{
+	struct sec_cmd_data *sec = (struct sec_cmd_data *)device_data;
+	struct sec_ts_data *ts = container_of(sec, struct sec_ts_data, sec);
+	char buff[SEC_CMD_STR_LEN] = {0};
+
+	sec_cmd_set_default_result(sec);
+	
+	if (ts->power_status == SEC_TS_STATE_POWER_OFF) {
+		input_err(true, &ts->client->dev, "%s: Touch is stopped!\n", __func__);
+		snprintf(buff, sizeof(buff), "%s", "TSP turned off");
+		sec_cmd_set_cmd_result(sec, buff, strnlen(buff, sizeof(buff)));
+		sec->cmd_state = SEC_CMD_STATUS_NOT_APPLICABLE;
+		return;
+	}
+
+	if (sec->cmd_param[0] == 1)
+		ts->pressure_status = 1;
+	else
+		ts->pressure_status = 0;
+
+	snprintf(buff, sizeof(buff), "%s", "OK");
+	sec->cmd_state = SEC_CMD_STATUS_OK;
+
+	sec_cmd_set_cmd_result(sec, buff, strnlen(buff, sizeof(buff)));
+
+	input_info(true, &ts->client->dev, "%s: %s\n", __func__, buff);
+}
+#endif
+
 static void run_force_pressure_calibration(void *device_data)
 {
 	struct sec_cmd_data *sec = (struct sec_cmd_data *)device_data;
