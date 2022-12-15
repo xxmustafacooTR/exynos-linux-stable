@@ -35,9 +35,9 @@
 
 static char test_buf[PAGE_SIZE];
 
-static int test_helper_strtoint(int *out)
+static void test_helper_strtoint(int *out)
 {
-	return kstrtoint(test_buf, 10, out);
+	kstrtoint(test_buf, 10, out);
 }
 
 static void test_helper_reset_test_buf(void)

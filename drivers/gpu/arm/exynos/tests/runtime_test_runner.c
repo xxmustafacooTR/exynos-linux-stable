@@ -31,7 +31,7 @@ enum test_modules { GPEX_CLOCK = 0, GPEX_CLOCK_SYSFS, GPEX_PM, GPEX_TEST_MODULE_
 static char *test_module_name[GPEX_TEST_MODULE_CNT];
 static uint64_t final_test_result = -1;
 
-static int run_tests_gpex_clock(void)
+static int run_tests_gpex_clock()
 {
 	int result = 0;
 	int min_level, max_level, avg_level, avg_clock;
@@ -69,7 +69,7 @@ static int run_tests_gpex_clock(void)
 	return 0;
 }
 
-static int run_tests_gpex_pm_state(void)
+static int run_tests_gpex_pm_state()
 {
 	int result = 0;
 
@@ -84,7 +84,7 @@ static int run_tests_gpex_pm_state(void)
 	return 0;
 }
 
-static int run_tests_clock_sysfs_all(void)
+static int run_tests_clock_sysfs_all()
 {
 	return clock_sysfs_tests_run_all();
 }
