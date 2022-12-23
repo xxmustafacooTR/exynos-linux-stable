@@ -1103,6 +1103,11 @@ struct decon_systrace_data {
 	pid_t pid;
 };
 
+struct decon_edid_data {
+	int size;
+	u8 edid_data[EDID_BLOCK_SIZE * MAX_EDID_BLOCK];
+};
+
 struct decon_device {
 	int id;
 	enum decon_state state;
@@ -1288,6 +1293,7 @@ void decon_destroy_fsync_thread(struct decon_device *decon);
 #endif
 int decon_create_psr_info(struct decon_device *decon);
 void decon_destroy_psr_info(struct decon_device *decon);
+void decon_get_edid(struct decon_device *decon, struct decon_edid_data *edid_data);
 
 /* DECON to DISPLAYPORT interface functions */
 int decon_displayport_register_irq(struct decon_device *decon);
@@ -1303,6 +1309,8 @@ int decon_displayport_get_config(struct decon_device *dex,
 		struct exynos_displayport_data *displayport_data);
 int decon_displayport_set_config(struct decon_device *dex,
 		struct exynos_displayport_data *displayport_data);
+int decon_displayport_get_edid(struct decon_device *decon,
+		struct decon_edid_data *edid);
 
 /* window update related function */
 #define DPU_FULL_RECT(r, lcd)			\
@@ -1708,6 +1716,9 @@ void decon_reg_set_dsu(u32 id, enum decon_dsi_mode dsi_mode, struct decon_param 
 
 /* DPU aclk */
 #define EXYNOS_DPU_GET_ACLK		_IOR('F', 500, u32)
+
+/* EDID data */
+#define EXYNOS_GET_EDID		_IOW('F', 800, struct decon_edid_data)
 
 #if defined(CONFIG_EXYNOS_COMMON_PANEL)
 #define V4L2_EVENT_DECON                (V4L2_EVENT_PRIVATE_START + 1000)

@@ -2749,6 +2749,7 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 	struct decon_hdr_capabilities_info hdr_capa_info;
 	struct decon_user_window user_window;	/* cursor async */
 	struct decon_disp_info __user *argp_info;
+	struct decon_edid_data edid_data;
 	int ret = 0;
 	u32 crtc;
 	bool active;
@@ -3008,6 +3009,29 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			decon_err("decon[%d] is not support CURSOR ioctl\n",
 					decon->id);
 			ret = -EPERM;
+		}
+		break;
+	case EXYNOS_GET_EDID:
+		if (decon->dt.out_type == DECON_OUT_DP) {
+#if defined(CONFIG_EXYNOS_DISPLAYPORT)
+			ret = decon_displayport_get_edid(decon, &edid_data);
+
+			if (copy_to_user((struct decon_edid_data __user *)arg,
+					&edid_data, sizeof(edid_data))) {
+				ret = -EFAULT;
+				break;
+			}
+#endif
+		} else if (decon->dt.out_type == DECON_OUT_DSI) {
+			memset(&edid_data, 0, sizeof(struct decon_edid_data));
+			decon_get_edid(decon, &edid_data);
+			if (copy_to_user((struct decon_edid_data __user *)arg,
+					&edid_data, sizeof(edid_data))) {
+				ret = -EFAULT;
+				break;
+			}
+		} else {
+			ret = -EFAULT;
 		}
 		break;
 	default:
