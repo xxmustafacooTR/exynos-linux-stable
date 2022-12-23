@@ -182,24 +182,26 @@ static inline int log_msg(void *data)
 
 static void log_worker(struct work_struct *work)
 {
-	static DEFINE_MUTEX(local_mutex);
+	if (log_ctx.enabled) {
+		static DEFINE_MUTEX(local_mutex);
 
-	mutex_lock(&local_mutex);
-	while (log_ctx.trace_buf->head != log_ctx.tail) {
-		if (log_ctx.trace_buf->version != MC_LOG_VERSION) {
-			mc_dev_err("Bad log data v%d (exp. v%d), stop",
-				   log_ctx.trace_buf->version, MC_LOG_VERSION);
-			log_ctx.dead = true;
-			break;
+		mutex_lock(&local_mutex);
+		while (log_ctx.trace_buf->head != log_ctx.tail) {
+			if (log_ctx.trace_buf->version != MC_LOG_VERSION) {
+				mc_dev_err("Bad log data v%d (exp. v%d), stop",
+					log_ctx.trace_buf->version, MC_LOG_VERSION);
+				log_ctx.dead = true;
+				break;
+			}
+
+			log_ctx.tail += log_msg(&log_ctx.trace_buf->buff[log_ctx.tail]);
+			/* Wrap over if no space left for a complete message */
+			if ((log_ctx.tail + sizeof(struct mc_logmsg)) >
+							log_ctx.trace_buf->length)
+				log_ctx.tail = 0;
 		}
-
-		log_ctx.tail += log_msg(&log_ctx.trace_buf->buff[log_ctx.tail]);
-		/* Wrap over if no space left for a complete message */
-		if ((log_ctx.tail + sizeof(struct mc_logmsg)) >
-						log_ctx.trace_buf->length)
-			log_ctx.tail = 0;
+		mutex_unlock(&local_mutex);
 	}
-	mutex_unlock(&local_mutex);
 }
 
 /*
@@ -255,7 +257,7 @@ int mc_logging_init(void)
 		return -ENOMEM;
 
 	INIT_WORK(&log_ctx.work, log_worker);
-	log_ctx.enabled = true;
+	log_ctx.enabled = IS_ENABLED(CONFIG_TRUSTONIC_TEE_DEBUG);
 	debugfs_create_bool("swd_debug", 0600, g_ctx.debug_dir,
 			    &log_ctx.enabled);
 	return 0;
