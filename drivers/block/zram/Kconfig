@@ -41,7 +41,7 @@ config ZRAM_MEMORY_TRACKING
 
 config ZRAM_DEFAULT_COMP_ALGORITHM
 	string "Default ZRAM algorithm"
-	default "lz4"
+	default "lzo-rle"
 
 config ZRAM_LRU_WRITEBACK
 	bool
