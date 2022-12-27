@@ -723,6 +723,7 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, strict-prototypes)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, pointer-bool-conversion)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, literal-conversion)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, constant-logical-operand)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, single-bit-bitfield-constant-conversion)
 
 ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
 KBUILD_CFLAGS	+= $(call cc-option,-ffunction-sections,)
