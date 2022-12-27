@@ -220,6 +220,11 @@ int gpex_clock_get_clock(int level);
  */
 int gpex_get_valid_gpu_clock(int clock, bool is_round_up);
 
+/**
+ * gpex_clock_get_unlock_freqs_status() - get freqs unlock status
+ */
+bool gpex_clock_get_unlock_freqs_status(void);
+
 /**************************************
  * MUTEX
  *************************************/

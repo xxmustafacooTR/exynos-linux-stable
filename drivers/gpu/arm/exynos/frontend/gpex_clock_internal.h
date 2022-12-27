@@ -51,6 +51,7 @@ struct _clock_info {
 	int user_min_lock_input;
 
 	u64 prev_time_in_state_time;
+	bool unlock_freqs;
 };
 
 int gpex_clock_sysfs_init(struct _clock_info *_clk_info);
