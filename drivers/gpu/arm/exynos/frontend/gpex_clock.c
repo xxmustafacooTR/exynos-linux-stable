@@ -73,6 +73,10 @@ u64 gpex_clock_get_time_busy(int level)
 {
 	return clk_info.table[level].time_busy;
 }
+bool gpex_clock_get_unlock_freqs_status()
+{
+	return clk_info.unlock_freqs;
+}
 /*******************************************
  * static helper functions
  ******************************************/
@@ -315,6 +319,7 @@ int gpex_clock_init(struct device **dev)
 	clk_info.kbdev = container_of(dev, struct kbase_device, dev);
 	clk_info.max_lock = 0;
 	clk_info.min_lock = 0;
+	clk_info.unlock_freqs = false;
 
 	for (i = 0; i < NUMBER_LOCK; i++) {
 		clk_info.user_max_lock[i] = 0;
