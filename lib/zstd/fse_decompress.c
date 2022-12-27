@@ -240,7 +240,8 @@ FORCE_INLINE size_t FSE_decompress_usingDTable_generic(void *dst, size_t maxDstS
 
 		op[1] = FSE_GETSYMBOL(&state2);
 
-		if (FSE_MAX_TABLELOG * 4 + 7 > sizeof(bitD.bitContainer) * 8) { /* This test must be static */
+		if (FSE_MAX_TABLELOG * 4 + 7 > sizeof(bitD.bitContainer) * 8) /* This test must be static */
+		{
 			if (BIT_reloadDStream(&bitD) > BIT_DStream_unfinished) {
 				op += 2;
 				break;
