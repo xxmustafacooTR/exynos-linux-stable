@@ -253,8 +253,7 @@ size_t ZSTD_getFrameParams(ZSTD_frameParams *fparamsPtr, const void *src, size_t
 
 		switch (dictIDSizeCode) {
 		default: /* impossible */
-		case 0:
-			break;
+		case 0: break;
 		case 1:
 			dictID = ip[pos];
 			pos++;
@@ -274,12 +273,9 @@ size_t ZSTD_getFrameParams(ZSTD_frameParams *fparamsPtr, const void *src, size_t
 			if (singleSegment)
 				frameContentSize = ip[pos];
 			break;
-		case 1:
-			frameContentSize = ZSTD_readLE16(ip + pos) + 256; break;
-		case 2:
-			frameContentSize = ZSTD_readLE32(ip + pos); break;
-		case 3:
-			frameContentSize = ZSTD_readLE64(ip + pos); break;
+		case 1: frameContentSize = ZSTD_readLE16(ip + pos) + 256; break;
+		case 2: frameContentSize = ZSTD_readLE32(ip + pos); break;
+		case 3: frameContentSize = ZSTD_readLE64(ip + pos); break;
 		}
 		if (!windowSize)
 			windowSize = (U32)frameContentSize;
@@ -578,175 +574,175 @@ typedef union {
 } FSE_decode_t4;
 
 static const FSE_decode_t4 LL_defaultDTable[(1 << LL_DEFAULTNORMLOG) + 1] = {
-    {{LL_DEFAULTNORMLOG, 1, 1} }, /* header : tableLog, fastMode, fastMode */
-    {{0, 0, 4} },		 /* 0 : base, symbol, bits */
-    {{16, 0, 4} },
-    {{32, 1, 5} },
-    {{0, 3, 5} },
-    {{0, 4, 5} },
-    {{0, 6, 5} },
-    {{0, 7, 5} },
-    {{0, 9, 5} },
-    {{0, 10, 5} },
-    {{0, 12, 5} },
-    {{0, 14, 6} },
-    {{0, 16, 5} },
-    {{0, 18, 5} },
-    {{0, 19, 5} },
-    {{0, 21, 5} },
-    {{0, 22, 5} },
-    {{0, 24, 5} },
-    {{32, 25, 5} },
-    {{0, 26, 5} },
-    {{0, 27, 6} },
-    {{0, 29, 6} },
-    {{0, 31, 6} },
-    {{32, 0, 4} },
-    {{0, 1, 4} },
-    {{0, 2, 5} },
-    {{32, 4, 5} },
-    {{0, 5, 5} },
-    {{32, 7, 5} },
-    {{0, 8, 5} },
-    {{32, 10, 5} },
-    {{0, 11, 5} },
-    {{0, 13, 6} },
-    {{32, 16, 5} },
-    {{0, 17, 5} },
-    {{32, 19, 5} },
-    {{0, 20, 5} },
-    {{32, 22, 5} },
-    {{0, 23, 5} },
-    {{0, 25, 4} },
-    {{16, 25, 4} },
-    {{32, 26, 5} },
-    {{0, 28, 6} },
-    {{0, 30, 6} },
-    {{48, 0, 4} },
-    {{16, 1, 4} },
-    {{32, 2, 5} },
-    {{32, 3, 5} },
-    {{32, 5, 5} },
-    {{32, 6, 5} },
-    {{32, 8, 5} },
-    {{32, 9, 5} },
-    {{32, 11, 5} },
-    {{32, 12, 5} },
-    {{0, 15, 6} },
-    {{32, 17, 5} },
-    {{32, 18, 5} },
-    {{32, 20, 5} },
-    {{32, 21, 5} },
-    {{32, 23, 5} },
-    {{32, 24, 5} },
-    {{0, 35, 6} },
-    {{0, 34, 6} },
-    {{0, 33, 6} },
-    {{0, 32, 6} },
+    {{LL_DEFAULTNORMLOG, 1, 1}}, /* header : tableLog, fastMode, fastMode */
+    {{0, 0, 4}},		 /* 0 : base, symbol, bits */
+    {{16, 0, 4}},
+    {{32, 1, 5}},
+    {{0, 3, 5}},
+    {{0, 4, 5}},
+    {{0, 6, 5}},
+    {{0, 7, 5}},
+    {{0, 9, 5}},
+    {{0, 10, 5}},
+    {{0, 12, 5}},
+    {{0, 14, 6}},
+    {{0, 16, 5}},
+    {{0, 18, 5}},
+    {{0, 19, 5}},
+    {{0, 21, 5}},
+    {{0, 22, 5}},
+    {{0, 24, 5}},
+    {{32, 25, 5}},
+    {{0, 26, 5}},
+    {{0, 27, 6}},
+    {{0, 29, 6}},
+    {{0, 31, 6}},
+    {{32, 0, 4}},
+    {{0, 1, 4}},
+    {{0, 2, 5}},
+    {{32, 4, 5}},
+    {{0, 5, 5}},
+    {{32, 7, 5}},
+    {{0, 8, 5}},
+    {{32, 10, 5}},
+    {{0, 11, 5}},
+    {{0, 13, 6}},
+    {{32, 16, 5}},
+    {{0, 17, 5}},
+    {{32, 19, 5}},
+    {{0, 20, 5}},
+    {{32, 22, 5}},
+    {{0, 23, 5}},
+    {{0, 25, 4}},
+    {{16, 25, 4}},
+    {{32, 26, 5}},
+    {{0, 28, 6}},
+    {{0, 30, 6}},
+    {{48, 0, 4}},
+    {{16, 1, 4}},
+    {{32, 2, 5}},
+    {{32, 3, 5}},
+    {{32, 5, 5}},
+    {{32, 6, 5}},
+    {{32, 8, 5}},
+    {{32, 9, 5}},
+    {{32, 11, 5}},
+    {{32, 12, 5}},
+    {{0, 15, 6}},
+    {{32, 17, 5}},
+    {{32, 18, 5}},
+    {{32, 20, 5}},
+    {{32, 21, 5}},
+    {{32, 23, 5}},
+    {{32, 24, 5}},
+    {{0, 35, 6}},
+    {{0, 34, 6}},
+    {{0, 33, 6}},
+    {{0, 32, 6}},
 }; /* LL_defaultDTable */
 
 static const FSE_decode_t4 ML_defaultDTable[(1 << ML_DEFAULTNORMLOG) + 1] = {
-    {{ML_DEFAULTNORMLOG, 1, 1} }, /* header : tableLog, fastMode, fastMode */
-    {{0, 0, 6} },		 /* 0 : base, symbol, bits */
-    {{0, 1, 4} },
-    {{32, 2, 5} },
-    {{0, 3, 5} },
-    {{0, 5, 5} },
-    {{0, 6, 5} },
-    {{0, 8, 5} },
-    {{0, 10, 6} },
-    {{0, 13, 6} },
-    {{0, 16, 6} },
-    {{0, 19, 6} },
-    {{0, 22, 6} },
-    {{0, 25, 6} },
-    {{0, 28, 6} },
-    {{0, 31, 6} },
-    {{0, 33, 6} },
-    {{0, 35, 6} },
-    {{0, 37, 6} },
-    {{0, 39, 6} },
-    {{0, 41, 6} },
-    {{0, 43, 6} },
-    {{0, 45, 6} },
-    {{16, 1, 4} },
-    {{0, 2, 4} },
-    {{32, 3, 5} },
-    {{0, 4, 5} },
-    {{32, 6, 5} },
-    {{0, 7, 5} },
-    {{0, 9, 6} },
-    {{0, 12, 6} },
-    {{0, 15, 6} },
-    {{0, 18, 6} },
-    {{0, 21, 6} },
-    {{0, 24, 6} },
-    {{0, 27, 6} },
-    {{0, 30, 6} },
-    {{0, 32, 6} },
-    {{0, 34, 6} },
-    {{0, 36, 6} },
-    {{0, 38, 6} },
-    {{0, 40, 6} },
-    {{0, 42, 6} },
-    {{0, 44, 6} },
-    {{32, 1, 4} },
-    {{48, 1, 4} },
-    {{16, 2, 4} },
-    {{32, 4, 5} },
-    {{32, 5, 5} },
-    {{32, 7, 5} },
-    {{32, 8, 5} },
-    {{0, 11, 6} },
-    {{0, 14, 6} },
-    {{0, 17, 6} },
-    {{0, 20, 6} },
-    {{0, 23, 6} },
-    {{0, 26, 6} },
-    {{0, 29, 6} },
-    {{0, 52, 6} },
-    {{0, 51, 6} },
-    {{0, 50, 6} },
-    {{0, 49, 6} },
-    {{0, 48, 6} },
-    {{0, 47, 6} },
-    {{0, 46, 6} },
+    {{ML_DEFAULTNORMLOG, 1, 1}}, /* header : tableLog, fastMode, fastMode */
+    {{0, 0, 6}},		 /* 0 : base, symbol, bits */
+    {{0, 1, 4}},
+    {{32, 2, 5}},
+    {{0, 3, 5}},
+    {{0, 5, 5}},
+    {{0, 6, 5}},
+    {{0, 8, 5}},
+    {{0, 10, 6}},
+    {{0, 13, 6}},
+    {{0, 16, 6}},
+    {{0, 19, 6}},
+    {{0, 22, 6}},
+    {{0, 25, 6}},
+    {{0, 28, 6}},
+    {{0, 31, 6}},
+    {{0, 33, 6}},
+    {{0, 35, 6}},
+    {{0, 37, 6}},
+    {{0, 39, 6}},
+    {{0, 41, 6}},
+    {{0, 43, 6}},
+    {{0, 45, 6}},
+    {{16, 1, 4}},
+    {{0, 2, 4}},
+    {{32, 3, 5}},
+    {{0, 4, 5}},
+    {{32, 6, 5}},
+    {{0, 7, 5}},
+    {{0, 9, 6}},
+    {{0, 12, 6}},
+    {{0, 15, 6}},
+    {{0, 18, 6}},
+    {{0, 21, 6}},
+    {{0, 24, 6}},
+    {{0, 27, 6}},
+    {{0, 30, 6}},
+    {{0, 32, 6}},
+    {{0, 34, 6}},
+    {{0, 36, 6}},
+    {{0, 38, 6}},
+    {{0, 40, 6}},
+    {{0, 42, 6}},
+    {{0, 44, 6}},
+    {{32, 1, 4}},
+    {{48, 1, 4}},
+    {{16, 2, 4}},
+    {{32, 4, 5}},
+    {{32, 5, 5}},
+    {{32, 7, 5}},
+    {{32, 8, 5}},
+    {{0, 11, 6}},
+    {{0, 14, 6}},
+    {{0, 17, 6}},
+    {{0, 20, 6}},
+    {{0, 23, 6}},
+    {{0, 26, 6}},
+    {{0, 29, 6}},
+    {{0, 52, 6}},
+    {{0, 51, 6}},
+    {{0, 50, 6}},
+    {{0, 49, 6}},
+    {{0, 48, 6}},
+    {{0, 47, 6}},
+    {{0, 46, 6}},
 }; /* ML_defaultDTable */
 
 static const FSE_decode_t4 OF_defaultDTable[(1 << OF_DEFAULTNORMLOG) + 1] = {
-    {{OF_DEFAULTNORMLOG, 1, 1} }, /* header : tableLog, fastMode, fastMode */
-    {{0, 0, 5} },		 /* 0 : base, symbol, bits */
-    {{0, 6, 4} },
-    {{0, 9, 5} },
-    {{0, 15, 5} },
-    {{0, 21, 5} },
-    {{0, 3, 5} },
-    {{0, 7, 4} },
-    {{0, 12, 5} },
-    {{0, 18, 5} },
-    {{0, 23, 5} },
-    {{0, 5, 5} },
-    {{0, 8, 4} },
-    {{0, 14, 5} },
-    {{0, 20, 5} },
-    {{0, 2, 5} },
-    {{16, 7, 4} },
-    {{0, 11, 5} },
-    {{0, 17, 5} },
-    {{0, 22, 5} },
-    {{0, 4, 5} },
-    {{16, 8, 4} },
-    {{0, 13, 5} },
-    {{0, 19, 5} },
-    {{0, 1, 5} },
-    {{16, 6, 4} },
-    {{0, 10, 5} },
-    {{0, 16, 5} },
-    {{0, 28, 5} },
-    {{0, 27, 5} },
-    {{0, 26, 5} },
-    {{0, 25, 5} },
-    {{0, 24, 5} },
+    {{OF_DEFAULTNORMLOG, 1, 1}}, /* header : tableLog, fastMode, fastMode */
+    {{0, 0, 5}},		 /* 0 : base, symbol, bits */
+    {{0, 6, 4}},
+    {{0, 9, 5}},
+    {{0, 15, 5}},
+    {{0, 21, 5}},
+    {{0, 3, 5}},
+    {{0, 7, 4}},
+    {{0, 12, 5}},
+    {{0, 18, 5}},
+    {{0, 23, 5}},
+    {{0, 5, 5}},
+    {{0, 8, 4}},
+    {{0, 14, 5}},
+    {{0, 20, 5}},
+    {{0, 2, 5}},
+    {{16, 7, 4}},
+    {{0, 11, 5}},
+    {{0, 17, 5}},
+    {{0, 22, 5}},
+    {{0, 4, 5}},
+    {{16, 8, 4}},
+    {{0, 13, 5}},
+    {{0, 19, 5}},
+    {{0, 1, 5}},
+    {{16, 6, 4}},
+    {{0, 10, 5}},
+    {{0, 16, 5}},
+    {{0, 28, 5}},
+    {{0, 27, 5}},
+    {{0, 26, 5}},
+    {{0, 25, 5}},
+    {{0, 24, 5}},
 }; /* OF_defaultDTable */
 
 /*! ZSTD_buildSeqTable() :
@@ -766,8 +762,7 @@ static size_t ZSTD_buildSeqTable(FSE_DTable *DTableSpace, const FSE_DTable **DTa
 		FSE_buildDTable_rle(DTableSpace, *(const BYTE *)src);
 		*DTablePtr = DTableSpace;
 		return 1;
-	case set_basic:
-		*DTablePtr = (const FSE_DTable *)tmpPtr; return 0;
+	case set_basic: *DTablePtr = (const FSE_DTable *)tmpPtr; return 0;
 	case set_repeat:
 		if (!flagRepeatTable)
 			return ERROR(corruption_detected);
@@ -1606,15 +1601,11 @@ static size_t ZSTD_decompressFrame(ZSTD_DCtx *dctx, void *dst, size_t dstCapacit
 			return ERROR(srcSize_wrong);
 
 		switch (blockProperties.blockType) {
-		case bt_compressed:
-			decodedSize = ZSTD_decompressBlock_internal(dctx, op, oend - op, ip, cBlockSize); break;
-		case bt_raw:
-			decodedSize = ZSTD_copyRawBlock(op, oend - op, ip, cBlockSize); break;
-		case bt_rle:
-			decodedSize = ZSTD_generateNxBytes(op, oend - op, *ip, blockProperties.origSize); break;
+		case bt_compressed: decodedSize = ZSTD_decompressBlock_internal(dctx, op, oend - op, ip, cBlockSize); break;
+		case bt_raw: decodedSize = ZSTD_copyRawBlock(op, oend - op, ip, cBlockSize); break;
+		case bt_rle: decodedSize = ZSTD_generateNxBytes(op, oend - op, *ip, blockProperties.origSize); break;
 		case bt_reserved:
-		default:
-			return ERROR(corruption_detected);
+		default: return ERROR(corruption_detected);
 		}
 
 		if (ZSTD_isError(decodedSize))
@@ -1816,15 +1807,11 @@ size_t ZSTD_decompressContinue(ZSTD_DCtx *dctx, void *dst, size_t dstCapacity, c
 	case ZSTDds_decompressBlock: {
 		size_t rSize;
 		switch (dctx->bType) {
-		case bt_compressed:
-			rSize = ZSTD_decompressBlock_internal(dctx, dst, dstCapacity, src, srcSize); break;
-		case bt_raw:
-			rSize = ZSTD_copyRawBlock(dst, dstCapacity, src, srcSize); break;
-		case bt_rle:
-			rSize = ZSTD_setRleBlock(dst, dstCapacity, src, srcSize, dctx->rleSize); break;
+		case bt_compressed: rSize = ZSTD_decompressBlock_internal(dctx, dst, dstCapacity, src, srcSize); break;
+		case bt_raw: rSize = ZSTD_copyRawBlock(dst, dstCapacity, src, srcSize); break;
+		case bt_rle: rSize = ZSTD_setRleBlock(dst, dstCapacity, src, srcSize, dctx->rleSize); break;
 		case bt_reserved: /* should never happen */
-		default:
-			return ERROR(corruption_detected);
+		default: return ERROR(corruption_detected);
 		}
 		if (ZSTD_isError(rSize))
 			return rSize;

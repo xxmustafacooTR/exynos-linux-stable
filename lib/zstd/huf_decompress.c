@@ -165,8 +165,13 @@ static BYTE HUF_decodeSymbolX2(BIT_DStream_t *Dstream, const HUF_DEltX2 *dt, con
 
 #define HUF_DECODE_SYMBOLX2_0(ptr, DStreamPtr) *ptr++ = HUF_decodeSymbolX2(DStreamPtr, dt, dtLog)
 
-#define HUF_DECODE_SYMBOLX2_1(ptr, DStreamPtr) do { if (ZSTD_64bits() || (HUF_TABLELOG_MAX <= 12)) HUF_DECODE_SYMBOLX2_0(ptr, DStreamPtr); } while (0)
-#define HUF_DECODE_SYMBOLX2_2(ptr, DStreamPtr) do { if (ZSTD_64bits()) HUF_DECODE_SYMBOLX2_0(ptr, DStreamPtr); } while (0)
+#define HUF_DECODE_SYMBOLX2_1(ptr, DStreamPtr)         \
+	if (ZSTD_64bits() || (HUF_TABLELOG_MAX <= 12)) \
+	HUF_DECODE_SYMBOLX2_0(ptr, DStreamPtr)
+
+#define HUF_DECODE_SYMBOLX2_2(ptr, DStreamPtr) \
+	if (ZSTD_64bits())                     \
+	HUF_DECODE_SYMBOLX2_0(ptr, DStreamPtr)
 
 FORCE_INLINE size_t HUF_decodeStreamX2(BYTE *p, BIT_DStream_t *const bitDPtr, BYTE *const pEnd, const HUF_DEltX2 *const dt, const U32 dtLog)
 {
@@ -614,8 +619,13 @@ static U32 HUF_decodeLastSymbolX4(void *op, BIT_DStream_t *DStream, const HUF_DE
 
 #define HUF_DECODE_SYMBOLX4_0(ptr, DStreamPtr) ptr += HUF_decodeSymbolX4(ptr, DStreamPtr, dt, dtLog)
 
-#define HUF_DECODE_SYMBOLX4_1(ptr, DStreamPtr) do { if (ZSTD_64bits() || (HUF_TABLELOG_MAX <= 12)) ptr += HUF_decodeSymbolX4(ptr, DStreamPtr, dt, dtLog); } while (0)
-#define HUF_DECODE_SYMBOLX4_2(ptr, DStreamPtr) do { if (ZSTD_64bits()) ptr += HUF_decodeSymbolX4(ptr, DStreamPtr, dt, dtLog); } while (0)
+#define HUF_DECODE_SYMBOLX4_1(ptr, DStreamPtr)         \
+	if (ZSTD_64bits() || (HUF_TABLELOG_MAX <= 12)) \
+	ptr += HUF_decodeSymbolX4(ptr, DStreamPtr, dt, dtLog)
+
+#define HUF_DECODE_SYMBOLX4_2(ptr, DStreamPtr) \
+	if (ZSTD_64bits())                     \
+	ptr += HUF_decodeSymbolX4(ptr, DStreamPtr, dt, dtLog)
 
 FORCE_INLINE size_t HUF_decodeStreamX4(BYTE *p, BIT_DStream_t *bitDPtr, BYTE *const pEnd, const HUF_DEltX4 *const dt, const U32 dtLog)
 {
@@ -851,22 +861,22 @@ typedef struct {
 } algo_time_t;
 static const algo_time_t algoTime[16 /* Quantization */][3 /* single, double, quad */] = {
     /* single, double, quad */
-    {{0, 0}, {1, 1}, {2, 2} },		     /* Q==0 : impossible */
-    {{0, 0}, {1, 1}, {2, 2} },		     /* Q==1 : impossible */
-    {{38, 130}, {1313, 74}, {2151, 38} },     /* Q == 2 : 12-18% */
-    {{448, 128}, {1353, 74}, {2238, 41} },    /* Q == 3 : 18-25% */
-    {{556, 128}, {1353, 74}, {2238, 47} },    /* Q == 4 : 25-32% */
-    {{714, 128}, {1418, 74}, {2436, 53} },    /* Q == 5 : 32-38% */
-    {{883, 128}, {1437, 74}, {2464, 61} },    /* Q == 6 : 38-44% */
-    {{897, 128}, {1515, 75}, {2622, 68} },    /* Q == 7 : 44-50% */
-    {{926, 128}, {1613, 75}, {2730, 75} },    /* Q == 8 : 50-56% */
-    {{947, 128}, {1729, 77}, {3359, 77} },    /* Q == 9 : 56-62% */
-    {{1107, 128}, {2083, 81}, {4006, 84} },   /* Q ==10 : 62-69% */
-    {{1177, 128}, {2379, 87}, {4785, 88} },   /* Q ==11 : 69-75% */
-    {{1242, 128}, {2415, 93}, {5155, 84} },   /* Q ==12 : 75-81% */
-    {{1349, 128}, {2644, 106}, {5260, 106} }, /* Q ==13 : 81-87% */
-    {{1455, 128}, {2422, 124}, {4174, 124} }, /* Q ==14 : 87-93% */
-    {{722, 128}, {1891, 145}, {1936, 146} },  /* Q ==15 : 93-99% */
+    {{0, 0}, {1, 1}, {2, 2}},		     /* Q==0 : impossible */
+    {{0, 0}, {1, 1}, {2, 2}},		     /* Q==1 : impossible */
+    {{38, 130}, {1313, 74}, {2151, 38}},     /* Q == 2 : 12-18% */
+    {{448, 128}, {1353, 74}, {2238, 41}},    /* Q == 3 : 18-25% */
+    {{556, 128}, {1353, 74}, {2238, 47}},    /* Q == 4 : 25-32% */
+    {{714, 128}, {1418, 74}, {2436, 53}},    /* Q == 5 : 32-38% */
+    {{883, 128}, {1437, 74}, {2464, 61}},    /* Q == 6 : 38-44% */
+    {{897, 128}, {1515, 75}, {2622, 68}},    /* Q == 7 : 44-50% */
+    {{926, 128}, {1613, 75}, {2730, 75}},    /* Q == 8 : 50-56% */
+    {{947, 128}, {1729, 77}, {3359, 77}},    /* Q == 9 : 56-62% */
+    {{1107, 128}, {2083, 81}, {4006, 84}},   /* Q ==10 : 62-69% */
+    {{1177, 128}, {2379, 87}, {4785, 88}},   /* Q ==11 : 69-75% */
+    {{1242, 128}, {2415, 93}, {5155, 84}},   /* Q ==12 : 75-81% */
+    {{1349, 128}, {2644, 106}, {5260, 106}}, /* Q ==13 : 81-87% */
+    {{1455, 128}, {2422, 124}, {4174, 124}}, /* Q ==14 : 87-93% */
+    {{722, 128}, {1891, 145}, {1936, 146}},  /* Q ==15 : 93-99% */
 };
 
 /** HUF_selectDecoder() :

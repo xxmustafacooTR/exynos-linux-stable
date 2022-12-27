@@ -527,8 +527,13 @@ size_t HUF_compressBound(size_t size) { return HUF_COMPRESSBOUND(size); }
 
 #define HUF_FLUSHBITS(s)  BIT_flushBits(s)
 
-#define HUF_FLUSHBITS_1(stream) do { if (sizeof((stream)->bitContainer) * 8 < HUF_TABLELOG_MAX * 2 + 7) HUF_FLUSHBITS(stream); } while (0)
-#define HUF_FLUSHBITS_2(stream) do { if (sizeof((stream)->bitContainer) * 8 < HUF_TABLELOG_MAX * 4 + 7) HUF_FLUSHBITS(stream); } while (0)
+#define HUF_FLUSHBITS_1(stream)                                            \
+	if (sizeof((stream)->bitContainer) * 8 < HUF_TABLELOG_MAX * 2 + 7) \
+	HUF_FLUSHBITS(stream)
+
+#define HUF_FLUSHBITS_2(stream)                                            \
+	if (sizeof((stream)->bitContainer) * 8 < HUF_TABLELOG_MAX * 4 + 7) \
+	HUF_FLUSHBITS(stream)
 
 size_t HUF_compress1X_usingCTable(void *dst, size_t dstSize, const void *src, size_t srcSize, const HUF_CElt *CTable)
 {
@@ -550,15 +555,11 @@ size_t HUF_compress1X_usingCTable(void *dst, size_t dstSize, const void *src, si
 
 	n = srcSize & ~3; /* join to mod 4 */
 	switch (srcSize & 3) {
-	case 3:
-		HUF_encodeSymbol(&bitC, ip[n + 2], CTable); HUF_FLUSHBITS_2(&bitC);
-	case 2:
-		HUF_encodeSymbol(&bitC, ip[n + 1], CTable); HUF_FLUSHBITS_1(&bitC);
-	case 1:
-		HUF_encodeSymbol(&bitC, ip[n + 0], CTable); HUF_FLUSHBITS(&bitC);
+	case 3: HUF_encodeSymbol(&bitC, ip[n + 2], CTable); HUF_FLUSHBITS_2(&bitC);
+	case 2: HUF_encodeSymbol(&bitC, ip[n + 1], CTable); HUF_FLUSHBITS_1(&bitC);
+	case 1: HUF_encodeSymbol(&bitC, ip[n + 0], CTable); HUF_FLUSHBITS(&bitC);
 	case 0:
-	default:
-		;
+	default:;
 	}
 
 	for (; n > 0; n -= 4) { /* note : n&3==0 at this stage */
