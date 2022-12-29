@@ -1524,6 +1524,9 @@ static int __max98512_spk_enable(struct max98512_priv *max98512)
 
 	battery_temp = maxdsm_cal_get_temp_from_power_supply();
 
+	if (battery_temp > 150)
+		battery_temp = battery_temp / 10;
+
 	if (battery_temp > 55) {
 		msg_maxim("battery_temp[%d] over 55", battery_temp);
 		max98512_wrapper_write(max98512, MAX98512B,
