@@ -34,6 +34,12 @@
 
 static int last_max_limit = -1;
 static int sse_mode;
+static bool unlock_freqs_switch = false;
+
+bool exynos_cpufreq_get_unlock_freqs_status()
+{
+	return unlock_freqs_switch;
+}
 
 static ssize_t show_cpufreq_table(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
@@ -496,6 +502,9 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct kobj_attribu
 					const char *buf, size_t count)
 {
 	int input;
+	
+	if (exynos_cpufreq_get_unlock_freqs_status())
+		return count;
 
 	if (!sscanf(buf, "%8d", &input))
 		return -EINVAL;
@@ -532,6 +541,31 @@ static ssize_t store_execution_mode_change(struct kobject *kobj, struct kobj_att
 	return count;
 }
 
+static ssize_t show_unlock_freqs(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 3, "%d\n",unlock_freqs_switch);
+}
+
+static ssize_t store_unlock_freqs(struct kobject *kobj, struct kobj_attribute *attr,
+					const char *buf, size_t count)
+{
+	int unlock;
+
+	if (!sscanf(buf, "%1d", &unlock))
+		return -EINVAL;
+	
+	if (unlock)
+		unlock_freqs_switch = true;
+	else
+		unlock_freqs_switch = false;
+	
+	last_max_limit = -1;
+	cpufreq_max_limit_update(last_max_limit);
+
+	return count;
+}
+
 static struct kobj_attribute cpufreq_table =
 __ATTR(cpufreq_table, 0444 , show_cpufreq_table, NULL);
 static struct kobj_attribute cpufreq_min_limit =
@@ -546,6 +580,9 @@ __ATTR(cpufreq_max_limit, 0644,
 static struct kobj_attribute execution_mode_change =
 __ATTR(execution_mode_change, 0644,
 		show_execution_mode_change, store_execution_mode_change);
+static struct kobj_attribute unlock_freqs =
+__ATTR(unlock_freqs, 0644,
+		show_unlock_freqs, store_unlock_freqs);
 
 static __init void init_sysfs(void)
 {
@@ -563,6 +600,9 @@ static __init void init_sysfs(void)
 
 	if (sysfs_create_file(power_kobj, &execution_mode_change.attr))
 		pr_err("failed to create cpufreq_max_limit node\n");
+	
+	if (sysfs_create_file(power_kobj, &unlock_freqs.attr))
+		pr_err("failed to create unlock_freqs node\n");
 
 }
 
