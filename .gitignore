@@ -22,6 +22,8 @@ scripts/fmp/__pycache__
 firmware/five/ffffffff000000000000000000000072.tlbin
 security/proca/proca_certificate-asn1.c
 security/proca/proca_certificate-asn1.h
+lib/lib.a.symversions
+arch/arm64/lib/lib.a.symversions
 
 #
 # Gator
