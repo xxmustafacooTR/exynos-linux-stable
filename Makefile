@@ -779,12 +779,16 @@ endif
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 KBUILD_CFLAGS += -O2
+KBUILD_LDFLAGS += -O2
 else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3
 KBUILD_CFLAGS += -O3
+KBUILD_LDFLAGS += -O3
 else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_UNSAFE
 KBUILD_CFLAGS += -Ofast -ffast-math -funsafe-math-optimizations
+KBUILD_LDFLAGS += -Ofast -ffast-math -funsafe-math-optimizations
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
+KBUILD_LDFLAGS += -Os
 endif
 
 KBUILD_CFLAGS += $(call cc-ifversion, -lt, 0409, \
