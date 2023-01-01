@@ -491,11 +491,8 @@ int power_supply_get_property(struct power_supply *psy,
 			    enum power_supply_property psp,
 			    union power_supply_propval *val)
 {
-	if (atomic_read(&psy->use_cnt) <= 0) {
-		if (!psy->initialized)
-			return -EAGAIN;
+	if (atomic_read(&psy->use_cnt) <= 0)
 		return -ENODEV;
-	}
 
 	return psy->desc->get_property(psy, psp, val);
 }
@@ -783,7 +780,6 @@ __power_supply_register(struct device *parent,
 	 *    after calling power_supply_register()).
 	 */
 	atomic_inc(&psy->use_cnt);
-	psy->initialized = true;
 
 	queue_delayed_work(system_power_efficient_wq,
 			   &psy->deferred_register_work,
