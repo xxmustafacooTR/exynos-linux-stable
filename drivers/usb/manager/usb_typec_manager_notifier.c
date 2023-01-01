@@ -154,9 +154,9 @@ void set_usb_enumeration_state(int state)
 	if(typec_manager.usb_enum_state != state) {
 		typec_manager.usb_enum_state = state;
 
-		if(typec_manager.usb_enum_state == 0x310)
+		if(typec_manager.usb_enum_state >= 0x310)
 			typec_manager.usb310_count++;
-		else if(typec_manager.usb_enum_state == 0x210)
+		else if(typec_manager.usb_enum_state >= 0x210)
 			typec_manager.usb210_count++;
 	}
 }
