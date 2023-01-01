@@ -41,7 +41,11 @@ extern void sec_bootstat_add(const char *c);
 extern void sec_bootstat_add_initcall(const char *name);
 
 extern void sec_bootstat_get_cpuinfo(int *freq, int *online);
+#ifdef CONFIG_EXYNOS_THERMAL
 extern void sec_bootstat_get_thermal(int *temp);
+#else
+#define sec_bootstat_get_thermal(a)		do { } while (0)
+#endif
 #else
 #define sec_bootstat_mct_start(a)		do { } while (0)
 #define sec_bootstat_add(a)			do { } while (0)
