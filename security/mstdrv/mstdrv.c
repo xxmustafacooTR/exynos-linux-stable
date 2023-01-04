@@ -79,36 +79,6 @@ EXPORT_SYMBOL_GPL(mst_drv_dev);
 #if defined(CONFIG_MFC_CHARGER)
 #define MST_MODE_ON		1
 #define MST_MODE_OFF		0
-#if 0
-static inline struct power_supply *get_power_supply_by_name(char *name)
-{
-	if (!name)
-		return (struct power_supply *)NULL;
-	else
-		return power_supply_get_by_name(name);
-}
-
-#define psy_do_property(name, function, property, value) \
-{    \
-	struct power_supply *psy;    \
-	int ret;    \
-	psy = get_power_supply_by_name((name));    \
-	if (!psy) {    \
-		pr_err("%s: Fail to "#function" psy (%s)\n",    \
-				__func__, (name));    \
-		value.intval = 0;    \
-	} else {    \
-		if (psy->desc->function##_property != NULL) { \
-			ret = psy->desc->function##_property(psy, (property), &(value)); \
-			if (ret < 0) {    \
-				pr_err("%s: Fail to %s "#function" (%d=>%d)\n", \
-						__func__, name, (property), ret);    \
-				value.intval = 0;    \
-			}    \
-		}    \
-	}    \
-}
-#endif
 #endif
 
 extern void mst_ctrl_of_mst_hw_onoff(bool on)
@@ -136,10 +106,6 @@ extern void mst_ctrl_of_mst_hw_onoff(bool on)
 				POWER_SUPPLY_PROP_TECHNOLOGY, value);
 		printk("%s : MST_MODE_OFF notify : %d\n", __func__,
 				value.intval);
-
-		value.intval = 0;
-		psy_do_property("mfc-charger", set, POWER_SUPPLY_EXT_PROP_WPC_EN_MST, value);
-		printk("%s : MFC_IC Disable notify : %d\n", __func__, value.intval);
 #endif
 #if defined(CONFIG_MST_LPM_CONTROL)
 		/* PCIe LPM Enable */
@@ -168,11 +134,6 @@ static void of_mst_hw_onoff(bool on)
 
 	if (on) {
 #if defined(CONFIG_MFC_CHARGER)
-		printk("%s : MFC_IC Enable notify start\n", __func__);
-		value.intval = 1;
-		psy_do_property("mfc-charger", set, POWER_SUPPLY_EXT_PROP_WPC_EN_MST, value);
-		printk("%s : MFC_IC Enable notified : %d\n", __func__, value.intval);
-
 		printk("%s : MST_MODE_ON notify start\n", __func__);
 		value.intval = MST_MODE_ON;
 
@@ -228,10 +189,6 @@ static void of_mst_hw_onoff(bool on)
 				POWER_SUPPLY_PROP_TECHNOLOGY, value);
 		printk("%s : MST_MODE_OFF notify : %d\n", __func__,
 				value.intval);
-
-		value.intval = 0;
-		psy_do_property("mfc-charger", set, POWER_SUPPLY_EXT_PROP_WPC_EN_MST, value);
-		printk("%s : MFC_IC Disable notify : %d\n", __func__, value.intval);
 #endif
 
 #if defined(CONFIG_MST_LPM_CONTROL)

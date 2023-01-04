@@ -36,9 +36,6 @@
 #include <linux/ccic/ccic_notifier.h>
 #endif
 
-#define AVAILABLE_VOLTAGE 12000
-#define UNIT_FOR_VOLTAGE 50
-#define UNIT_FOR_CURRENT 10
 //#define CONFIG_SAMSUNG_S2MM003_SYSFS
 
 /******************************************************************************/

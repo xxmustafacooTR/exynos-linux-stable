@@ -91,15 +91,17 @@
 		battery,chip_vendor = "LSI";
 		battery,temp_adc_type = <1>; /* SEC_BATTERY_ADC_TYPE_AP */
 
-		battery,temp_check_type = <2>; /* SEC_BATTERY_TEMP_CHECK_TEMP */
-		battery,chg_temp_check = <1>;
-		battery,wpc_temp_check = <1>;
+		battery,temp_check_type = <1>;
+		battery,usb_temp_check_type = <0>;
+		battery,chg_temp_check_type = <1>;
+		battery,wpc_temp_check_type = <0>;
+		battery,coil_temp_check_type = <0>;
 
-		battery,thermal_source = <2>; /* SEC_BATTERY_THERMAL_SOURCE_ADC */
-		battery,usb_thermal_source = <2>; /* SEC_BATTERY_THERMAL_SOURCE_ADC */
-		battery,chg_thermal_source = <1>;
-		battery,wpc_thermal_source = <1>;
-		battery,coil_thermal_source = <1>;
+		battery,thermal_source = <2>;
+		battery,usb_thermal_source = <2>;
+		battery,chg_thermal_source = <2>;
+		battery,wpc_thermal_source = <2>;
+		battery,coil_thermal_source = <2>;
 
 		battery,polling_time = <10 30 30 30 3600>;
 
@@ -201,6 +203,10 @@
 		battery,wc_full_input_limit_current = <100>;
 		battery,wc_cv_current = <820>;
 		battery,wc_cv_tx_current = <650>;
+		battery,wc_cv_pack_current = <630>;
+		battery,wc_hero_stand_cc_cv = <70>;
+		battery,wc_hero_stand_cv_current = <600>;
+		battery,wc_hero_stand_hv_cv_current = <450>;
 
 		battery,mix_high_temp = <420>;
 		battery,mix_high_chg_temp = <500>;
@@ -224,6 +230,7 @@
 		battery,charging_reset_time = <0>;
 
 		battery,chg_float_voltage = <4350>;
+		battery,chg_float_voltage_conv = <1>;
 
 		battery,swelling_high_temp_block = <410>;
 		battery,swelling_high_temp_recov = <390>;
@@ -249,6 +256,10 @@
 		battery,siop_call_cv_current = <330>;
 		battery,siop_call_cc_current = <330>;
 
+		battery,pre_afc_work_delay = <2000>;
+		battery,pre_wc_afc_work_delay = <4000>;
+		battery,pre_wc_afc_input_current = <500>;
+
 		battery,siop_input_limit_current = <1200>;
 		battery,siop_input_limit_current_siop20 = <1000>;
 		battery,siop_charging_limit_current = <1000>;
@@ -266,9 +277,11 @@
 		battery,ttf_hv_charge_current = <2150>;
 		battery,ttf_hv_wireless_charge_current = <1175>;
 		battery,ttf_wireless_charge_current = <970>;
+		battery,ttf_normal_charge_current = <2150>;
 
 		battery,pd_charging_charge_power = <15000>;
 		battery,max_charging_current = <2150>;
+		battery,max_charging_charge_power = <15000>;
 		battery,battery_full_capacity = <3000>;
 
 		/* cycle, chg_float_voltage, recharge_condition_vcell, full_condition_vcell, full_condition_soc */

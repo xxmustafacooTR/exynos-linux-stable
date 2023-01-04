@@ -803,11 +803,12 @@ int max77705_fg_reset_soc(struct max77705_fuelgauge_data *fuelgauge)
 						   SEC_BATTERY_CURRENT_MA),
 		max77705_fg_read_avg_current(fuelgauge,
 					     SEC_BATTERY_CURRENT_MA));
-
+#if !defined(CONFIG_BATTERY_SAMSUNG_DP)
 	if (!max77705_check_jig_status(fuelgauge)) {
 		pr_info("%s : Return by No JIG_ON signal\n", __func__);
 		return 0;
 	}
+#endif
 
 	max77705_write_word(fuelgauge->i2c, CYCLES_REG, 0);
 
@@ -1758,7 +1759,7 @@ static int max77705_fg_get_property(struct power_supply *psy,
 	static int abnormal_current_cnt;
 	union power_supply_propval value;
 	u8 data[2] = { 0, 0 };
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	switch (psp) {
 		/* Cell voltage (VCELL, mV) */
@@ -2063,7 +2064,7 @@ static int max77705_fg_set_property(struct power_supply *psy,
 	    power_supply_get_drvdata(psy);
 	u8 data[2] = { 0, 0 };
 	static bool low_temp_wa;
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -2602,8 +2603,9 @@ static int max77705_fuelgauge_probe(struct platform_device *pdev)
 	    power_supply_register(&pdev->dev,
 				  &max77705_fuelgauge_power_supply_desc,
 				  &fuelgauge_cfg);
-	if (!fuelgauge->psy_fg) {
-		pr_err("%s: Failed to Register psy_fg\n", __func__);
+	if (IS_ERR(fuelgauge->psy_fg)) {
+		ret = PTR_ERR(fuelgauge->psy_fg);
+		pr_err("%s: Failed to Register psy_fg(%d)\n", __func__, ret);
 		goto err_data_free;
 	}
 

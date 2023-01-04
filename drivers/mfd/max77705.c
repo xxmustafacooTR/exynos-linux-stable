@@ -470,35 +470,19 @@ static int max77705_fuelgauge_read_vcell(struct max77705_dev *max77705)
 
 static void max77705_wc_control(struct max77705_dev *max77705, bool enable)
 {
-		struct power_supply *psy = NULL;
-	union power_supply_propval value = {0, };
-	char wpc_en_status[2];
-
-	psy = get_power_supply_by_name(max77705->pdata->wireless_charger_name);
-
-	if (psy) {
-		wpc_en_status[0] = WPC_EN_CCIC;
-		wpc_en_status[1] = enable ? true : false;
-		value.strval= wpc_en_status;
-		if ((psy->desc->set_property != NULL) &&
-			(psy->desc->set_property(psy, (enum power_supply_property)POWER_SUPPLY_EXT_PROP_WPC_EN, &value) >= 0))
-			pr_info("%s: WC CONTROL: %s", __func__, wpc_en_status[1] ? "Enable" : "Disable");
-		power_supply_put(psy);
-	} else {
-		if (max77705->pdata->wpc_en) {
-			if (enable) {
-				gpio_direction_output(max77705->pdata->wpc_en, 0);
-				pr_info("%s: WC CONTROL: ENABLE", __func__);
-			} else {
-				gpio_direction_output(max77705->pdata->wpc_en, 1);
-				pr_info("%s: WC CONTROL: DISABLE", __func__);
-			}
+	if (max77705->pdata->wpc_en) {
+		if (enable) {
+			gpio_direction_output(max77705->pdata->wpc_en, 0);
+			pr_info("%s: WC CONTROL: ENABLE", __func__);
 		} else {
-			pr_info("%s : no wpc_en\n", __func__);
+			gpio_direction_output(max77705->pdata->wpc_en, 1);
+			pr_info("%s: WC CONTROL: DISABLE", __func__);
 		}
+		pr_info("%s: wpc_en(%d)\n",
+			__func__, gpio_get_value(max77705->pdata->wpc_en));
+	} else {
+		pr_info("%s : no wpc_en\n", __func__);
 	}
-
-	pr_info("%s: wpc_en(%d)\n", __func__, gpio_get_value(max77705->pdata->wpc_en));
 }
 
 int max77705_usbc_fw_update(struct max77705_dev *max77705,

@@ -21,6 +21,9 @@ EXPORT_SYMBOL(lpcharge);
 int charging_night_mode;
 EXPORT_SYMBOL(charging_night_mode);
 
+int temp_control_test;
+EXPORT_SYMBOL(temp_control_test);
+
 static int sec_bat_is_lpm_check(char *str)
 {
 	if (strncmp(str, "charger", 7) == 0)
@@ -44,7 +47,11 @@ static int __init charging_mode(char *str)
 	if (get_option(&str, &mode)) {
 		charging_night_mode = mode & 0x000000FF;
 
-		printk(KERN_ERR "charging_mode() : 0x%x(%d)\n", charging_night_mode, charging_night_mode);
+		printk(KERN_ERR "charging_night_mode : 0x%x(%d)\n", charging_night_mode, charging_night_mode);
+
+		temp_control_test = (mode & 0x00FF0000) >> 16;
+
+		printk(KERN_ERR "temp_control_test : 0x%x(%d)\n", temp_control_test, temp_control_test);
 
 		return 0;
 	}
@@ -65,7 +72,49 @@ static int sec_bat_get_fg_reset(char *val)
 	return 1;
 }
 __setup("fg_reset=", sec_bat_get_fg_reset);
-#if defined(CONFIG_SEC_FACTORY)
+
+#if defined(CONFIG_WIRELESS_IC_PARAM)
+unsigned long wireless_offset;
+EXPORT_SYMBOL(wireless_offset);
+
+static int __init sec_debug_wireless_offset(char *arg)
+{
+	wireless_offset = simple_strtoul(arg, NULL, 10);
+	return 0;
+}
+early_param("sec_debug.wireless_offset", sec_debug_wireless_offset);
+
+unsigned int wireless_fw_ver_param;
+EXPORT_SYMBOL(wireless_fw_ver_param);
+
+unsigned int wireless_chip_id_param;
+EXPORT_SYMBOL(wireless_chip_id_param);
+static int __init sec_bat_get_wireless_ic(char *str)
+{
+	int ic_info;
+
+	/*
+	 * Only update loglevel value when a correct setting was passed,
+	 * to prevent blind crashes (when loglevel being set to 0) that
+	 * are quite hard to debug
+	 */
+	if (get_option(&str, &ic_info)) {
+		wireless_chip_id_param = (ic_info & 0xFF000000) >> 24;
+		wireless_fw_ver_param = (ic_info & 0x00FFFF00) >> 8;
+
+		printk(KERN_ERR "wireless_ic() : ic_info(0x%08X), chip_id(0x%02X), fw_ver(0x%04X)\n",
+			ic_info, wireless_chip_id_param, wireless_fw_ver_param);
+
+		return 0;
+	}
+
+	printk(KERN_ERR "wireless_ic() : %d\n", -EINVAL);
+
+	return -EINVAL;
+}
+early_param("wireless_ic", sec_bat_get_wireless_ic);
+#endif
+
 int factory_mode;
 EXPORT_SYMBOL(factory_mode);
 
@@ -76,5 +125,4 @@ static int sec_bat_get_factory_mode(char *val)
 	return 1;
 }
 __setup("factory_mode=", sec_bat_get_factory_mode);
-#endif
 #endif
