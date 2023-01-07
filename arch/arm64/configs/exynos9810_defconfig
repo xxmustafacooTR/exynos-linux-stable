@@ -577,7 +577,7 @@ CONFIG_RANDOMIZE_MODULE_REGION_FULL=y
 #
 # Boot options
 #
-CONFIG_CMDLINE="androidboot.boot_devices=11120000.ufs"
+CONFIG_CMDLINE="androidboot.boot_devices=11120000.ufs cpu_max_c2=2704000 cpu_min_c2=598000 cpu_max_c1=1794000 cpu_min_c1=455000"
 CONFIG_CMDLINE_EXTEND=y
 # CONFIG_EFI is not set
 # CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE is not set
