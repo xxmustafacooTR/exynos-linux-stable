@@ -63,7 +63,7 @@ extern void exynos_ss_acpm(unsigned long long timestamp, const char *log, unsign
 #ifdef CONFIG_EXYNOS_SNAPSHOT_REGULATOR
 extern void exynos_ss_regulator(unsigned long long timestamp, char* f_name, unsigned int addr, unsigned int volt, unsigned int rvolt, int en);
 #else
-#define exynos_ss_regulator(a, b, c, d, e)         do { } while (0)
+#define exynos_ss_regulator(a, b, c, d, e, f)         do { } while (0)
 #endif
 
 #ifdef CONFIG_EXYNOS_SNAPSHOT_THERMAL
