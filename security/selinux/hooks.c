@@ -206,17 +206,54 @@ int selinux_enforcing;
 #endif
 // ] SEC_SELINUX_PORTING_COMMON
 
+#ifdef CONFIG_SECURITY_SELINUX_FAKE_ENFORCE_SUPPORT
+bool fake_enforce = false;
+#endif
+
+#ifdef CONFIG_SECURITY_SELINUX_CUSTOM_ENFORCE
+unsigned int custom_enforcing = 4; // Disable Custom Control By Default
+
+static int __init custom_enforcing_setup(char *str)
+{
+	unsigned long enforcing;
+
+	if (!kstrtoul(str, 0, &enforcing)) {
+		if (enforcing == 0)
+			custom_enforcing = 0;
+#ifdef CONFIG_SECURITY_SELINUX_FAKE_ENFORCE_SUPPORT
+		else if (enforcing == 3) {
+			custom_enforcing = 0;
+			fake_enforce = true;
+		}
+#endif
+		else if (enforcing == 1)
+			custom_enforcing = 1;
+		else
+			custom_enforcing = 4;
+	}
+
+	return 1;
+}
+__setup("custom_enforcing=", custom_enforcing_setup);
+#endif
+
 static int __init enforcing_setup(char *str)
 {
 	unsigned long enforcing;
-	if (!kstrtoul(str, 0, &enforcing))
-#ifdef CONFIG_SECURITY_SELINUX_NEVER_ENFORCE
+	if (!kstrtoul(str, 0, &enforcing)) {
+#ifdef CONFIG_SECURITY_SELINUX_CUSTOM_ENFORCE
+		if (custom_enforcing == 1 || custom_enforcing == 0)
+			selinux_enforcing = custom_enforcing;
+		else
+			selinux_enforcing = enforcing ? 1 : 0;
+#elif defined(CONFIG_SECURITY_SELINUX_NEVER_ENFORCE)
 		selinux_enforcing = 0;
 #elif defined(CONFIG_ALWAYS_ENFORCE)
 		selinux_enforcing = 1;
 #else
 		selinux_enforcing = enforcing ? 1 : 0;
 #endif
+	}
 
 	return 1;
 }
