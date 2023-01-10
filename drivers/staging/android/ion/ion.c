@@ -507,7 +507,7 @@ static void ion_buffer_remove_from_handle(struct ion_buffer *buffer)
 	mutex_unlock(&buffer->lock);
 }
 
-static bool ion_handle_validate(struct ion_client *client,
+bool ion_handle_validate(struct ion_client *client,
 				struct ion_handle *handle)
 {
 	WARN_ON(!mutex_is_locked(&client->lock));
@@ -2522,9 +2522,9 @@ static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
 	return iovm_map;
 }
 
-dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
-			 off_t offset, size_t size,
-			 enum dma_data_direction direction, int prop)
+static dma_addr_t __ion_iovmm_map(struct dma_buf_attachment *attachment,
+				  off_t offset, size_t size,
+				  enum dma_data_direction direction, int prop)
 {
 	struct dma_buf *dmabuf = attachment->dmabuf;
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -2535,16 +2535,6 @@ dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 		return 0;
 
 	BUG_ON(dmabuf->ops != &dma_buf_ops);
-
-	if (IS_ENABLED(CONFIG_EXYNOS_CONTENT_PATH_PROTECTION) &&
-			buffer->flags & ION_FLAG_PROTECTED) {
-		struct ion_buffer_info *info = buffer->priv_virt;
-
-		if (info->prot_desc.dma_addr)
-			return info->prot_desc.dma_addr;
-		pr_err("%s: protected buffer but no secure iova\n", __func__);
-		return -EINVAL;
-	}
 
 	domain = get_domain_from_dev(attachment->dev);
 	if (!domain) {
@@ -2577,6 +2567,56 @@ dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 	mutex_unlock(&buffer->lock);
 
 	return iovm_map->iova;
+}
+
+dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
+			 off_t offset, size_t size,
+			 enum dma_data_direction direction, int prop)
+{
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
+
+	if (IS_ENABLED(CONFIG_EXYNOS_CONTENT_PATH_PROTECTION) &&
+	    buffer->flags & ION_FLAG_PROTECTED) {
+		struct ion_buffer_info *info = buffer->priv_virt;
+
+		if (!info)
+			return -EINVAL;
+
+		if (info->prot_desc.dma_addr)
+			return info->prot_desc.dma_addr;
+		pr_err("%s: protected buffer but no secure iova\n", __func__);
+		return -EINVAL;
+	}
+
+	return __ion_iovmm_map(attachment, offset, size, direction, prop);
+}
+
+dma_addr_t ion_iovmm_map_attr(struct dma_buf_attachment *attachment,
+			      off_t offset, size_t size,
+			      enum dma_data_direction direction, int prop,
+			      int map_attr)
+{
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
+	dma_addr_t iova = -EINVAL;
+
+	if (IS_ENABLED(CONFIG_EXYNOS_CONTENT_PATH_PROTECTION) &&
+	    (map_attr & IOMMU_EXYNOS_SECURE)) {
+		struct ion_buffer_prot_info *prot = buffer->priv_virt;
+
+		if (!prot)
+			return -EINVAL;
+
+		if (!(buffer->flags & ION_FLAG_PROTECTED))
+			dev_err(attachment->dev,
+				  "No secure address for normal buffer");
+		else
+			iova = prot->dma_addr;
+	} else {
+		iova = __ion_iovmm_map(attachment, offset, size,
+				       direction, prop);
+	}
+
+	return iova;
 }
 
 /* The unmapping is delayed until buffer is freed for performance */
