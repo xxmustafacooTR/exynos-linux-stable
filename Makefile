@@ -349,9 +349,9 @@ LD		= $(CROSS_COMPILE)ld
 LDGOLD		= $(CROSS_COMPILE)ld.gold
 CC		?= $(CONFIG_CC:"%"=%)
 CPP		= $(CC) -E
-AR		= $(CROSS_COMPILE)ar
-NM		= $(CROSS_COMPILE)nm
-STRIP		= $(CROSS_COMPILE)strip
+AR		?= $(CROSS_COMPILE)ar
+NM		?= $(CROSS_COMPILE)nm
+STRIP		?= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 OBJDUMP		= $(CROSS_COMPILE)objdump
 AWK		= awk
