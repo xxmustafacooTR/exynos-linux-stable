@@ -619,7 +619,7 @@ void mfc_update_real_time(struct s5p_mfc_ctx *ctx)
 		}
 	}
 
-	mfc_debug(2, "[PRIO] update real time: %d, operating frame rate: %lx, prio: %d\n",
+	mfc_debug(2, "[PRIO] update real time: %d, operating frame rate: %d, prio: %d\n",
 			ctx->rt, ctx->operating_framerate, ctx->prio);
 
 }
