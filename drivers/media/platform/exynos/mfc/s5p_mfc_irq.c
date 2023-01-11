@@ -687,7 +687,7 @@ static void mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		s5p_mfc_change_state(ctx, MFCINST_RES_CHANGE_INIT);
 		ctx->wait_state = WAIT_DECODING;
 		mfc_debug(2, "Decoding waiting! : %d\n", ctx->wait_state);
-		
+
 		mfc_buf = s5p_mfc_get_buf(&ctx->buf_queue_lock,
 				&ctx->src_buf_queue, MFC_BUF_NO_TOUCH_USED);
 		if (mfc_buf) {

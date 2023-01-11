@@ -789,7 +789,7 @@ void s5p_mfc_qos_update_framerate(struct s5p_mfc_ctx *ctx, int idle_trigger_only
 
 		/* 5) check non-real-time */
 		if (ctx->rt == MFC_NON_RT && (framerate < DEC_DEFAULT_FPS)) {
-			mfc_debug(2, "[QoS] max operating fps %d\n", DEC_DEFAULT_FPS);
+			mfc_debug(2, "[QoS] max operating fps %ld\n", DEC_DEFAULT_FPS);
 			framerate = DEC_DEFAULT_FPS;
 		}
 
