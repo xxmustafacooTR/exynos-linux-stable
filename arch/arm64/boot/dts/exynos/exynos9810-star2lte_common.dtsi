@@ -2125,6 +2125,7 @@
 		status = "okay";
 		clock-frequency = <400000>;
 		samsung,reset-before-trans;
+		samsung,fast-plus-mode;
 
 		pinctrl-names = "default","on_i2c","off_i2c";
 		pinctrl-0 = <&hsi2c0_bus_in>;
@@ -2183,6 +2184,7 @@
 		status = "okay";
 		clock-frequency = <400000>;
 		samsung,reset-before-trans;
+		samsung,fast-plus-mode;
 
 		pinctrl-names = "default","on_i2c","off_i2c";
 		pinctrl-0 = <&hsi2c2_bus_in>;
