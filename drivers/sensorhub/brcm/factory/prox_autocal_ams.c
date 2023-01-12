@@ -494,6 +494,11 @@ static ssize_t prox_light_get_dhr_sensor_info_show(struct device *dev,
 		p_drive_current, persistent_time, p_pulse, p_gain, p_time, p_pulse_length, l_atime, offset);
 }
 
+static ssize_t proximity_offset_pass_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", 1);
+}
 
 static DEVICE_ATTR(vendor, 0440, proximity_vendor_show, NULL);
 static DEVICE_ATTR(name, 0440, proximity_name_show, NULL);
@@ -507,6 +512,8 @@ static DEVICE_ATTR(raw_data, 0440, proximity_raw_data_show, NULL);
 static DEVICE_ATTR(prox_avg, 0660, proximity_avg_show, proximity_avg_store);
 
 static DEVICE_ATTR(barcode_emul_en, 0660, barcode_emul_enable_show, barcode_emul_enable_store);
+static DEVICE_ATTR(prox_cal, 0000, NULL, NULL);
+static DEVICE_ATTR(prox_offset_pass, 0440, proximity_offset_pass_show, NULL);
 
 #ifdef CONFIG_SENSORS_SSP_PROX_SETTING
 static DEVICE_ATTR(setting, 0660, proximity_setting_show, proximity_setting_store);
@@ -532,6 +539,8 @@ static struct device_attribute *prox_attrs[] = {
 #endif
 	&dev_attr_prox_alert_thresh,
 	&dev_attr_dhr_sensor_info,
+	&dev_attr_prox_cal,
+	&dev_attr_prox_offset_pass,
 	NULL,
 };
 

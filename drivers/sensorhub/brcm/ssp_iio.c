@@ -21,11 +21,12 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/types.h>
 #include <linux/iio/kfifo_buf.h>
-#if defined(CONFIG_BATTERY_SAMSUNG_V2)
-#include "../../battery_v2/include/sec_charging_common.h"
-#else
-#include <linux/battery/sec_charging_common.h>
-#endif
+//#if defined(CONFIG_BATTERY_SAMSUNG_V2)
+//#include "../../battery_v2/include/sec_charging_common.h"
+//#else
+//#include <linux/battery/sec_charging_common.h>
+//#endif
+#include <linux/power_supply.h>
 
 static struct sensor_info info_table[] = {
 	SENSOR_INFO_ACCELEROMETER,
@@ -38,6 +39,7 @@ static struct sensor_info info_table[] = {
 	SENSOR_INFO_PRESSURE,
 	SENSOR_INFO_LIGHT,
 	SENSOR_INFO_LIGHT_IR,
+	SENSOR_INFO_UNCAL_LIGHT,
 	SENSOR_INFO_LIGHT_FLICKER,
 	SENSOR_INFO_PROXIMITY,
 	SENSOR_INFO_PROXIMITY_ALERT,
@@ -55,7 +57,13 @@ static struct sensor_info info_table[] = {
 	SENSOR_INFO_PROXIMITY_POCKET,
 	SENSOR_INFO_ACCEL_UNCALIBRATED,
 	SENSOR_INFO_META,
-	SENSOR_INFO_WAKE_UP_MOTION, 
+	SENSOR_INFO_WAKE_UP_MOTION,
+	SENSOR_INFO_MOVE_DETECTOR,
+	SENSOR_INFO_CALL_GESTURE,
+	SENSOR_INFO_LED_COVER_EVENT,
+	SENSOR_INFO_AUTO_ROTATION,
+	SENSOR_INFO_SAR_BACKOFF_MOTION,
+	SENSOR_INFO_POCKET_MODE_LITE,
 };
 
 #define IIO_ST(si, rb, sb, sh)	\
@@ -274,6 +282,20 @@ void report_light_data(struct ssp_data *data, struct sensor_value *lightdata)
 	}
 }
 
+void report_uncal_light_data(struct ssp_data *data, struct sensor_value *lightdata)
+{
+	report_iio_data(data, UNCAL_LIGHT_SENSOR, lightdata);
+
+	if (data->light_log_cnt < 3) {
+		ssp_dbg("[SSP] #>UL lux=%u cct=%d r=%d g=%d b=%d c=%d atime=%d again=%d",
+			data->buf[UNCAL_LIGHT_SENSOR].lux, data->buf[UNCAL_LIGHT_SENSOR].cct,
+			data->buf[UNCAL_LIGHT_SENSOR].r, data->buf[UNCAL_LIGHT_SENSOR].g, data->buf[UNCAL_LIGHT_SENSOR].b,
+			data->buf[UNCAL_LIGHT_SENSOR].w, data->buf[UNCAL_LIGHT_SENSOR].a_time, data->buf[UNCAL_LIGHT_SENSOR].a_gain);
+
+		data->light_log_cnt++;
+	}
+}
+
 #ifdef CONFIG_SENSORS_SSP_IRDATA_FOR_CAMERA
 void report_light_ir_data(struct ssp_data *data, struct sensor_value *lightirdata)
 {
@@ -414,6 +436,39 @@ void report_wakeup_motion_data(struct ssp_data *data,
 	pr_err("[SSP]: %s: %d", __func__,  wakeup_motion_data->wakeup_motion);
 }
 
+void report_move_detector_data(struct ssp_data *data, struct sensor_value *move_detector_data)
+{
+//	memcpy(&data->buf[MOVE_DETECTOR], &move_detector_data->wakeup_move_event[1], sensors_info[MOVE_DETECTOR].get_data_len);
+//	ssp_push_iio_buffer(data->indio_dev[MOVE_DETECTOR], move_detector_data->timestamp, 
+//		(u8 *)(&data->buf[MOVE_DETECTOR]), sensors_info[MOVE_DETECTOR].report_data_len);
+	report_iio_data(data, MOVE_DETECTOR, move_detector_data);
+	wake_lock_timeout(&data->ssp_wake_lock, 0.3*HZ);
+	pr_err("[SSP]: %s: %d", __func__,  move_detector_data->move_detect);
+}
+
+void report_call_gesture_data(struct ssp_data *data, struct sensor_value *call_gesture_data)
+{
+	report_iio_data(data, CALL_GESTURE, call_gesture_data);
+	wake_lock_timeout(&data->ssp_wake_lock, 0.3*HZ);
+	pr_err("[SSP]: %s: %d", __func__,  call_gesture_data->call_gesture);
+}
+
+void report_led_cover_event_data(struct ssp_data *data, struct sensor_value *led_cover_event_data)
+{
+	report_iio_data(data, LED_COVER_EVENT_SENSOR, led_cover_event_data);
+	wake_lock_timeout(&data->ssp_wake_lock, 0.3*HZ);
+	pr_err("[SSP]: %s: %d ts: %llu", __func__,  led_cover_event_data->led_cover_event, led_cover_event_data->timestamp);
+}
+
+void report_pocket_mode_lite_data(struct ssp_data *data, struct sensor_value *pocket_mode_lite_data)
+{
+	report_iio_data(data, POCKET_MODE_LITE, pocket_mode_lite_data);
+	wake_lock_timeout(&data->ssp_wake_lock, 0.3*HZ);
+	pr_err("[SSP]: %s: %d %d ts: %llu", __func__,
+		pocket_mode_lite_data->pocket_mode_lite_t.prox, 
+		pocket_mode_lite_data->pocket_mode_lite_t.lux, pocket_mode_lite_data->timestamp);
+}
+
 void report_scontext_data(struct ssp_data *data,
 		struct sensor_value *scontextbuf)
 {
@@ -433,6 +488,23 @@ void report_scontext_data(struct ssp_data *data,
 void report_uncalib_accel_data(struct ssp_data *data, struct sensor_value *acceldata)
 {
 	report_iio_data(data, ACCEL_UNCALIB_SENSOR, acceldata);
+}
+
+void report_auto_rotation_data(struct ssp_data *data, struct sensor_value *auto_rotation_data)
+{
+	report_iio_data(data, AUTO_ROTATION_SENSOR, auto_rotation_data);
+	wake_lock_timeout(&data->ssp_wake_lock, 0.3*HZ);
+	pr_err("[SSP]: %s: %d ts: %llu", __func__, auto_rotation_data->auto_rotation_event, auto_rotation_data->timestamp);
+}
+
+void report_sar_backoff_motion_data(struct ssp_data *data,
+	struct sensor_value *sar_backoff_motion_data)
+{
+	report_iio_data(data, SAR_BACKOFF_MOTION, sar_backoff_motion_data);
+	wake_lock_timeout(&data->ssp_wake_lock, 0.3*HZ);
+	pr_err("[SSP]: %s: %d ts: %llu", __func__,
+	sar_backoff_motion_data->sar_backoff_motion_event,
+	sar_backoff_motion_data->timestamp);
 }
 
 #define THM_UP		0
@@ -485,7 +557,7 @@ void report_thermistor_data(struct ssp_data *data,
 {
 	u8 reportData[3];
 	s16 temperature = thermistor_rawToTemperature(data, thermistor_data->thermistor_type, thermistor_data->thermistor_raw);
-	union power_supply_propval val = {0,};
+	//union power_supply_propval val = {0,};
 
 	reportData[0] = thermistor_data->thermistor_type;
 	memcpy(&reportData[1], &temperature, sizeof(temperature));
@@ -495,7 +567,7 @@ void report_thermistor_data(struct ssp_data *data,
 	data->buf[THERMISTOR_SENSOR].thermistor_type = thermistor_data->thermistor_type;
 	data->buf[THERMISTOR_SENSOR].thermistor_raw = thermistor_data->thermistor_raw;
 
-	psy_do_property("battery", set, POWER_SUPPLY_EXT_PROP_OVERHEAT_NOTIFY, val);
+	//psy_do_property("battery", set, POWER_SUPPLY_EXT_PROP_OVERHEAT_NOTIFY, val);
 }
 void report_temp_humidity_data(struct ssp_data *data,
 	struct sensor_value *temp_humi_data)

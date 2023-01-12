@@ -209,8 +209,9 @@ static void initialize_variable(struct ssp_data *data)
 	data->skipSensorData = 0;
 	data->IsGyroselftest = false;
 	data->IsVDIS_Enabled = false;
-        data->IsAPsuspend = false;
-        data->IsNoRespCnt = 0;
+	data->IsAPsuspend = false;
+	data->IsNoRespCnt = 0;
+	data->hall_ic_status = 0;
 }
 
 int initialize_mcu(struct ssp_data *data)
@@ -281,6 +282,7 @@ int initialize_mcu(struct ssp_data *data)
 
 	data->dhrAccelScaleRange = get_accel_range(data);
 
+	send_hall_ic_status(data->hall_ic_status);
 /* hoi: il dan mak a */
 #ifndef CONFIG_SENSORS_SSP_BBD
 	iRet = ssp_send_cmd(data, MSG2SSP_AP_MCU_DUMP_CHECK, 0);
@@ -590,18 +592,24 @@ int ssp_motor_callback(int state)
 {
 	int iRet = 0;
 
-	ssp_data_info->motor_state = state;
+	if (ssp_data_info != NULL) {
+		ssp_data_info->motor_state = state;
 
-	queue_work(ssp_data_info->ssp_motor_wq,
-			&ssp_data_info->work_ssp_motor);
-
-	pr_info("[SSP] %s : Motor state %d\n", __func__, state);
+		if (ssp_data_info->ssp_motor_wq != NULL)
+				queue_work(ssp_data_info->ssp_motor_wq, &ssp_data_info->work_ssp_motor);
+		pr_info("[SSP] %s : Motor state %d\n", __func__, state);
+	} else {
+		pr_info("[SSP] %s : ssp do not ready yet.\n", __func__);
+	}
 
 	return iRet;
 }
 int get_current_motor_state(void)
 {
-	return ssp_data_info->motor_state;
+	if (ssp_data_info != NULL)
+		return ssp_data_info->motor_state;
+	else
+		return 0;
 }
 int (*getMotorCallback(void))(int)
 {
@@ -620,6 +628,28 @@ void ssp_motor_work_func(struct work_struct *work)
 }
 #endif
 
+int send_hall_ic_status(bool enable) {
+	struct ssp_msg *msg;
+	int iRet = 0;
+
+	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+
+	msg->cmd = MSG2SSP_HALL_IC_ON_OFF;
+	msg->length = 1;
+	msg->options = AP2HUB_WRITE;
+	msg->buffer = kzalloc(1, GFP_KERNEL);
+	msg->free_buffer = 1;
+	msg->buffer[0] = enable;
+
+	iRet = ssp_spi_async(ssp_data_info, msg);
+	if (iRet != SUCCESS) {
+		pr_err("[SSP]: %s - hall ic command, failed %d\n", __func__, iRet);
+		return iRet;
+	}
+
+	pr_info("[SSP] %s HALL IC ON/OFF, %d enabled %d\n", __func__, iRet, enable);
+	return iRet;
+}
 
 void ssp_timestamp_sync_work_func(struct work_struct *work)
 {
