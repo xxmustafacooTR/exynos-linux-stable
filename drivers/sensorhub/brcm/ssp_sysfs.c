@@ -38,13 +38,13 @@ s32 SettingVDIS_Support(struct ssp_data *data, int64_t *dNewDelay)
 	s32 dMsDelay = 0;
 	int64_t NewDelay = *dNewDelay;
 
-	if ((NewDelay == CAMERA_GYROSCOPE_SYNC || NewDelay == CAMERA_GYROSCOPE_VDIS_SYNC)
-		&& !data->IsVDIS_Enabled) {
+	if ((NewDelay == CAMERA_GYROSCOPE_SYNC || NewDelay == CAMERA_GYROSCOPE_VDIS_SYNC
+		|| NewDelay == CAMERA_GYROSCOPE_SUPER_VDIS_SYNC) && !data->IsVDIS_Enabled) {
 		data->IsVDIS_Enabled = true;
 		data->ts_stacked_cnt = 0;
 		send_vdis_flag(data, data->IsVDIS_Enabled);
-	} else if (!(NewDelay == CAMERA_GYROSCOPE_SYNC || NewDelay == CAMERA_GYROSCOPE_VDIS_SYNC)
-		&& data->IsVDIS_Enabled) {
+	} else if (!(NewDelay == CAMERA_GYROSCOPE_SYNC || NewDelay == CAMERA_GYROSCOPE_VDIS_SYNC
+		|| NewDelay == CAMERA_GYROSCOPE_SUPER_VDIS_SYNC) && data->IsVDIS_Enabled) {
 		data->IsVDIS_Enabled = false;
 		data->ts_stacked_cnt = 0;
 		send_vdis_flag(data, data->IsVDIS_Enabled);
@@ -55,6 +55,10 @@ s32 SettingVDIS_Support(struct ssp_data *data, int64_t *dNewDelay)
 	} else if (NewDelay == CAMERA_GYROSCOPE_VDIS_SYNC) {
 		*dNewDelay = CAMERA_GYROSCOPE_VDIS_SYNC_DELAY;
 		data->cameraGyroSyncMode = true;
+	} else if (NewDelay == CAMERA_GYROSCOPE_SUPER_VDIS_SYNC) {
+		*dNewDelay = CAMERA_GYROSCOPE_SUPER_VDIS_SYNC_DELAY;
+		data->cameraGyroSyncMode = true;
+		initialize_super_vdis_setting();
 	} else {
 		data->cameraGyroSyncMode = false;
 		if ((data->adDelayBuf[GYROSCOPE_SENSOR] == NewDelay)
@@ -321,13 +325,16 @@ static ssize_t show_sensors_enable(struct device *dev,
 static ssize_t set_sensors_enable(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-	int64_t dTemp;
+	u64 dTemp;
 	u64 uNewEnable = 0;
 	unsigned int uChangedSensor = 0;
 	struct ssp_data *data = dev_get_drvdata(dev);
+	int ret = kstrtoull(buf, 10, &dTemp);
 
-	if (kstrtoll(buf, 10, &dTemp) < 0)
-		return -EINVAL;
+	if (ret < 0) {
+		pr_info("[SSP] %s - kstrtoull failed (%d)\n", __func__, ret);
+		return ret;
+	}
 
 	uNewEnable = (u64)dTemp;
 	ssp_dbg("[SSP]: %s - new_enable = %llu, old_enable = %llu\n", __func__,
@@ -579,12 +586,77 @@ static ssize_t set_mcu_power(struct device *dev,
 static ssize_t set_ssp_control(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
+	struct ssp_data *data = dev_get_drvdata(dev);
+	int iRet = 0;
+
 	pr_info("[SSP] SSP_CONTROL : %s\n", buf);
 
 	if (strstr(buf, SSP_DEBUG_TIME_FLAG_ON))
 		ssp_debug_time_flag = true;
 	else if (strstr(buf, SSP_DEBUG_TIME_FLAG_OFF))
 		ssp_debug_time_flag = false;
+	else if (strstr(buf, SSP_HALL_IC_ON) || strstr(buf, SSP_HALL_IC_OFF)) {
+		data->hall_ic_status = strstr(buf, SSP_HALL_IC_ON) ? 1 : 0;
+
+		iRet = send_hall_ic_status(data->hall_ic_status);
+
+		if (iRet != SUCCESS) {
+			pr_err("[SSP]: %s - hall ic command, failed %d\n", __func__, iRet);
+			return iRet;
+		}
+
+		pr_info("[SSP] %s HALL IC ON/OFF, %d enabled %d\n", __func__, iRet, data->hall_ic_status);
+	} else if (strstr(buf, SSP_AUTO_ROTATION_ORIENTATION)) {
+		int len = strlen(SSP_AUTO_ROTATION_ORIENTATION);
+		int iRet = 0;
+		struct ssp_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+
+		if (msg == NULL) {
+			iRet = -ENOMEM;
+			pr_err("[SSP] %s, failed to alloc memory for ssp_msg\n",
+				__func__);
+			return iRet;
+		}
+		msg->cmd = MSG2SSP_AUTO_ROTATION_ORIENTATION;
+		msg->length = 1;
+		msg->options = AP2HUB_WRITE;
+		msg->buffer = (char *)(buf + len);
+		msg->free_buffer = 0;
+
+		iRet = ssp_spi_async(data, msg);
+
+		if (iRet != SUCCESS) {
+			pr_err("[SSP]: %s - i2c fail %d\n", __func__, iRet);
+			return size;
+		} else {
+			pr_err("[SSP] %s, AUTO_ROTATION_ORIENTATION send success\n", __func__);
+		}
+	} else if (strstr(buf, SSP_SAR_BACKOFF_MOTION_NOTI)) {
+		int len = strlen(SSP_SAR_BACKOFF_MOTION_NOTI);
+		int iRet = 0;
+		struct ssp_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+
+		if (msg == NULL) {
+			iRet = -ENOMEM;
+			pr_err("[SSP] %s, failed to alloc memory for ssp_msg\n",
+				__func__);
+			return iRet;
+		}
+		msg->cmd = MSG2SSP_AP_SAR_BACKOFF_MOTION_NOTI;
+		msg->length = 4;
+		msg->options = AP2HUB_WRITE;
+		msg->buffer = (char *)(buf + len);
+		msg->free_buffer = 0;
+
+		iRet = ssp_spi_async(data, msg);
+
+		if (iRet != SUCCESS) {
+			pr_err("[SSP]: %s - i2c fail %d\n", __func__, iRet);
+			return size;
+		} else {
+			pr_err("[SSP] %s, SSP_SAR_BACKOFF_MOTION_NOTI send success\n", __func__);
+		}
+	}
 
 	return size;
 }

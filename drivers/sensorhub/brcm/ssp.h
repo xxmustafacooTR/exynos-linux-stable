@@ -120,6 +120,12 @@
 #define SSP_DEBUG_TIME_FLAG_ON		"SSP:DEBUG_TIME=1"
 #define SSP_DEBUG_TIME_FLAG_OFF		"SSP:DEBUG_TIME=0"
 
+#define SSP_HALL_IC_ON			"SSP:HALL_IC=1"
+#define SSP_HALL_IC_OFF			"SSP:HALL_IC=0"
+
+#define SSP_AUTO_ROTATION_ORIENTATION "SSP:AUTO_ROTATION_ORIENTATION="
+#define SSP_SAR_BACKOFF_MOTION_NOTI "SSP:SAR_BACKOFF_MOTION_NOTI="
+
 extern bool ssp_debug_time_flag;
 
 #define ssp_debug_time(format, ...) \
@@ -201,6 +207,7 @@ enum {
 #define MSG2SSP_AP_STATUS_RESET		0xD5
 #define MSG2SSP_AP_STATUS_POW_CONNECTED	0xD6
 #define MSG2SSP_AP_STATUS_POW_DISCONNECTED	0xD7
+#define MSG2SSP_AP_SAR_BACKOFF_MOTION_NOTI	0x9B
 #define MSG2SSP_AP_TEMPHUMIDITY_CAL_DONE	0xDA
 #define MSG2SSP_AP_MCU_SET_DUMPMODE		0xDB
 #define MSG2SSP_AP_MCU_DUMP_CHECK		0xDC
@@ -248,6 +255,7 @@ enum {
 #define MSG2SSP_AP_IRDATA_SEND		0x38
 #define MSG2SSP_AP_IRDATA_SEND_RESULT 0x39
 #define MSG2SSP_AP_PROX_GET_TRIM	0x40
+#define MSG2SSP_HALL_IC_ON_OFF		0x96
 
 #define SH_MSG2AP_GYRO_CALIBRATION_START   0x43
 #define SH_MSG2AP_GYRO_CALIBRATION_STOP	0x44
@@ -287,6 +295,9 @@ enum {
 #define GYROSCOPE_DPS_FACTORY	0x8B
 #define MCU_FACTORY		0x8C
 #define MCU_SLEEP_FACTORY		0x8D
+
+#define MSG2SSP_PANEL_INFORMATION	0x91
+#define MSG2SSP_AUTO_ROTATION_ORIENTATION 0x9A
 
 /* Factory data length */
 #define ACCEL_FACTORY_DATA_LENGTH		1
@@ -355,9 +366,10 @@ enum {
 /* Key value for Camera - Gyroscope sync */
 #define CAMERA_GYROSCOPE_SYNC 7700000ULL /*7.7ms*/
 #define CAMERA_GYROSCOPE_VDIS_SYNC 6600000ULL /*6.6ms*/
+#define CAMERA_GYROSCOPE_SUPER_VDIS_SYNC 5500000ULL /*5.5ms*/
 #define CAMERA_GYROSCOPE_SYNC_DELAY 10000000ULL
 #define CAMERA_GYROSCOPE_VDIS_SYNC_DELAY 5000000ULL
-
+#define CAMERA_GYROSCOPE_SUPER_VDIS_SYNC_DELAY 2000000ULL
 
 /** HIFI Sensor **/
 #define SIZE_TIMESTAMP_BUFFER	1000
@@ -538,11 +550,20 @@ struct sensor_value {
 		u8 tilt_detector;
 		u8 pickup_gesture;
 		u8 wakeup_motion;
+		u8 call_gesture;
+		u8 move_detect;
+		u8 led_cover_event;
+		u8 auto_rotation_event;
+		u8 sar_backoff_motion_event;
 		u8 scontext_buf[SCONTEXT_DATA_SIZE];
 		struct {
 			u8 proximity_pocket_detect;
 			u16 proximity_pocket_adc;
 		} __attribute__((__packed__));
+		struct {
+			u8 prox;
+			u32 lux;
+		} __attribute__((__packed__)) pocket_mode_lite_t;
 		struct meta_data_event meta_data;
 	};
 	u64 timestamp;
@@ -931,6 +952,7 @@ struct ssp_data {
         bool IsAPsuspend;
 /* no ack about mcu_resp pin*/
         bool IsNoRespCnt;
+		bool hall_ic_status; // 0: open, 1: close
 };
 
 //#if defined (CONFIG_SENSORS_SSP_VLTE)
@@ -1074,6 +1096,7 @@ void report_step_det_data(struct ssp_data *data, struct sensor_value *stepdet_da
 void report_gesture_data(struct ssp_data *data, struct sensor_value *gesdata);
 void report_pressure_data(struct ssp_data *data, struct sensor_value *predata);
 void report_light_data(struct ssp_data *data, struct sensor_value *lightdata);
+void report_uncal_light_data(struct ssp_data *data, struct sensor_value *lightdata);
 #ifdef CONFIG_SENSORS_SSP_IRDATA_FOR_CAMERA
 void report_light_ir_data(struct ssp_data *data, struct sensor_value *lightirdata);
 #endif
@@ -1095,12 +1118,18 @@ int print_mcu_debug(char *pchRcvDataFrame, int *pDataIdx, int iRcvDataFrameLengt
 void report_temp_humidity_data(struct ssp_data *data, struct sensor_value *temp_humi_data);
 void report_shake_cam_data(struct ssp_data *data, struct sensor_value *shake_cam_data);
 void report_bulk_comp_data(struct ssp_data *data);
+void report_auto_rotation_data(struct ssp_data *data, struct sensor_value *auto_rotation_data);
 void report_tilt_data(struct ssp_data *data, struct sensor_value *tilt_data);
 void report_pickup_data(struct ssp_data *data, struct sensor_value *pickup_data);
 void report_scontext_data(struct ssp_data *data, struct sensor_value *scontextbuf);
 void report_thermistor_data(struct ssp_data *data, struct sensor_value *thermistor_data);
 void report_uncalib_accel_data(struct ssp_data *data, struct sensor_value *acceldata);
 void report_wakeup_motion_data(struct ssp_data *data,struct sensor_value *wakeup_motion_data);
+void report_call_gesture_data(struct ssp_data *data, struct sensor_value *call_gesture_data);
+void report_move_detector_data(struct ssp_data *data, struct sensor_value *move_detector_data);
+void report_led_cover_event_data(struct ssp_data *data, struct sensor_value *led_cover_event_data);
+void report_pocket_mode_lite_data(struct ssp_data *data, struct sensor_value *pocket_mode_lite_data);
+void report_sar_backoff_motion_data(struct ssp_data *data, struct sensor_value *sar_backoff_motion_data);
 
 unsigned int get_module_rev(struct ssp_data *data);
 void reset_mcu(struct ssp_data *data);
@@ -1164,5 +1193,7 @@ void ssp_reset_work_func(struct work_struct *work);
 void set_AccelCalibrationInfoData(char *pchRcvDataFrame, int *iDataIdx);
 void set_GyroCalibrationInfoData(char *pchRcvDataFrame, int *iDataIdx);
 int send_vdis_flag(struct ssp_data *data, bool bFlag);
+void initialize_super_vdis_setting(void);
 
+int send_hall_ic_status(bool enable);
 #endif
