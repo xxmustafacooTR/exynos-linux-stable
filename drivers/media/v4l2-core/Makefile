@@ -45,4 +45,3 @@ obj-$(CONFIG_VIDEOBUF2_ION) += videobuf2-ion.o
 ccflags-y += -I$(srctree)/drivers/media/dvb-core
 ccflags-y += -I$(srctree)/drivers/media/dvb-frontends
 ccflags-y += -I$(srctree)/drivers/media/tuners
-
