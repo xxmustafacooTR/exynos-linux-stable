@@ -94,9 +94,10 @@ VDSO_LDFLAGS := $(VDSO_CPPFLAGS)
 # From arm vDSO Makefile
 VDSO_LDFLAGS += -Wl,-Bsymbolic -Wl,--no-undefined -Wl,-soname=linux-vdso.so.1
 VDSO_LDFLAGS += -Wl,-z,max-page-size=4096 -Wl,-z,common-page-size=4096
-VDSO_LDFLAGS += -nostdlib -shared -mfloat-abi=soft
+VDSO_LDFLAGS += -nostdlib -shared -mfloat-abi=soft -z noexecstack
 VDSO_LDFLAGS += $(call cc32-ldoption,-Wl$(comma)--hash-style=sysv)
 VDSO_LDFLAGS += $(call cc32-ldoption,-Wl$(comma)--build-id)
+VDSO_LDFLAGS += $(call cc32-ldoption,--no-warn-rwx-segments)
 VDSO_LDFLAGS += $(call cc32-ldoption,-fuse-ld=bfd)
 
 
