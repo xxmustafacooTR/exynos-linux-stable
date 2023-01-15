@@ -9,6 +9,7 @@ export AR=/home/$USER/Android/Toolchains/clang/bin/llvm-ar
 export NM=/home/$USER/Android/Toolchains/clang/bin/llvm-nm
 export STRIP=/home/$USER/Android/Toolchains/clang/bin/llvm-strip
 export LLVM=1 && export LLVM_IAS=1
+export KALLSYMS_EXTRA_PASS=1
 
 export ARCH=arm64 && export SUBARCH=arm64
 ZIP_DIR="/home/$USER/Android/Kernel/Zip"
