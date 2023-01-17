@@ -5049,6 +5049,18 @@
 			qos_min_class = <5>;
 		};
 	};
+	
+	cpuidle-ucc {
+
+		ucc-config0 {
+			index = <0>;
+		};
+
+		ucc-config1 {
+			index = <1>;
+			cstate = "4-7";
+		};
+	};
 
 	cpufreq-ufc {
 		/* Ctrl Type */
@@ -5064,6 +5076,7 @@
 			shared-cpus = "0-3";
 
 			user-default-qos = <715000>;
+			ucc-index = <0>;
 		};
 
 		domain@1 {
@@ -5071,6 +5084,7 @@
 			shared-cpus = "4-7";
 
 			user-default-qos = <962000>;
+			ucc-index = <1>;
 
 			min-limit {
 				ctrl-type = <PM_QOS_MIN_LIMIT>;

@@ -61,6 +61,9 @@
 }
 
 #ifdef USE_HMP_BOOST
+
+#define set_ucc(enable)
+
 #define set_hmp(enable)	 { \
 	if (enable != current_hmp_boost) { \
 		pr_booster("[Input Booster2] ******      set_hmp : %d ( %s )\n", enable, __FUNCTION__); \
@@ -72,9 +75,30 @@
 }
 #elif defined USE_EHMP_BOOST
 #include <linux/ehmp.h>
+#include <linux/exynos-ucc.h>
+
+static struct ucc_req ucc_req = {
+	.name = "input",
+};
 
 static DEFINE_MUTEX(input_lock);
 int hmp_boost_value = INIT_ZERO;
+bool current_ucc_boost = INIT_ZERO;
+
+#define set_ucc(enable) { \
+	mutex_lock(&input_lock); \
+	if (enable != current_ucc_boost) { \
+		pr_booster("[Input Booster2] ******      set_ucc : %d ( %s )\n", enable, __FUNCTION__); \
+		if (enable) { \
+			ucc_add_request(&ucc_req, enable); \
+		} else { \
+			ucc_remove_request(&ucc_req); \
+		} \
+		current_ucc_boost = enable; \
+	} \
+	mutex_unlock(&input_lock); \
+}
+
 #define set_hmp(enable) { \
 	mutex_lock(&input_lock); \
 	if (enable != current_hmp_boost) { \
@@ -97,6 +121,7 @@ int hmp_boost_value = INIT_ZERO;
 	mutex_unlock(&input_lock); \
 }
 #else
+#define set_ucc(enable)
 #define set_hmp(enable)
 #endif
 
@@ -108,6 +133,7 @@ int hmp_boost_value = INIT_ZERO;
 	if (value == INPUT_BOOSTER_NULL) { \
 		value = 0; \
 	} \
+	set_ucc(value); \
 	set_hmp(value); \
 	set_qos(&_this->cpu_qos, PM_QOS_CLUSTER1_FREQ_MIN/*PM_QOS_CPU_FREQ_MIN*/, _this->param[_this->index].cpu_freq);  \
 	set_qos(&_this->kfc_qos, PM_QOS_CLUSTER0_FREQ_MIN/*PM_QOS_KFC_FREQ_MIN*/, _this->param[_this->index].kfc_freq);  \
@@ -122,6 +148,7 @@ int hmp_boost_value = INIT_ZERO;
 	if (value == INPUT_BOOSTER_NULL) { \
 		value = 0; \
 	} \
+	set_ucc(value); \
 	set_hmp(value); \
 	remove_qos(&_this->cpu_qos);  \
 	remove_qos(&_this->kfc_qos);  \
