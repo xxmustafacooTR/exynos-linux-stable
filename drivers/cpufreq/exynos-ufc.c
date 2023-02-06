@@ -18,6 +18,7 @@
 #include <linux/cpufreq.h>
 #include <linux/pm_opp.h>
 #include <linux/ehmp.h>
+#include <linux/exynos-ucc.h>
 
 #include <soc/samsung/exynos-cpu_hotplug.h>
 
@@ -110,16 +111,27 @@ static ssize_t show_cpufreq_min_limit(struct kobject *kobj,
 		first_domain()->min_freq >> (scale * SCALE_SIZE));
 }
 
+
+static struct ucc_req ucc_req =
+{
+	.name = "ufc",
+};
+static int ucc_requested;
+static int ucc_requested_val = 0;
 static bool boosted;
-static inline void control_boost(bool enable)
+static inline void control_boost(int ucc_index, bool enable)
 {
 	if (boosted && !enable) {
 		request_kernel_prefer_perf(STUNE_TOPAPP, 0);
 		request_kernel_prefer_perf(STUNE_FOREGROUND, 0);
+		ucc_requested_val = 0;
+		ucc_update_request(&ucc_req, ucc_requested_val);
 		boosted = false;
 	} else if (!boosted && enable) {
 		request_kernel_prefer_perf(STUNE_TOPAPP, 1);
 		request_kernel_prefer_perf(STUNE_FOREGROUND, 1);
+		ucc_requested_val = ucc_index;
+		ucc_update_request(&ucc_req, ucc_requested_val);
 		boosted = true;
 	}
 }
@@ -192,7 +204,7 @@ static ssize_t store_cpufreq_min_limit(struct kobject *kobj,
 		/* Clear all constraint by cpufreq_min_limit */
 		if (input < 0) {
 			pm_qos_update_request(&domain->user_min_qos_req, 0);
-			control_boost(0);
+			control_boost(domain->ucc_index, 0);
 			continue;
 		}
 
@@ -223,7 +235,7 @@ static ssize_t store_cpufreq_min_limit(struct kobject *kobj,
 		freq = min(freq, domain->max_freq);
 		pm_qos_update_request(&domain->user_min_qos_req, freq);
 
-		control_boost(1);
+		control_boost(domain->ucc_index, 1);
 
 		set_max = true;
 	}
@@ -541,6 +553,38 @@ static ssize_t store_execution_mode_change(struct kobject *kobj, struct kobj_att
 	return count;
 }
 
+static ssize_t show_cstate_control(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+    return snprintf(buf, 10, "%d\n", ucc_requested);
+}
+
+static ssize_t store_cstate_control(struct kobject *kobj, struct kobj_attribute *attr,
+					const char *buf, size_t count)
+{
+	int input;
+	if (!sscanf(buf, "%8d", &input))
+		return -EINVAL;
+
+	if (input < 0)
+		return -EINVAL;
+
+	input = !!input;
+
+	if (input == ucc_requested)
+		goto out;
+
+	ucc_requested = input;
+
+	if (ucc_requested)
+		ucc_add_request(&ucc_req, ucc_requested_val);
+	else
+		ucc_remove_request(&ucc_req);
+
+out:
+	return count;
+}
+
 static ssize_t show_unlock_freqs(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
@@ -580,6 +624,8 @@ __ATTR(cpufreq_max_limit, 0644,
 static struct kobj_attribute execution_mode_change =
 __ATTR(execution_mode_change, 0644,
 		show_execution_mode_change, store_execution_mode_change);
+static struct kobj_attribute cstate_control =
+__ATTR(cstate_control, 0644, show_cstate_control, store_cstate_control);
 static struct kobj_attribute unlock_freqs =
 __ATTR(unlock_freqs, 0644,
 		show_unlock_freqs, store_unlock_freqs);
@@ -601,6 +647,9 @@ static __init void init_sysfs(void)
 	if (sysfs_create_file(power_kobj, &execution_mode_change.attr))
 		pr_err("failed to create cpufreq_max_limit node\n");
 	
+	if (sysfs_create_file(power_kobj, &cstate_control.attr))
+		pr_err("failed to create cstate_control node\n");
+	
 	if (sysfs_create_file(power_kobj, &unlock_freqs.attr))
 		pr_err("failed to create unlock_freqs node\n");
 
@@ -613,6 +662,9 @@ static int parse_ufc_ctrl_info(struct exynos_cpufreq_domain *domain,
 
 	if (!of_property_read_u32(dn, "user-default-qos", &val))
 		domain->user_default_qos = val;
+	
+	if (!of_property_read_u32(dn, "ucc-index", &val))
+		domain->ucc_index = val;
 
 	return 0;
 }
