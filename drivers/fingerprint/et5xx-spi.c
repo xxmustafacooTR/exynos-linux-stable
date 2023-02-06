@@ -61,10 +61,8 @@ int fps_resume_set(void) {
 
 	if (fpsensor_goto_suspend) {
 		fpsensor_goto_suspend = 0;
-#if !defined(CONFIG_TZDEV)
 		ret = exynos_smc(MC_FC_FP_PM_RESUME, 0, 0, 0);
 		pr_info("etspi %s : smc ret = %d\n", __func__, ret);
-#endif
 	}
 	return ret;
 }
@@ -225,10 +223,8 @@ static void etspi_power_control(struct etspi_data *etspi, int status)
 		usleep_range(10000, 10050);
 	} else if (status == 0) {
 #if defined(ENABLE_SENSORS_FPRINT_SECURE)
-#if !defined(CONFIG_TZDEV)
 		pr_info("%s: cs_set smc ret = %d\n", __func__,
 			exynos_smc(MC_FC_FP_CS_SET, 0, 0, 0));
-#endif
 #endif
 		if (etspi->sleepPin)
 			gpio_set_value(etspi->sleepPin, 0);
@@ -814,7 +810,7 @@ static long etspi_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 			pr_info("%s FP_CPU_SPEEDUP ON:%d, retry: %d\n",
 				__func__, ioc->len, retry_cnt);
-/*
+
 #if defined(CONFIG_SECURE_OS_BOOSTER_API)
 			do {
 				retval = secos_booster_start(ioc->len - 1);
@@ -827,21 +823,17 @@ static long etspi_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				}
 			} while (retval && retry_cnt < 7);
 #elif defined(CONFIG_TZDEV_BOOST)
-*/
-#if defined(CONFIG_TZDEV_BOOST)
 			tz_boost_enable();
 #endif
 		} else {
 			pr_info("%s FP_CPU_SPEEDUP OFF\n", __func__);
-/*
+
 #if defined(CONFIG_SECURE_OS_BOOSTER_API)
 			retval = secos_booster_stop();
 			if (retval)
 				pr_err("%s: booster stop failed. (%d)\n"
 					, __func__, retval);
 #elif defined(CONFIG_TZDEV_BOOST)
-*/
-#if defined(CONFIG_TZDEV_BOOST)
 			tz_boost_disable();
 #endif
 		}
@@ -1655,9 +1647,7 @@ static int etspi_remove(struct spi_device *spi)
 static int etspi_pm_suspend(struct device *dev)
 {
 #if defined(ENABLE_SENSORS_FPRINT_SECURE)
-#if !defined(CONFIG_TZDEV)
 	int ret = 0;
-#endif
 #endif
 
 	pr_info("%s\n", __func__);
@@ -1670,18 +1660,14 @@ static int etspi_pm_suspend(struct device *dev)
 
 		if (!g_data->ldo_enabled) {
 #if defined(ENABLE_SENSORS_FPRINT_SECURE)
-#if !defined(CONFIG_TZDEV)
 			ret = exynos_smc(MC_FC_FP_PM_SUSPEND, 0, 0, 0);
 			pr_info("%s: suspend smc ret = %d\n", __func__, ret);
 #endif
-#endif
 		} else {
 #if defined(ENABLE_SENSORS_FPRINT_SECURE)
-#if !defined(CONFIG_TZDEV)
 			ret = exynos_smc(MC_FC_FP_PM_SUSPEND_CS_HIGH, 0, 0, 0);
 			pr_info("%s: suspend_cs_high smc ret = %d\n",
 				__func__, ret);
-#endif
 #endif
 		}
 	}
