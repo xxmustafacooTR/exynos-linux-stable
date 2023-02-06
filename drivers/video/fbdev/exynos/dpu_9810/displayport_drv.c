@@ -1868,7 +1868,12 @@ static int displayport_make_audio_infoframe_data(struct infoframe *audio_infofra
 	audio_infoframe->data[0] = ((u8)audio_config_data->audio_channel_cnt - 1);
 
 	/* Data Byte 4, how various speaker locations are allocated */
-	audio_infoframe->data[3] = 0;
+	if (audio_config_data->audio_channel_cnt == 8)
+		audio_infoframe->data[3] = 0x13;
+	else if (audio_config_data->audio_channel_cnt == 6)
+		audio_infoframe->data[3] = 0x0b;
+	else
+		audio_infoframe->data[3] = 0;
 
 	displayport_info("audio_infoframe: type and ch_cnt %02x, SF and bit size %02x, ch_allocation %02x\n",
 			audio_infoframe->data[0], audio_infoframe->data[1], audio_infoframe->data[3]);
@@ -2493,7 +2498,9 @@ static int displayport_timing2conf(struct v4l2_dv_timings *timings)
 {
 	int i;
 
-	for (i = 0; i < supported_videos_pre_cnt; i++) {
+	/* to select last index when there are same timings, use descending order
+	 * for FEATURE_USE_PREFERRED_TIMING_1ST */
+	for (i = supported_videos_pre_cnt - 1; i >= 0; i--) {
 		if (displayport_match_timings(&supported_videos[i].dv_timings,
 					timings, 0))
 			return i;
