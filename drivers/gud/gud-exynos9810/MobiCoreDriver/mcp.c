@@ -273,9 +273,9 @@ static inline int wait_mcp_notification(void)
 	}
 
 	/* TEE halted or dead: dump status and SMC log */
-	//mark_mcp_dead();
+	mark_mcp_dead();
 	nq_dump_status();
-	panic("tbase halt");
+	//panic("tbase halt");
 
 	return -ETIME;
 }
