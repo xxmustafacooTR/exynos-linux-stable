@@ -35,6 +35,12 @@ DHDCFLAGS += -Wall -Dlinux -DLINUX -DBCMDRIVER      \
         -DSEC_ENHANCEMENT
 
 #####################
+# Disable Toolchain Warnings
+#####################
+DHDCFLAGS	+= $(call cc-disable-warning, unused-value)
+DHDCFLAGS	+= $(call cc-disable-warning, unused-result)
+
+#####################
 # Bus Interface Type
 #####################
 ifneq ($(CONFIG_BCMDHD_PCIE),)
