@@ -1810,8 +1810,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	mutex_init(&cc->bio_alloc_lock);
 
 	ret = -EINVAL;
-	if ((sscanf(argv[2], "%llu%c", &tmpll, &dummy) != 1) ||
-	    (tmpll & ((cc->sector_size >> SECTOR_SHIFT) - 1))) {
+	if (sscanf(argv[2], "%llu%c", &tmpll, &dummy) != 1) {
 		ti->error = "Invalid iv_offset sector";
 		goto bad;
 	}
@@ -2069,8 +2068,6 @@ static int crypt_iterate_devices(struct dm_target *ti,
 
 static void crypt_io_hints(struct dm_target *ti, struct queue_limits *limits)
 {
-	struct crypt_config *cc = ti->private;
-
 	/*
 	 * Unfortunate constraint that is required to avoid the potential
 	 * for exceeding underlying device's max_segments limits -- due to
