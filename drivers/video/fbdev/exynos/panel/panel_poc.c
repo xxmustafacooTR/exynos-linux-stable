@@ -557,7 +557,7 @@ int read_poc_partition(struct panel_poc_device *poc_dev, int index)
 		goto err_read;
 	}
 
-	poc_dev->partition[index].preload_done = true;
+	poc_dev->partition[index].preload_done = -true;
 	poc_dev->partition[index].chksum_by_calc =
 		poc_partition_calc_chksum(poc_dev, index);
 	poc_dev->partition[index].chksum_by_read =

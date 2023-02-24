@@ -104,8 +104,9 @@ void tracing_mark_write(struct decon_device *decon, char id, char *str1, int val
 		decon_err("%s:argument fail\n", __func__);
 		return;
 	}
+#ifdef CONFIG_PROFILING
 	trace_puts(buf);
-
+#endif
 }
 
 static void decon_dump_using_dpp(struct decon_device *decon)
@@ -3541,7 +3542,7 @@ static void decon_parse_dt(struct decon_device *decon)
 		}
 	}
 
-	if ((decon->dt.out_type == DECON_OUT_DSI)) {
+	if (decon->dt.out_type == DECON_OUT_DSI) {
 		te_eint = of_get_child_by_name(decon->dev->of_node, "te_eint");
 		if (!te_eint) {
 			decon_info("No DT node for te_eint\n");

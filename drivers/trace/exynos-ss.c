@@ -43,7 +43,9 @@ extern void register_hook_logbuf(void (*)(const char *, size_t));
 #endif
 extern void register_hook_logger(void (*)(const char *, const char *, size_t));
 
+#ifndef CC_USE_CLANG
 typedef int (*ess_initcall_t)(const struct device_node *);
+#endif
 
 struct exynos_ss_interface {
 	struct exynos_ss_log *info_event;

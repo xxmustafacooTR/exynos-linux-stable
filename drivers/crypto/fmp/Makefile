@@ -3,7 +3,9 @@
 obj-$(CONFIG_EXYNOS_SMU) += smu_dev.o
 obj-$(CONFIG_EXYNOS_FMP_FIPS) += first_file.o
 obj-$(CONFIG_EXYNOS_FMP) += fmp_dev.o fmp_lib.o
+ifneq ($(CC_USE_CLANG),)
 CFLAGS_fmp_fips_selftest.o = -fno-merge-constants
+endif
 obj-$(CONFIG_EXYNOS_FMP_FIPS) += fmp_fips_main.o fmp_fips_fops.o fmp_fips_selftest.o \
 				fmp_fips_integrity.o hmac-sha256.o \
 				fmp_fips_cipher.o
