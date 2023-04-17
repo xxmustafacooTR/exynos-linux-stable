@@ -510,4 +510,5 @@ extern bool sec_bat_check_step_charging(struct sec_battery_info *battery);
 extern int sec_battery_update_data(const char* file_path);
 #endif
 
+void charger_control_init(struct sec_battery_info *info);
 #endif /* __SEC_BATTERY_H */
