@@ -160,6 +160,7 @@ char *sec_bat_charge_mode_str[] = {
 };
 
 extern int bootmode;
+void charger_control_init(struct sec_battery_info *info);
 
 void sec_bat_set_misc_event(struct sec_battery_info *battery,
 	unsigned int misc_event_val, unsigned int misc_event_mask) {
@@ -6437,6 +6438,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 
 	if (battery->pdata->check_battery_callback)
 		battery->present = battery->pdata->check_battery_callback();
+	
+	charger_control_init(battery);
 
 	dev_info(battery->dev,
 		"%s: SEC Battery Driver Loaded\n", __func__);
