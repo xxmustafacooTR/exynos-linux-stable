@@ -1538,6 +1538,8 @@ static void max77865_enable_aicl_irq(struct max77865_charger_data *charger)
 	pr_info("%s enabled : %d\n", __func__, charger->irq_aicl_enabled);
 }
 
+extern bool unstable_power_detection;
+
 static void max77865_chgin_isr_work(struct work_struct *work)
 {
 	struct max77865_charger_data *charger = container_of(work,
@@ -1574,7 +1576,7 @@ static void max77865_chgin_isr_work(struct work_struct *work)
 			stable_count++;
 		else
 			stable_count = 0;
-		if (stable_count > 10) {
+		if (stable_count > 10 || !unstable_power_detection) {
 			pr_info("%s: irq(%d), chgin(0x%x), chg_dtls(0x%x) prev 0x%x\n",
 					__func__, charger->irq_chgin,
 					chgin_dtls, chg_dtls, prev_chgin_dtls);
