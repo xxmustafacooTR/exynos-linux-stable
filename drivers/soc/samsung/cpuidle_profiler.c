@@ -20,6 +20,8 @@
 
 #include <soc/samsung/exynos-powermode.h>
 
+struct class *idle_class;
+
 static bool profile_started;
 
 /*
@@ -622,11 +624,9 @@ void __init cpuidle_profile_register(struct cpuidle_driver *drv)
 
 static int __init cpuidle_profile_init(void)
 {
-	struct class *class;
 	struct device *dev;
 
-	class = class_create(THIS_MODULE, "cpuidle");
-	dev = device_create(class, NULL, 0, NULL, "cpuidle_profiler");
+	dev = device_create(idle_class, NULL, 0, NULL, "cpuidle_profiler");
 
 	if (sysfs_create_group(&dev->kobj, &cpuidle_profile_group)) {
 		pr_err("CPUIDLE Profiler : error to create sysfs\n");

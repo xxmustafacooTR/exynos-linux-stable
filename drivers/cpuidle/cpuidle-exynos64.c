@@ -160,8 +160,6 @@ static int __init exynos_idle_driver_init(struct cpuidle_driver *drv,
 	return 0;
 }
 
-struct class *idle_class;
-
 static int __init exynos_idle_init(void)
 {
 	int ret, cpu, i;

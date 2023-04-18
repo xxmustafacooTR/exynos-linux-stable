@@ -24,6 +24,7 @@ struct module;
 struct cpuidle_device;
 struct cpuidle_driver;
 
+extern struct class *idle_class;
 
 /****************************
  * CPUIDLE DEVICE INTERFACE *
