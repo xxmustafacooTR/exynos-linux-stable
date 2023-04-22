@@ -20,6 +20,8 @@
 #include <linux/sti/abc_common.h>
 #endif
 
+#include <linux/gaming_control.h>
+
 bool sleep_mode = false;
 
 static enum power_supply_property sec_battery_props[] = {
@@ -3501,6 +3503,9 @@ static void sec_bat_recov_full_capacity(struct sec_battery_info *battery)
 static void sec_bat_check_full_capacity(struct sec_battery_info *battery)
 {
 	int rechg_capacity = battery->batt_full_capacity - 2;
+	
+	if(battery_idle_gaming() && battery->capacity >= 20)
+		goto warn;
 
 	if (battery->batt_full_capacity >= 100 || battery->batt_full_capacity <= 0 ||
 		battery->status == POWER_SUPPLY_STATUS_DISCHARGING) {
@@ -3518,6 +3523,7 @@ static void sec_bat_check_full_capacity(struct sec_battery_info *battery)
 			sec_bat_recov_full_capacity(battery);
 		}
 	} else if (battery->capacity >= battery->batt_full_capacity) {
+warn:
 		pr_info("%s : stop charging(%d, %d)\n", __func__, battery->capacity, battery->batt_full_capacity);
 
 		sec_bat_set_misc_event(battery, BATT_MISC_EVENT_FULL_CAPACITY,
