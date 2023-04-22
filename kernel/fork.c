@@ -2172,7 +2172,7 @@ long _do_fork(unsigned long clone_flags,
 	struct task_struct *p;
 	int trace = 0;
 	long nr;
-
+	
 	game_option(current, GAME_START);
 
 	/*
