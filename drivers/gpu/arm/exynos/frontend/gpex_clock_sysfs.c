@@ -24,6 +24,8 @@
 #include <gpex_utils.h>
 #include <gpex_clboost.h>
 
+#include <linux/gaming_control.h>
+
 #include "gpex_clock_internal.h"
 
 static struct _clock_info *clk_info;
@@ -154,6 +156,9 @@ GPEX_STATIC ssize_t set_max_lock_dvfs(const char *buf, size_t count)
 			GPU_LOG(MALI_EXYNOS_WARNING, "%s: invalid value\n", __func__);
 			return -ENOENT;
 		}
+		
+		if (gaming_mode)
+			clock = gpex_clock_get_max_clock();
 
 		clk_info->user_max_lock_input = clock;
 
@@ -248,6 +253,9 @@ GPEX_STATIC ssize_t set_min_lock_dvfs(const char *buf, size_t count)
 			GPU_LOG(MALI_EXYNOS_WARNING, "%s: invalid value\n", __func__);
 			return -ENOENT;
 		}
+		
+		if (gaming_mode)
+			clock = gpex_clock_get_min_clock();
 
 		clk_info->user_min_lock_input = clock;
 
@@ -344,6 +352,9 @@ GPEX_STATIC ssize_t set_mm_min_lock_dvfs(const char *buf, size_t count)
 			GPU_LOG(MALI_EXYNOS_WARNING, "%s: invalid value\n", __func__);
 			return -ENOENT;
 		}
+		
+		if (gaming_mode)
+			clock = gpex_clock_get_min_clock();
 
 		clock = gpex_get_valid_gpu_clock(clock, true);
 
