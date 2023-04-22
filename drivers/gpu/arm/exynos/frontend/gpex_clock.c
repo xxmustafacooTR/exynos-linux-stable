@@ -31,9 +31,28 @@
 #include <gpexbe_utilization.h>
 #include <gpexbe_debug.h>
 
+#include <linux/gaming_control.h>
+
 #include "gpex_clock_internal.h"
 
 #define CPU_MAX INT_MAX
+
+int gpu_min_clock_custom = 0;
+int gpu_custom_min_clock(int gpu_min_clock)
+{
+	gpu_min_clock_custom = gpu_min_clock;
+	return 0;
+}
+
+int gpu_max_clock_custom = 0;
+int gpu_custom_max_clock(int gpu_max_clock)
+{
+	gpu_max_clock_custom = gpu_max_clock;
+
+	gpex_clock_set(gpu_max_clock_custom);
+
+	return 0;
+}
 
 static struct _clock_info clk_info;
 
@@ -43,14 +62,23 @@ int gpex_clock_get_boot_clock()
 }
 int gpex_clock_get_max_clock()
 {
+	if (gpu_max_clock_custom > 0)
+		return gpu_max_clock_custom;
+
 	return clk_info.gpu_max_clock;
 }
 int gpex_clock_get_max_clock_limit()
 {
+	if (gpu_max_clock_custom > 0)
+		return gpu_max_clock_custom;
+
 	return clk_info.gpu_max_clock_limit;
 }
 int gpex_clock_get_min_clock()
 {
+	if (gpu_min_clock_custom > 0)
+		return gpu_min_clock_custom;
+
 	return clk_info.gpu_min_clock;
 }
 int gpex_clock_get_cur_clock()
@@ -59,10 +87,16 @@ int gpex_clock_get_cur_clock()
 }
 int gpex_clock_get_max_lock()
 {
+	if (gpu_max_clock_custom > 0)
+		return gpu_max_clock_custom;
+
 	return clk_info.max_lock;
 }
 int gpex_clock_get_min_lock()
 {
+	if (gpu_min_clock_custom > 0)
+		return gpu_min_clock_custom;
+
 	return clk_info.min_lock;
 }
 int gpex_clock_get_clock(int level)
@@ -75,6 +109,9 @@ u64 gpex_clock_get_time_busy(int level)
 }
 bool gpex_clock_get_unlock_freqs_status()
 {
+	if (gaming_mode)
+		return false;
+
 	return clk_info.unlock_freqs;
 }
 int gpex_clock_update_config_data_from_dt()
