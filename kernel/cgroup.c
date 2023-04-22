@@ -71,6 +71,15 @@
 /* Gaming control */
 #include <linux/gaming_control.h>
 
+/* Check if the task is a game */
+static void cgroup_game_check(struct task_struct *tsk, const char *name)
+{
+	if (!strcmp(name, "top-app"))
+		game_option(tsk, GAME_RUNNING);
+	else if (!strcmp(name, "background"))
+		game_option(tsk, GAME_PAUSE);
+}
+
 /*
  * pidlists linger the following amount before being destroyed.  The goal
  * is avoiding frequent destruction in the middle of consecutive read calls
@@ -2925,12 +2934,8 @@ static ssize_t __cgroup_procs_write(struct kernfs_open_file *of, char *buf,
 	if (!ret)
 		ret = cgroup_attach_task(cgrp, tsk, threadgroup);
 
-	/* Check if the task is a game */
-	if (!memcmp(cgrp->kn->name, "top-app", sizeof("top-app")) && !ret) {
-		game_option(tsk, GAME_RUNNING);
-	} else if (!memcmp(cgrp->kn->name, "background", sizeof("background")) && !ret) {
-		game_option(tsk, GAME_PAUSE);
-	}
+	if (!ret)
+		cgroup_game_check(tsk, of->kn->parent->name);
 
 	put_task_struct(tsk);
 	goto out_unlock_threadgroup;
