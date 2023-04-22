@@ -19,6 +19,7 @@
 #include <linux/pm_opp.h>
 #include <linux/ehmp.h>
 #include <linux/exynos-ucc.h>
+#include <linux/gaming_control.h>
 #include <linux/sysfs_helpers.h>
 
 #include <soc/samsung/cal-if.h>
@@ -41,6 +42,9 @@ static bool unlock_freqs_switch = false;
 
 bool exynos_cpufreq_get_unlock_freqs_status()
 {
+	if (gaming_mode)
+		return true;
+
 	return unlock_freqs_switch;
 }
 
@@ -628,6 +632,11 @@ static void cpufreq_max_limit_update(int input_freq)
 
 		set_max = true;
 	}
+}
+
+void exynos_cpufreq_set_gaming_mode(void) {
+	last_max_limit = -1;
+	cpufreq_max_limit_update(last_max_limit);
 }
 
 static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct kobj_attribute *attr,
