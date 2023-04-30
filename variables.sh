@@ -5,8 +5,13 @@ export CLANG_TRIPLE=/home/$USER/Android/Toolchains/clang/bin/aarch64-linux-gnu-
 export CROSS_COMPILE=/home/$USER/Android/Toolchains/clang/bin/aarch64-linux-gnu-
 export CROSS_COMPILE_ARM32=/home/$USER/Android/Toolchains/clang/bin/arm-linux-gnueabi-
 export CC=/home/$USER/Android/Toolchains/clang/bin/clang
+export REAL_CC=/home/$USER/Android/Toolchains/clang/bin/clang
+export LD=/home/$USER/Android/Toolchains/clang/bin/ld.lld
 export AR=/home/$USER/Android/Toolchains/clang/bin/llvm-ar
 export NM=/home/$USER/Android/Toolchains/clang/bin/llvm-nm
+export OBJCOPY=/home/$USER/Android/Toolchains/clang/bin/llvm-objcopy
+export OBJDUMP=/home/$USER/Android/Toolchains/clang/bin/llvm-objdump
+export READELF=/home/$USER/Android/Toolchains/clang/bin/llvm-readelf
 export STRIP=/home/$USER/Android/Toolchains/clang/bin/llvm-strip
 export LLVM=1 && export LLVM_IAS=1
 export KALLSYMS_EXTRA_PASS=1
