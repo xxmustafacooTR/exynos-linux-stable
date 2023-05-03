@@ -18,11 +18,27 @@ export KALLSYMS_EXTRA_PASS=1
 
 export ARCH=arm64 && export SUBARCH=arm64
 ZIP_DIR="/home/$USER/Android/Kernel/Zip"
+KERNEL_NAME="Kernel"
 CUR_DIR=$PWD
 
 clean_temp() {
 	cd $CUR_DIR
 	rm -rf vmlinux.* drivers/gator_5.27/gator_src_md5.h scripts/dtbtool_exynos/dtbtool arch/arm64/boot/dtb.img arch/arm64/boot/dts/exynos/*dtb* arch/arm64/configs/exynos9810_temp_defconfig
+}
+
+clean_prebuilt() {
+	cd $CUR_DIR
+	rm -rf $ZIP_DIR/Kernel/crownlte/zImage $ZIP_DIR/Kernel/crownlte/dtb.img $ZIP_DIR/Kernel/star2lte/zImage $ZIP_DIR/Kernel/star2lte/dtb.img $ZIP_DIR/Kernel/starlte/zImage $ZIP_DIR/Kernel/starlte/dtb.img
+	rm -rf $ZIP_DIR/Kernel-a11/crownlte/zImage $ZIP_DIR/Kernel-a11/crownlte/dtb.img $ZIP_DIR/Kernel-a11/star2lte/zImage $ZIP_DIR/Kernel-a11/star2lte/dtb.img $ZIP_DIR/Kernel-a11/starlte/zImage $ZIP_DIR/Kernel-a11/starlte/dtb.img
+	rm -rf $ZIP_DIR/Kernel-aosp/crownlte/zImage $ZIP_DIR/Kernel-aosp/crownlte/dtb.img $ZIP_DIR/Kernel-aosp/star2lte/zImage $ZIP_DIR/Kernel-aosp/star2lte/dtb.img $ZIP_DIR/Kernel-aosp/starlte/zImage $ZIP_DIR/Kernel-aosp/starlte/dtb.img
+	rm -rf $ZIP_DIR/Kernel-stock/crownlte/zImage $ZIP_DIR/Kernel-stock/crownlte/dtb.img $ZIP_DIR/Kernel-stock/star2lte/zImage $ZIP_DIR/Kernel-stock/star2lte/dtb.img $ZIP_DIR/Kernel-stock/starlte/zImage $ZIP_DIR/Kernel-stock/starlte/dtb.img
+}
+
+patch_wifi() {
+		printf "Patching Wifi to Old Driver\n"
+		sed -i 's/CONFIG_BCMDHD_101_16=y/# CONFIG_BCMDHD_101_16 is not set/g' "$CUR_DIR"/.config
+		sed -i 's/# CONFIG_BCMDHD_100_15 is not set/CONFIG_BCMDHD_100_15=y/g' "$CUR_DIR"/.config
+		KERNEL_NAME="Kernel-a11"
 }
 
 patch_stock() {
@@ -38,11 +54,19 @@ patch_stock() {
 		sed -i 's/CONFIG_VSOCKETS=y/# CONFIG_VSOCKETS is not set/g' "$CUR_DIR"/.config
 		sed -i 's/# CONFIG_CGROUP_NET_CLASSID is not set/CONFIG_CGROUP_NET_CLASSID=y/g' "$CUR_DIR"/.config
 		sed -i 's/CONFIG_CUSTOM_FORCETOUCH=y/# CONFIG_CUSTOM_FORCETOUCH is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_BCMDHD_101_16=y/# CONFIG_BCMDHD_101_16 is not set/g' "$CUR_DIR"/.config
-		sed -i 's/# CONFIG_BCMDHD_100_15 is not set/CONFIG_BCMDHD_100_15=y/g' "$CUR_DIR"/.config
+		patch_wifi
 		echo "" >> "$CUR_DIR"/.config
 		echo "CONFIG_TCP_CONG_LIA=y" >> "$CUR_DIR"/.config
 		echo "CONFIG_TCP_CONG_OLIA=y" >> "$CUR_DIR"/.config
 		echo "CONFIG_NETFILTER_XT_MATCH_QTAGUID=y" >> "$CUR_DIR"/.config
 		echo "CONFIG_NETFILTER_XT_MATCH_ONESHOT=y" >> "$CUR_DIR"/.config
+		KERNEL_NAME="Kernel-stock"
+}
+
+patch_aosp() {
+		printf "Patching Cached Defconfig For AOSP Base\n"
+		sed -i 's/CONFIG_USB_ANDROID_SAMSUNG_MTP=y/# CONFIG_USB_ANDROID_SAMSUNG_MTP is not set/g' "$CUR_DIR"/.config
+		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK=y/# CONFIG_ZRAM_LRU_WRITEBACK is not set/g' "$CUR_DIR"/.config
+		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=5120/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=1024/g' "$CUR_DIR"/.config
+		KERNEL_NAME="Kernel-aosp"
 }

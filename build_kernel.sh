@@ -1,8 +1,16 @@
 #!/bin/bash
 
-export ARCH=arm64
-export CROSS_COMPILE=../PLATFORM/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-
-export ANDROID_MAJOR_VERSION=q
-
-make exynos9810-star2lte_defconfig
-make -j64
+. clean.sh all
+. buildN9.sh stock
+. buildS9.sh stock
+. buildS9+.sh stock
+. buildS9.sh
+. buildS9.sh a11
+. buildS9.sh aosp
+. buildN9.sh
+. buildN9.sh a11
+. buildN9.sh aosp
+. buildS9+.sh aosp
+. buildS9+.sh a11
+. buildS9+.sh
+. zip.sh
