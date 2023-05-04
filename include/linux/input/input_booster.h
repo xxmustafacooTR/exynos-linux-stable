@@ -185,6 +185,7 @@ enum {
 	MOUSH_WHEEL,
 	HOVER,
 	SPEN,
+	KEY_TWO,
 	MAX_DEVICE_TYPE_NUM
 };
 
