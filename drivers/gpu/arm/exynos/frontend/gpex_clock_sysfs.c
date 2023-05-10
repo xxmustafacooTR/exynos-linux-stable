@@ -504,7 +504,7 @@ GPEX_STATIC ssize_t set_unlock_freqs(const char *buf, size_t count)
 	}
 
 	clk_info->unlock_freqs = unlock;
-	
+
 	clk_info->user_max_lock_input = 0;
 	gpex_clock_lock_clock(GPU_CLOCK_MAX_UNLOCK, SYSFS_LOCK, 0);
 
