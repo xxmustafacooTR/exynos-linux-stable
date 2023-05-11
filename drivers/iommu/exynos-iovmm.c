@@ -188,7 +188,7 @@ static dma_addr_t add_iovm_region(struct exynos_iovmm *vmm,
 {
 	struct exynos_vm_region *region, *pos;
 
-	region = kmalloc(sizeof(*region), GFP_KERNEL);
+	region = kzalloc(sizeof(*region), GFP_KERNEL);
 	if (!region)
 		return 0;
 
