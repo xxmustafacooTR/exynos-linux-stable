@@ -3099,6 +3099,7 @@
 		clock-names = "aclk";
 		clocks = <&clock GATE_SYSMMU_DPUD0>;
 		port-name = "VGRF, VGF";
+		sysmmu,hold-rpm-on-boot;
 		sysmmu,secure-irq;
 		sysmmu,secure_base = <0x160D0000>;
 		sysmmu,tlb_property =
@@ -3125,6 +3126,7 @@
 		clock-names = "aclk";
 		clocks = <&clock GATE_SYSMMU_DPUD1>;
 		port-name = "G0, VG0";
+		sysmmu,hold-rpm-on-boot;
 		sysmmu,secure-irq;
 		sysmmu,secure_base = <0x160E0000>;
 		sysmmu,tlb_property =
@@ -3144,6 +3146,7 @@
 		clock-names = "aclk";
 		clocks = <&clock GATE_SYSMMU_DPUD2>;
 		port-name = "G1, VG1, WB";
+		sysmmu,hold-rpm-on-boot;
 		sysmmu,secure-irq;
 		sysmmu,secure_base = <0x160F0000>;
 		sysmmu,tlb_property =
