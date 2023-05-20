@@ -79,6 +79,10 @@
 #endif /*CONFIG_LOD_SEC*/
 #endif /*CONFIG_RKP_KDP*/
 
+#ifdef CONFIG_KSU
+#include <ksu_hook.h>
+#endif
+
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1940,6 +1944,10 @@ static int do_execveat_common(int fd, struct filename *filename,
 	struct file *file;
 	struct files_struct *displaced;
 	int retval;
+
+#ifdef CONFIG_KSU
+	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
+#endif
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
