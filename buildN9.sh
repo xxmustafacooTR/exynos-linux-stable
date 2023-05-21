@@ -21,9 +21,13 @@ then
 	patch_aosp
   fi
 fi
+if [ -z "$2" ]
+then  
+  patch_kernelsu
+fi
 
 make -j$(nproc --all)
 
 printf $KERNEL_NAME
 cp -vr $CUR_DIR/arch/arm64/boot/Image $ZIP_DIR/$KERNEL_NAME/crownlte/zImage
-cp -vr $CUR_DIR/arch/arm64/boot/dtb.img $ZIP_DIR/$KERNEL_NAME/crownlte/dtb.img
+cp -vr $CUR_DIR/arch/arm64/boot/dtb.img $ZIP_DIR/$DTB_NAME/crownlte/dtb.img

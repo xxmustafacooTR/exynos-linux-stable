@@ -19,6 +19,7 @@ export KALLSYMS_EXTRA_PASS=1
 export ARCH=arm64 && export SUBARCH=arm64
 ZIP_DIR="/home/$USER/Android/Kernel/Zip"
 KERNEL_NAME="Kernel"
+DTB_NAME="Dtb"
 CUR_DIR=$PWD
 
 clean_temp() {
@@ -28,10 +29,22 @@ clean_temp() {
 
 clean_prebuilt() {
 	cd $CUR_DIR
-	rm -rf $ZIP_DIR/Kernel/crownlte/zImage $ZIP_DIR/Kernel/crownlte/dtb.img $ZIP_DIR/Kernel/star2lte/zImage $ZIP_DIR/Kernel/star2lte/dtb.img $ZIP_DIR/Kernel/starlte/zImage $ZIP_DIR/Kernel/starlte/dtb.img
-	rm -rf $ZIP_DIR/Kernel-a11/crownlte/zImage $ZIP_DIR/Kernel-a11/crownlte/dtb.img $ZIP_DIR/Kernel-a11/star2lte/zImage $ZIP_DIR/Kernel-a11/star2lte/dtb.img $ZIP_DIR/Kernel-a11/starlte/zImage $ZIP_DIR/Kernel-a11/starlte/dtb.img
-	rm -rf $ZIP_DIR/Kernel-aosp/crownlte/zImage $ZIP_DIR/Kernel-aosp/crownlte/dtb.img $ZIP_DIR/Kernel-aosp/star2lte/zImage $ZIP_DIR/Kernel-aosp/star2lte/dtb.img $ZIP_DIR/Kernel-aosp/starlte/zImage $ZIP_DIR/Kernel-aosp/starlte/dtb.img
-	rm -rf $ZIP_DIR/Kernel-stock/crownlte/zImage $ZIP_DIR/Kernel-stock/crownlte/dtb.img $ZIP_DIR/Kernel-stock/star2lte/zImage $ZIP_DIR/Kernel-stock/star2lte/dtb.img $ZIP_DIR/Kernel-stock/starlte/zImage $ZIP_DIR/Kernel-stock/starlte/dtb.img
+	rm -rf $ZIP_DIR/Dtb/crownlte/dtb.img $ZIP_DIR/Dtb/star2lte/dtb.img $ZIP_DIR/Dtb/starlte/dtb.img
+	rm -rf $ZIP_DIR/Kernel/crownlte/zImage $ZIP_DIR/Kernel/star2lte/zImage $ZIP_DIR/Kernel/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-ksu/crownlte/zImage $ZIP_DIR/Kernel-ksu/star2lte/zImage $ZIP_DIR/Kernel-ksu/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-a11/crownlte/zImage $ZIP_DIR/Kernel-a11/star2lte/zImage $ZIP_DIR/Kernel-a11/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-a11-ksu/crownlte/zImage $ZIP_DIR/Kernel-a11-ksu/star2lte/zImage $ZIP_DIR/Kernel-a11-ksu/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-aosp/crownlte/zImage $ZIP_DIR/Kernel-aosp/star2lte/zImage $ZIP_DIR/Kernel-aosp/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-aosp-ksu/crownlte/zImage $ZIP_DIR/Kernel-aosp-ksu/star2lte/zImage $ZIP_DIR/Kernel-aosp-ksu/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-stock/crownlte/zImage $ZIP_DIR/Kernel-stock/star2lte/zImage $ZIP_DIR/Kernel-stock/starlte/zImage
+	rm -rf $ZIP_DIR/Kernel-stock-ksu/crownlte/zImage $ZIP_DIR/Kernel-stock-ksu/star2lte/zImage $ZIP_DIR/Kernel-stock-ksu/starlte/zImage
+}
+
+patch_kernelsu() {
+		printf "Enabling KernelSU\n"
+		sed -i 's/# CONFIG_KSU is not set/CONFIG_KSU=y/g' "$CUR_DIR"/.config
+		echo '# CONFIG_KSU_DEBUG is not set' >> "$CUR_DIR"/.config
+		KERNEL_NAME="$KERNEL_NAME-ksu"
 }
 
 patch_wifi() {
