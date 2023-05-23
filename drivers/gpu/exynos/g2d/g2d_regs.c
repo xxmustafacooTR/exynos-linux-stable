@@ -15,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/property.h>
 
 #include "g2d.h"
 #include "g2d_regs.h"
@@ -71,6 +72,10 @@ void g2d_hw_push_task(struct g2d_device *g2d_dev, struct g2d_task *task)
 	if (state != G2D_JOB_STATE_DONE)
 		dev_err(g2d_dev->dev, "%s: Unexpected state %#x of JOB %d\n",
 			__func__, state, task->job_id);
+
+	if (device_get_dma_attr(g2d_dev->dev) != DEV_DMA_COHERENT)
+		__flush_dcache_area(page_address(task->cmd_page),
+				    G2D_CMD_LIST_SIZE);
 
 	writel_relaxed(G2D_JOB_HEADER_DATA(task->priority, task->job_id),
 			g2d_dev->reg + G2D_JOB_HEADER_REG);

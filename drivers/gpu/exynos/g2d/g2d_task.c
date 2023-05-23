@@ -52,13 +52,16 @@ static void g2d_flush_command_page(struct g2d_task *task)
 static int g2d_map_cmd_data(struct g2d_task *task)
 {
 	struct scatterlist sgl;
+	int prot = IOMMU_READ;
+
+	if (device_get_dma_attr(task->g2d_dev->dev) == DEV_DMA_COHERENT)
+		prot |= IOMMU_CACHE;
 
 	/* mapping the command data */
 	sg_init_table(&sgl, 1);
 	sg_set_page(&sgl, task->cmd_page, G2D_CMD_LIST_SIZE, 0);
 	task->cmd_addr = iovmm_map(task->g2d_dev->dev, &sgl, 0,
-				   G2D_CMD_LIST_SIZE, DMA_TO_DEVICE,
-				   IOMMU_READ | IOMMU_CACHE);
+				   G2D_CMD_LIST_SIZE, DMA_TO_DEVICE, prot);
 
 	if (IS_ERR_VALUE(task->cmd_addr)) {
 		dev_err(task->g2d_dev->dev,
