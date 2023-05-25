@@ -24,7 +24,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&initial0>;
 	initial0: initial-state {
-		PIN_IN(gpa2-1, DOWN);	/* NC */
 		PIN_IN(gpq0-5, DOWN);	/* NC */
 	};
 };
