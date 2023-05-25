@@ -566,7 +566,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pmic_irq &pm_wrsti &smpl_warn>;
 			gpios = <&gpg0 3 0>;
-			smpl_warn_en = <1>; /* 1 : enable , 0 : disable */
+			smpl_warn_en = <0>; /* 1 : enable , 0 : disable */
 			/* range of smpl_warn_vth */
 			/* 0x00 : 2.1V, 0x20 : 2.3V, 0x40 : 2.5V, 0x60 : 2.7V 0x80 : 2.9V */
 			/* 0xA0 : 3.1V, 0xC0 : 3.3V, 0xE0 : 3.5V */
@@ -576,10 +576,10 @@
 			adc_mode = <2>; /* 0 : disable, 1 : current meter, 2 : power meter */
 			adc_sync_mode = <2>; /* 1 : sync mode, 2 : async mode */
 			g3d_en = <1>; /* 1 : enable , 0 : disable */
-			cpu_ocp_warn_en = <1>; /* 1 : enable, 0 : disable */
+			cpu_ocp_warn_en = <0>; /* 1 : enable, 0 : disable */
 			cpu_ocp_warn_reset = <0>; /* 0 : 2 clock, 1 : 32 clock */
 			cpu_ocp_warn_lv = <0x0>; /* step : -250mA */
-			gpu_ocp_warn_en = <1>; /* 1: enable, 0 : disable */
+			gpu_ocp_warn_en = <0>; /* 1: enable, 0 : disable */
 			gpu_ocp_warn_reset = <1>; /* 0 : 2 clock, 1 : 32 clock */
 			gpu_ocp_warn_lv = <0x0>; /* step : -166mA */
 			/* RTC: wtsr/smpl */
@@ -609,7 +609,7 @@
 				buck2_reg: BUCK2 {
 					regulator-name = "vdd_cpucl1";
 					regulator-min-microvolt = <450000>;
-					regulator-max-microvolt = <1300000>;
+					regulator-max-microvolt = <1500000>;
 					regulator-always-on;
 					regulator-ramp-delay = <6000>;
 					regulator-initial-mode = <1>;
@@ -618,7 +618,7 @@
 				buck3_reg: BUCK3 {
 					regulator-name = "vdd_cpucl0";
 					regulator-min-microvolt = <450000>;
-					regulator-max-microvolt = <1300000>;
+					regulator-max-microvolt = <1500000>;
 					regulator-always-on;
 					regulator-ramp-delay = <6000>;
 					regulator-initial-mode = <1>;
@@ -654,7 +654,7 @@
 				buck7_reg: BUCK7 {
 					regulator-name = "vdd_cpucl1_m";
 					regulator-min-microvolt = <450000>;
-					regulator-max-microvolt = <1300000>;
+					regulator-max-microvolt = <1500000>;
 					regulator-always-on;
 					regulator-ramp-delay = <6000>;
 					regulator-initial-mode = <1>;
