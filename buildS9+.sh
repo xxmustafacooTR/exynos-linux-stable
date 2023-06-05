@@ -25,6 +25,12 @@ if [ -z "$2" ]
 then  
   patch_kernelsu
 fi
+if [ -z "$3" ]
+then  
+  dts_erofs
+else
+  dts_ext4
+fi
 
 make -j$(nproc --all)
 

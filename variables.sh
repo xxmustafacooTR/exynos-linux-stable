@@ -22,6 +22,22 @@ KERNEL_NAME="Kernel"
 DTB_NAME="Dtb"
 CUR_DIR=$PWD
 
+dts_ext4() {
+		printf "EXT4 Dts\n"
+		sed -i 's/erofs/ext4/g' "$CUR_DIR"/arch/arm64/boot/dts/exynos/exynos9810-starlte_common.dtsi
+		sed -i 's/erofs/ext4/g' "$CUR_DIR"/arch/arm64/boot/dts/exynos/exynos9810-star2lte_common.dtsi
+		sed -i 's/erofs/ext4/g' "$CUR_DIR"/arch/arm64/boot/dts/exynos/exynos9810-crownlte_common.dtsi
+		DTB_NAME="Dtb"
+}
+
+dts_erofs() {
+		printf "EROFS Dts\n"
+		sed -i 's/ext4/erofs/g' "$CUR_DIR"/arch/arm64/boot/dts/exynos/exynos9810-starlte_common.dtsi
+		sed -i 's/ext4/erofs/g' "$CUR_DIR"/arch/arm64/boot/dts/exynos/exynos9810-star2lte_common.dtsi
+		sed -i 's/ext4/erofs/g' "$CUR_DIR"/arch/arm64/boot/dts/exynos/exynos9810-crownlte_common.dtsi
+		DTB_NAME="Dtb-erofs"
+}
+
 clean_temp() {
 	cd $CUR_DIR
 	rm -rf vmlinux.* drivers/gator_5.27/gator_src_md5.h scripts/dtbtool_exynos/dtbtool arch/arm64/boot/dtb.img arch/arm64/boot/dts/exynos/*dtb* arch/arm64/configs/exynos9810_temp_defconfig
@@ -30,6 +46,7 @@ clean_temp() {
 clean_prebuilt() {
 	cd $CUR_DIR
 	rm -rf $ZIP_DIR/Dtb/crownlte/dtb.img $ZIP_DIR/Dtb/star2lte/dtb.img $ZIP_DIR/Dtb/starlte/dtb.img
+	rm -rf $ZIP_DIR/Dtb-erofs/crownlte/dtb.img $ZIP_DIR/Dtb-erofs/star2lte/dtb.img $ZIP_DIR/Dtb-erofs/starlte/dtb.img
 	rm -rf $ZIP_DIR/Kernel/crownlte/zImage $ZIP_DIR/Kernel/star2lte/zImage $ZIP_DIR/Kernel/starlte/zImage
 	rm -rf $ZIP_DIR/Kernel-ksu/crownlte/zImage $ZIP_DIR/Kernel-ksu/star2lte/zImage $ZIP_DIR/Kernel-ksu/starlte/zImage
 	rm -rf $ZIP_DIR/Kernel-a11/crownlte/zImage $ZIP_DIR/Kernel-a11/star2lte/zImage $ZIP_DIR/Kernel-a11/starlte/zImage

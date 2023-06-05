@@ -11,6 +11,7 @@ then
 	clean_prebuilt
 	make -j$(nproc) clean
 	make -j$(nproc) mrproper
+	git reset --hard
   elif [ "$1" == "zip" ]; then
     clean_prebuilt
   fi
