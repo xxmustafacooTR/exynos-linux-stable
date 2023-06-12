@@ -23,7 +23,6 @@
 #include <soc/samsung/exynos-pmu.h>
 #include <sound/samsung/abox.h>
 #include <sound/samsung/vts.h>
-#include <sound/samsung/sec_audio_debug.h>
 
 #include <linux/mfd/madera/core.h>
 #include <linux/extcon/extcon-madera.h>

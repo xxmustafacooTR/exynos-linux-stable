@@ -20,7 +20,7 @@
 #include <sound/maxim_dsm_cal.h>
 #include <sound/maxim_dsm_power.h>
 
-#define DEBUG_MAXIM_DSM_POWER
+//#define DEBUG_MAXIM_DSM_POWER
 #ifdef DEBUG_MAXIM_DSM_POWER
 #define dbg_maxdsm(format, args...)	\
 pr_info("[MAXIM_DSM_POWER] %s: " format "\n", __func__, ## args)

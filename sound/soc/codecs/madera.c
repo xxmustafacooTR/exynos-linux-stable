@@ -145,7 +145,7 @@
 #define MADERA_FMT_DSP_MODE_B			1
 #define MADERA_FMT_I2S_MODE			2
 #define MADERA_FMT_LEFT_JUSTIFIED_MODE		3
-
+ /*
 #define madera_fll_err(_fll, fmt, ...) \
 	dev_err(_fll->madera->dev, "FLL%d: " fmt, _fll->id, ##__VA_ARGS__)
 #define madera_fll_warn(_fll, fmt, ...) \
@@ -163,6 +163,17 @@
 	dev_info(_dai->dev, "AIF%d: " fmt, _dai->id, ##__VA_ARGS__)
 #define madera_aif_dbg(_dai, fmt, ...) \
 	dev_dbg(_dai->dev, "AIF%d: " fmt, _dai->id, ##__VA_ARGS__)
+*/
+
+#define madera_fll_err(_fll, fmt, ...)
+#define madera_fll_warn(_fll, fmt, ...)
+#define madera_fll_info(_fll, fmt, ...)
+#define madera_fll_dbg(_fll, fmt, ...)
+
+#define madera_aif_err(_dai, fmt, ...)
+#define madera_aif_warn(_dai, fmt, ...)
+#define madera_aif_info(_dai, fmt, ...)
+#define madera_aif_dbg(_dai, fmt, ...)
 
 static const int madera_dsp_bus_error_irqs[MADERA_MAX_ADSP] = {
 	MADERA_IRQ_DSP1_BUS_ERR,

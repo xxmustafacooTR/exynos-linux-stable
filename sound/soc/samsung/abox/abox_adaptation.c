@@ -20,7 +20,7 @@
 #define TIMEOUT_MS 130
 #define READ_WRITE_ALL_PARAM 0
 
-#define DEBUG_ABOX_ADAPTATION
+//#define DEBUG_ABOX_ADAPTATION
 
 #ifdef DEBUG_ABOX_ADAPTATION
 #define dbg_abox_adaptation(format, args...)	\
