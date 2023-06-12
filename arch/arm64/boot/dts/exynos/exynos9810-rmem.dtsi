@@ -18,34 +18,9 @@
 		#size-cells = <1>;
 		ranges;
 
-		abox_rmem: abox_rmem@0xEA800000 {
-			compatible = "exynos,abox_rmem";
-			reg = <0x0 0xFB200000 0x400000>;
-		};
-
 		modem_if {
 			compatible = "exynos,modem_if";
 			reg = <0x0 0xF0000000 0x9200000>;
-		};
-
-		zswap_debug {
-			compatible = "exynos,zswap_debug";
-			reg = <0x0 0x91300000 0x1000>;
-		};
-
-		sec_debug_magic {
-			compatible = "exynos,sec_debug_magic";
-			reg = <0x0 0x80000000 0x1000>;
-		};
-
-		tima_mem: tima_region@0xB8000000 {
-			compatible = "removed-dma-pool";
-			reg = <0x0 0xB8000000 0x200000>;
-		};
-
-		seclog_mem {
-			compatible = "exynos,seclog";
-			reg = <0x0 0xC0000000 0x80000>;
 		};
 
 		video_stream {
