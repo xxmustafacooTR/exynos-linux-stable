@@ -2482,7 +2482,113 @@ unlock:
 
 	return best_cpu;
 }
+
+static ssize_t show_frt_boost_threshold(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 10, "%u\n", sched_rt_boost_threshold);
+}
+
+static ssize_t store_frt_boost_threshold(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	int input;
+
+	if (!sscanf(buf, "%d", &input))
+		return -EINVAL;
+
+	input = input < 0 ? 0 : input;
+	input = input > 1024 ? 1024 : input;
+
+	sched_rt_boost_threshold = input;
+
+	return count;
+}
+
+static struct kobj_attribute frt_boost_threshold_attr =
+__ATTR(boost_frt_threshold, 0644, show_frt_boost_threshold,
+		store_frt_boost_threshold);
 #endif
+
+static ssize_t show_switch_rt_load_ratio(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 10, "%u\n", sched_switch_to_rt_load_ratio);
+}
+
+static ssize_t store_switch_rt_load_ratio(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	int input;
+
+	if (!sscanf(buf, "%d", &input))
+		return -EINVAL;
+
+	input = input < 0 ? 0 : input;
+
+	sched_switch_to_rt_load_ratio = input;
+
+	return count;
+}
+
+static ssize_t show_switch_fair_load_ratio(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 10, "%u\n", sched_switch_to_fair_load_ratio);
+}
+
+static ssize_t store_switch_fair_load_ratio(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	int input;
+
+	if (!sscanf(buf, "%d", &input))
+		return -EINVAL;
+
+	input = input < 0 ? 0 : input;
+
+	sched_switch_to_fair_load_ratio = input;
+
+	return count;
+}
+
+static ssize_t show_rt_ratio_for_freq(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 10, "%u\n", 100 - sched_rt_remove_ratio_for_freq);
+}
+
+static ssize_t store_rt_ratio_for_freq(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	int input;
+
+	if (!sscanf(buf, "%d", &input))
+		return -EINVAL;
+
+	input = input < 0 ? 0 : input;
+	input = input > 100 ? 100 : input;
+
+	sched_rt_remove_ratio_for_freq = 100 - input;
+
+	return count;
+}
+
+static struct kobj_attribute switch_fair_load_ratio_attr =
+__ATTR(switch_fair_load_ratio, 0644, show_switch_fair_load_ratio,
+		store_switch_fair_load_ratio);
+
+static struct kobj_attribute switch_rt_load_ratio_attr =
+__ATTR(switch_rt_load_ratio, 0644, show_switch_rt_load_ratio,
+		store_switch_rt_load_ratio);
+
+static struct kobj_attribute rt_ratio_for_freq_attr =
+__ATTR(rt_ratio_for_freq, 0644, show_rt_ratio_for_freq,
+		store_rt_ratio_for_freq);
 
 static int find_lowest_rq(struct task_struct *task)
 {
@@ -3270,3 +3376,33 @@ void print_rt_stats(struct seq_file *m, int cpu)
 	rcu_read_unlock();
 }
 #endif /* CONFIG_SCHED_DEBUG */
+
+/**********************************************************************
+ * Sysfs                                                              *
+ **********************************************************************/
+static struct attribute *ert_attrs[] = {
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+	&frt_boost_threshold_attr.attr,
+#endif
+	&switch_fair_load_ratio_attr.attr,
+	&switch_rt_load_ratio_attr.attr,
+	&rt_ratio_for_freq_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ert_group = {
+	.attrs = ert_attrs,
+};
+
+static struct kobject *ert_kobj;
+
+static int init_sysfs(void)
+{
+	int ret;
+
+	ert_kobj = kobject_create_and_add("ert", kernel_kobj);
+	ret = sysfs_create_group(ert_kobj, &ert_group);
+
+	return 0;
+}
+late_initcall(init_sysfs);
