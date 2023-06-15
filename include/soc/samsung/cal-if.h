@@ -45,6 +45,7 @@ extern int cal_cluster_status(unsigned int cluster);
 extern unsigned int cal_dfs_get(char *name);
 extern unsigned long cal_dfs_get_max_freq(unsigned int id);
 extern unsigned long cal_dfs_get_min_freq(unsigned int id);
+extern int __cal_dfs_set_rate(unsigned int id, unsigned long rate);
 extern int cal_dfs_set_rate(unsigned int id, unsigned long rate);
 extern int cal_dfs_set_rate_switch(unsigned int id, unsigned long switch_rate);
 extern unsigned long cal_dfs_cached_get_rate(unsigned int id);

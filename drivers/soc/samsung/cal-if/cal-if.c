@@ -46,7 +46,7 @@ int cal_dfs_get_bigturbo_max_freq(unsigned int *table)
 	return vclk_get_bigturbo_table(table);
 }
 
-int cal_dfs_set_rate(unsigned int id, unsigned long rate)
+int __cal_dfs_set_rate(unsigned int id, unsigned long rate)
 {
 	struct vclk *vclk;
 	int ret;
@@ -63,6 +63,11 @@ int cal_dfs_set_rate(unsigned int id, unsigned long rate)
 	}
 
 	return ret;
+}
+
+int cal_dfs_set_rate(unsigned int id, unsigned long rate)
+{
+	return __cal_dfs_set_rate(id, rate);
 }
 
 int cal_dfs_set_rate_switch(unsigned int id, unsigned long switch_rate)
