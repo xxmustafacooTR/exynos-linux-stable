@@ -225,6 +225,10 @@ int gpex_get_valid_gpu_clock(int clock, bool is_round_up);
  */
 bool gpex_clock_get_unlock_freqs_status(void);
 
+/**
+ * gpex_clock_update_config_data_from_dt() - update gpu table
+ */
+int gpex_clock_update_config_data_from_dt(void);
 /**************************************
  * MUTEX
  *************************************/
