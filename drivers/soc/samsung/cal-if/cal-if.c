@@ -3,6 +3,7 @@
 #include <soc/samsung/ect_parser.h>
 #include <soc/samsung/cal-if.h>
 #include <soc/samsung/acpm_mfd.h>
+#include <linux/gaming_control.h>
 
 #include "pwrcal-env.h"
 #include "pwrcal-rae.h"
@@ -67,6 +68,9 @@ int __cal_dfs_set_rate(unsigned int id, unsigned long rate)
 
 int cal_dfs_set_rate(unsigned int id, unsigned long rate)
 {
+	if (cal_dfs_check_gaming_mode(id))
+		return 0;
+
 	return __cal_dfs_set_rate(id, rate);
 }
 
@@ -101,6 +105,10 @@ unsigned long cal_dfs_get_rate(unsigned int id)
 {
 	int ret;
 
+	ret = cal_dfs_check_gaming_mode(id);
+	if (ret)
+		return ret;
+
 	ret = vclk_recalc_rate(id);
 
 	return ret;
@@ -119,6 +127,9 @@ int cal_clk_setrate(unsigned int id, unsigned long rate)
 {
 	int ret = -EINVAL;
 
+	if (cal_dfs_check_gaming_mode(id))
+		return 0;
+
 	ret = vclk_set_rate(id, rate);
 
 	return ret;
@@ -127,6 +138,10 @@ int cal_clk_setrate(unsigned int id, unsigned long rate)
 unsigned long cal_clk_getrate(unsigned int id)
 {
 	int ret = 0;
+
+	ret = cal_dfs_check_gaming_mode(id);
+	if (ret)
+		return ret;
 
 	ret = vclk_recalc_rate(id);
 
