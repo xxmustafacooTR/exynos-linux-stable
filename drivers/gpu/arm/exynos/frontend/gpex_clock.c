@@ -379,7 +379,11 @@ void gpex_clock_term()
 
 int gpex_clock_get_table_idx(int clock)
 {
+	int fake_freq = fake_freq_gaming(DVFS_G3D);
 	int i;
+
+	if (fake_freq)
+		clock = fake_freq;
 
 	if (clock < clk_info.gpu_min_clock)
 		return -1;
