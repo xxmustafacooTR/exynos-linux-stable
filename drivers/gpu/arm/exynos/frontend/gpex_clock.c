@@ -243,7 +243,7 @@ static int gpex_clock_set_helper(int clock)
 
 	clk_idx = gpex_clock_get_table_idx(clock);
 	if (clk_idx < 0) {
-		GPU_LOG(MALI_EXYNOS_ERROR, "%s: mismatch clock error (%d)\n", __func__, clock);
+		GPU_LOG(MALI_EXYNOS_DEBUG, "%s: mismatch clock error (%d)\n", __func__, clock);
 		return -1;
 	}
 

@@ -150,7 +150,7 @@ static void gpu_dvfs_timer_control(bool timer_state)
 	unsigned long flags;
 
 	if (!dvfs.status) {
-		GPU_LOG(MALI_EXYNOS_ERROR, "%s: DVFS is disabled\n", __func__);
+		GPU_LOG(MALI_EXYNOS_DEBUG, "%s: DVFS is disabled\n", __func__);
 		return;
 	}
 	if (dvfs.timer_active && !timer_state) {
