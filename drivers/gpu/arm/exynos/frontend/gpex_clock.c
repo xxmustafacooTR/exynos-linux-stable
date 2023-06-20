@@ -82,10 +82,12 @@ bool gpex_clock_get_unlock_freqs_status()
  ******************************************/
 static int gpex_clock_update_config_data_from_dt()
 {
+	dt_clock_item *dt_clock_table = gpexbe_devicetree_get_clock_table();
 	int ret = 0;
 	struct freq_volt *fv_array;
 	int asv_lv_num;
 	int i, j;
+	int new_size;
 
 	clk_info.gpu_max_clock = gpexbe_devicetree_get_int(gpu_max_clock);
 	clk_info.gpu_min_clock = gpexbe_devicetree_get_int(gpu_min_clock);
@@ -93,8 +95,11 @@ static int gpex_clock_update_config_data_from_dt()
 	clk_info.gpu_max_clock_limit = gpexbe_clock_get_max_freq();
 
 	/* TODO: rename the table_size variable to something more sensible like  row_cnt */
-	clk_info.table_size = gpexbe_devicetree_get_int(gpu_dvfs_table_size.row);
-	clk_info.table = kcalloc(clk_info.table_size, sizeof(gpu_clock_info), GFP_KERNEL);
+	new_size = gpexbe_devicetree_get_int(gpu_dvfs_table_size.row);
+	if (!clk_info.table || clk_info.table_size != new_size) {
+		clk_info.table_size = new_size;
+		clk_info.table = kcalloc(clk_info.table_size, sizeof(gpu_clock_info), GFP_KERNEL);
+	}
 
 	asv_lv_num = gpexbe_clock_get_level_num();
 	fv_array = kcalloc(asv_lv_num, sizeof(*fv_array), GFP_KERNEL);
@@ -106,18 +111,12 @@ static int gpex_clock_update_config_data_from_dt()
 	if (!ret)
 		GPU_LOG(MALI_EXYNOS_ERROR, "Failed to get G3D ASV table from CAL IF\n");
 
-	for (i = 0; i < asv_lv_num; i++) {
-		int cal_freq = fv_array[i].freq;
-		int cal_vol = fv_array[i].volt;
-		dt_clock_item *dt_clock_table = gpexbe_devicetree_get_clock_table();
-
-		if (cal_freq <= clk_info.gpu_max_clock && cal_freq >= clk_info.gpu_min_clock) {
-			for (j = 0; j < clk_info.table_size; j++) {
-				if (cal_freq == dt_clock_table[j].clock) {
-					clk_info.table[j].clock = cal_freq;
-					clk_info.table[j].voltage = cal_vol;
-				}
-			}
+	for (j = 0; j < clk_info.table_size; j++) {
+		if (dt_clock_table[j].clock <= clk_info.gpu_max_clock && dt_clock_table[j].clock >= clk_info.gpu_min_clock) {
+			clk_info.table[j].clock = dt_clock_table[j].clock;
+			for (i = 0; i < asv_lv_num; i++)
+				if (fv_array[i].freq == clk_info.table[j].clock)
+					clk_info.table[j].voltage = fv_array[i].volt;
 		}
 	}
 
