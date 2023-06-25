@@ -21,7 +21,16 @@ ccflags-y += $(DISABLE_LTO)
 
 # Force -O2 to avoid libgcc dependencies
 CFLAGS_REMOVE_vgettimeofday.o = -pg -Os
-CFLAGS_vgettimeofday.o = -O2 -fPIC
+CFLAGS_vgettimeofday.o = -fPIC
+ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
+CFLAGS_vgettimeofday.o += -O2
+else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3
+CFLAGS_vgettimeofday.o += -O3
+else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_UNSAFE
+CFLAGS_vgettimeofday.o += -Ofast -ffast-math -funsafe-math-optimizations
+else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+CFLAGS_vgettimeofday.o += -Os
+endif
 ifneq ($(cc-name),clang)
 CFLAGS_vgettimeofday.o += -mcmodel=tiny
 endif
