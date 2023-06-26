@@ -38,6 +38,11 @@ dts_erofs() {
 		DTB_NAME="Dtb-erofs"
 }
 
+clean_external() {
+	cd $CUR_DIR
+	rm -rf .*-fetch-lock drivers/kernelsu/.check net/wireguard/.check
+}
+
 clean_temp() {
 	cd $CUR_DIR
 	rm -rf vmlinux.* drivers/gator_5.27/gator_src_md5.h scripts/dtbtool_exynos/dtbtool arch/arm64/boot/dtb.img arch/arm64/boot/dts/exynos/*dtb* arch/arm64/configs/exynos9810_temp_defconfig
@@ -55,6 +60,14 @@ clean_prebuilt() {
 	rm -rf $ZIP_DIR/Kernel-aosp-ksu/crownlte/zImage $ZIP_DIR/Kernel-aosp-ksu/star2lte/zImage $ZIP_DIR/Kernel-aosp-ksu/starlte/zImage
 	rm -rf $ZIP_DIR/Kernel-stock/crownlte/zImage $ZIP_DIR/Kernel-stock/star2lte/zImage $ZIP_DIR/Kernel-stock/starlte/zImage
 	rm -rf $ZIP_DIR/Kernel-stock-ksu/crownlte/zImage $ZIP_DIR/Kernel-stock-ksu/star2lte/zImage $ZIP_DIR/Kernel-stock-ksu/starlte/zImage
+}
+
+clean() {
+	cd $CUR_DIR
+	clean_temp
+    clean_external
+    make -j$(nproc) clean
+    make -j$(nproc) mrproper
 }
 
 patch_kernelsu() {

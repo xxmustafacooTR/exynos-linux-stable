@@ -3,19 +3,19 @@
 . variables.sh
 
 printf "Cleaning\n"
-clean_temp
 cd $CUR_DIR
 if [ ! -z "$1" ]
 then 
   if [ "$1" == "all" ]; then
 	clean_prebuilt
-	make -j$(nproc) clean
-	make -j$(nproc) mrproper
+	clean
 	git reset --hard
+  elif [ "$1" == "lite" ]; then
+    clean_temp
+    clean_external
   elif [ "$1" == "zip" ]; then
     clean_prebuilt
   fi
 else
-  make -j$(nproc) clean
-  make -j$(nproc) mrproper
+  clean
 fi
