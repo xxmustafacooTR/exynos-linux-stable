@@ -692,6 +692,50 @@ int fvmap_patch(unsigned int dvfs_type, unsigned int rate, unsigned int volt)
 	return ret;
 }
 
+static unsigned int read_fvmap(void __iomem *map_base, unsigned int dvfs_type, int mode, unsigned int value)
+{
+	volatile struct fvmap_header *fvmap_header;
+	struct rate_volt_header *rvh;
+	int size, rest;
+	int i, j;
+	unsigned int ret = 0;
+
+	fvmap_header = map_base;
+	size = cmucal_get_list_size(ACPM_VCLK_TYPE);
+
+	if (mode == READ_RATE)
+		if ((rest = value % STEP_UV) != 0) 
+				value += STEP_UV - rest;
+
+	for (i = 0; i < size; i++) {
+		if (fvmap_header[i].dvfs_type == dvfs_type) {
+			rvh = map_base + fvmap_header[i].o_ratevolt;
+
+			for (j = 0; j < fvmap_header[i].num_of_lv; j++) {
+				if (mode == READ_VOLT && rvh->table[j].rate == value) {
+					ret = rvh->table[j].volt;
+					break;
+				} else if (mode == READ_RATE && rvh->table[j].volt == value) {
+					ret = rvh->table[j].rate;
+					break;
+				}
+			}
+		}
+	}
+
+	return ret;
+}
+
+unsigned int fvmap_read(unsigned int dvfs_type, int mode, unsigned int value)
+{
+	unsigned int ret;
+	
+	ret = read_fvmap(fvmap_base, dvfs_type, mode, value);
+	if (!ret)
+		ret = read_fvmap(sram_fvmap_base, dvfs_type, mode, value);
+
+	return ret;
+}
 static ssize_t show_patch(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	return print_fvmap(buf, 2, 5); /* Only Print CL0/CL1/G3D to Buffer */
