@@ -337,11 +337,9 @@ static int __exynos_cpufreq_target(struct cpufreq_policy *policy,
 	if (!domain->enabled)
 		goto out;
 
-	if (domain->old != get_freq(domain)) {
+	if (domain->old != get_freq(domain))
 		pr_err("oops, inconsistency between domain->old:%d, real clk:%d\n",
 			domain->old, get_freq(domain));
-		BUG_ON(1);
-	}
 
 	/*
 	 * Update target_freq.

@@ -142,11 +142,9 @@ void exynos_hpgov_validate_scale(unsigned int cpu, unsigned int target_freq)
 	cur_mode = cpumask_weight(&mask);
 	max_freq = exynos_hpgov.maxfreq_table[cur_mode];
 
-	if (max_freq < target_freq) {
+	if (max_freq < target_freq)
 		pr_info("%s: max_freq %u, target_freq %u, cur_mode %d\n",
 			__func__, max_freq, target_freq, cur_mode);
-		BUG_ON(true);
-	}
 
 	return;
 }
@@ -167,8 +165,6 @@ void exynos_hpgov_validate_hpin(unsigned int cpu)
 	cur_freq = (unsigned int)cal_dfs_get_rate(exynos_hpgov.cal_id);
 	pr_info("%s: max_freq %d, cur_freq %d, next_mode %d \n",
 			__func__, max_freq, cur_freq, next_mode);
-
-	BUG_ON(max_freq < cur_freq);
 
 	return;
 }
