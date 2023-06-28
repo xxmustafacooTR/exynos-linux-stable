@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017-2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -60,6 +60,17 @@ int kbase_ctx_sched_init(struct kbase_device *kbdev);
 void kbase_ctx_sched_term(struct kbase_device *kbdev);
 
 /**
+ * kbase_ctx_sched_ctx_init - Initialize per-context data fields for scheduling
+ * @kctx: The context to initialize
+ *
+ * This must be called during context initialization before any other context
+ * scheduling functions are called on @kctx
+ *
+ * Return: 0
+ */
+int kbase_ctx_sched_init_ctx(struct kbase_context *kctx);
+
+/**
  * kbase_ctx_sched_retain_ctx - Retain a reference to the @ref kbase_context
  * @kctx: The context to which to retain a reference
  *
@@ -69,9 +80,6 @@ void kbase_ctx_sched_term(struct kbase_device *kbdev);
  *
  * It can be called as many times as necessary. The address space will be
  * assigned to the context for as long as there is a reference to said context.
- *
- * The kbase_device::mmu_hw_mutex and kbase_device::hwaccess_lock locks must be
- * held whilst calling this function.
  *
  * Return: The address space that the context has been assigned to or
  *         KBASEP_AS_NR_INVALID if no address space was available.
