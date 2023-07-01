@@ -23,6 +23,7 @@ touch .check
 
 # You can patch for your kernel here
 echo "" >> Makefile
-echo "KSU_GIT_VERSION := $VERSION" >> Makefile
-echo 'ccflags-y += -DKSU_GIT_VERSION=$(KSU_GIT_VERSION)' >> Makefile
+sed -i '/warning /d' Makefile
+sed -i '/DKSU_VERSION/d' Makefile
+echo "ccflags-y += -DKSU_VERSION=$((10000 + $VERSION + 200))" >> Makefile
 gawk -i inplace '/11,/{c++;if(c==2||c==3){sub("11,","9,");}}1' sucompat.c
