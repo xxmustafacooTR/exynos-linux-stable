@@ -15,8 +15,6 @@ if [ ! -z "$1" ]
 then  
   if [ "$1" == "stock" ]; then
     patch_stock
-  elif [ "$1" == "a11" ]; then
-	patch_wifi
   elif [ "$1" == "aosp" ]; then
 	patch_aosp
   fi
