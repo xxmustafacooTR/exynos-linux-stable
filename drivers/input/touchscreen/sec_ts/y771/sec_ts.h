@@ -881,9 +881,6 @@ struct sec_ts_data {
 	int irq_unhandled;
 
 #ifdef USE_PRESSURE_SENSOR
-#ifdef CONFIG_CUSTOM_FORCETOUCH
-	bool pressure_status;
-#endif
 	short pressure_left;
 	short pressure_center;
 	short pressure_right;
