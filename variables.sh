@@ -109,6 +109,7 @@ patch_stock() {
 patch_aosp() {
 		printf "Patching Cached Defconfig For AOSP Base\n"
 		sed -i 's/CONFIG_USB_ANDROID_SAMSUNG_MTP=y/# CONFIG_USB_ANDROID_SAMSUNG_MTP is not set/g' "$CUR_DIR"/.config
+		sed -i 's/CONFIG_EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS=y/# CONFIG_EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS is not set/g' "$CUR_DIR"/.config
 		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK=y/# CONFIG_ZRAM_LRU_WRITEBACK is not set/g' "$CUR_DIR"/.config
 		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=5120/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=1024/g' "$CUR_DIR"/.config
 		KERNEL_NAME="Kernel-aosp"
