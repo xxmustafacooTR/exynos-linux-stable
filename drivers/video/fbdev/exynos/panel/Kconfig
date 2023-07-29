@@ -7,6 +7,11 @@ config EXYNOS_DECON_MDNIE_LITE
 	tristate "Support MDNIE LITE"
 	default n
 
+config EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS
+	depends on EXYNOS_DECON_MDNIE_LITE
+	tristate "RGB tuning restrictions"
+	default y
+
 config SUPPORT_AFC
 	depends on EXYNOS_DECON_LCD && EXYNOS_DECON_MDNIE_LITE
 	tristate "Support AFC"
