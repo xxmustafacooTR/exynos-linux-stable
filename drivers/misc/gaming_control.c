@@ -24,6 +24,8 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
+#include <linux/workqueue.h>
+#include <linux/regulator/consumer.h>
 #include <linux/gaming_control.h>
 #include <soc/samsung/cal-if.h>
 #include <soc/samsung/exynos-cpu_hotplug.h>
@@ -33,6 +35,11 @@
 
 #define DEFAULT_CPU_LIMIT 1794000
 #define TEMP_EMULATION 20000
+#define STEP_UV			(6250)
+
+static struct delayed_work customs_delayed_work;
+
+static struct regulator *little_regulator, *big_regulator, *g3d_regulator;
 
 extern unsigned long arg_cpu_max_c1;
 extern unsigned long arg_cpu_min_c1;
@@ -73,6 +80,66 @@ pid_t games_pid[NUM_SUPPORTED_RUNNING_GAMES] = {
 	[0 ... (NUM_SUPPORTED_RUNNING_GAMES - 1)] = -1
 };
 
+static inline void set_custom_gaming_mode(void)
+{
+	unsigned int little_freq = max_little_freq;
+	unsigned int big_freq = max_big_freq;
+	unsigned int gpu_freq = max_gpu_freq;
+
+	gaming_mode_initialized = gaming_mode;
+
+	if (custom_little_freq) {
+		if (custom_little_freq <= arg_cpu_min_c1)
+			little_freq = arg_cpu_min_c1;
+		else if (custom_little_freq >= arg_cpu_max_c1)
+			little_freq = arg_cpu_max_c1;
+
+		__cal_dfs_set_rate(ACPM_DVFS_CPUCL0, gaming_mode ? custom_little_freq : little_freq);
+		__cal_dfs_set_rate(VCLK_CLUSTER0, (gaming_mode ? custom_little_freq : little_freq) * 1000);
+		__cal_dfs_set_rate(PLL_CPUCL0, (gaming_mode ? custom_little_freq : little_freq) * 1000);
+	}
+
+	if (custom_big_freq) {
+		if (custom_big_freq <= arg_cpu_min_c2) {
+			big_freq = arg_cpu_min_c2;
+		} else if (custom_big_freq >= arg_cpu_max_c2) {
+			if (gaming_mode || DEFAULT_CPU_LIMIT > arg_cpu_max_c2)
+				big_freq = arg_cpu_max_c2;
+			else
+				big_freq = DEFAULT_CPU_LIMIT;
+		}
+
+		__cal_dfs_set_rate(ACPM_DVFS_CPUCL1, gaming_mode ? custom_big_freq : big_freq);
+		__cal_dfs_set_rate(VCLK_CLUSTER1, (gaming_mode ? custom_big_freq : big_freq) * 1000);
+		__cal_dfs_set_rate(PLL_CPUCL1, (gaming_mode ? custom_big_freq : big_freq) * 1000);
+	}
+
+	if (custom_gpu_freq) {
+		if (custom_gpu_freq <= arg_gpu_min)
+			gpu_freq = arg_gpu_min;
+		else if (custom_gpu_freq >= arg_gpu_max)
+			gpu_freq = arg_gpu_max;
+
+		__cal_dfs_set_rate(ACPM_DVFS_G3D, gaming_mode ? custom_gpu_freq : gpu_freq);
+		__cal_dfs_set_rate(VCLK_GPU, (gaming_mode ? custom_gpu_freq : gpu_freq) * 1000);
+		__cal_dfs_set_rate(PLL_G3D, (gaming_mode ? custom_gpu_freq : gpu_freq) * 1000);
+	}
+}
+
+static void set_custom_gaming_mode_handler(struct work_struct *work)
+{
+	if (gaming_mode && little_regulator && big_regulator && g3d_regulator) {
+		if ((!custom_little_voltage || abs(custom_little_voltage - regulator_get_voltage(little_regulator)) < STEP_UV)
+			&& (!custom_big_voltage || abs(custom_big_voltage - regulator_get_voltage(big_regulator)) < STEP_UV)
+			&& (!custom_gpu_voltage || abs(custom_gpu_voltage - regulator_get_voltage(g3d_regulator)) < STEP_UV))
+			set_custom_gaming_mode();
+		else
+			queue_delayed_work(system_power_efficient_wq, &customs_delayed_work, msecs_to_jiffies(1000));
+	} else if (gaming_mode_initialized || little_regulator == NULL || big_regulator == NULL || g3d_regulator == NULL) {
+		set_custom_gaming_mode();
+	}
+}
+
 static inline void set_gaming_mode(bool mode, bool force)
 {
 	unsigned int little_max, little_min, big_max, big_min, gpu_max, gpu_min;
@@ -85,8 +152,10 @@ static inline void set_gaming_mode(bool mode, bool force)
 	else
 		gaming_mode = mode;
 
-	if (!mode)
-		gaming_mode_initialized = 0;
+	if (!mode) {
+		cancel_delayed_work_sync(&customs_delayed_work);
+		set_custom_gaming_mode();
+	}
 
 	little_max = max_little_freq;
 	little_min = min_little_freq;
@@ -168,25 +237,7 @@ static inline void set_gaming_mode(bool mode, bool force)
 	gpu_custom_min_clock(mode ? gpu_min : 0);
 
 	if (mode)
-		gaming_mode_initialized = 1;
-
-	if (custom_little_freq) {
-		__cal_dfs_set_rate(ACPM_DVFS_CPUCL0, mode ? custom_little_freq : little_max);
-		__cal_dfs_set_rate(VCLK_CLUSTER0, (mode ? custom_little_freq : little_max) * 1000);
-		__cal_dfs_set_rate(PLL_CPUCL0, (mode ? custom_little_freq : little_max) * 1000);
-	}
-
-	if (custom_big_freq) {
-		__cal_dfs_set_rate(ACPM_DVFS_CPUCL1, mode ? custom_big_freq : big_max);
-		__cal_dfs_set_rate(VCLK_CLUSTER1, (mode ? custom_big_freq : big_max) * 1000);
-		__cal_dfs_set_rate(PLL_CPUCL1, (mode ? custom_big_freq : big_max) * 1000);
-	}
-
-	if (custom_gpu_freq) {
-		__cal_dfs_set_rate(ACPM_DVFS_G3D, mode ? custom_gpu_freq : gpu_max);
-		__cal_dfs_set_rate(VCLK_GPU, (mode ? custom_gpu_freq : gpu_max) * 1000);
-		__cal_dfs_set_rate(PLL_G3D, (mode ? custom_gpu_freq : gpu_max) * 1000);
-	}
+		set_custom_gaming_mode_handler(NULL);
 }
 
 unsigned long cal_dfs_check_gaming_mode(unsigned int id) {
@@ -516,9 +567,23 @@ static struct attribute_group gaming_control_control_group = {
 
 static struct kobject *gaming_control_kobj;
 
-static int gaming_control_init(void)
+static int __init gaming_control_init(void)
 {
 	int sysfs_result;
+
+	little_regulator = regulator_get(NULL, "vdd_cpucl0");
+	if (IS_ERR(little_regulator))
+		little_regulator = NULL;
+
+	big_regulator = regulator_get(NULL, "vdd_cpucl1");
+	if (IS_ERR(big_regulator))
+		big_regulator = NULL;
+
+	g3d_regulator = regulator_get(NULL, "vdd_g3d");
+	if (IS_ERR(g3d_regulator))
+		g3d_regulator = NULL;
+
+	INIT_DELAYED_WORK(&customs_delayed_work, set_custom_gaming_mode_handler);
 
 	pm_qos_add_request(&gaming_control_min_int_qos, PM_QOS_DEVICE_THROUGHPUT, PM_QOS_DEVICE_THROUGHPUT_DEFAULT_VALUE);
 	pm_qos_add_request(&gaming_control_min_mif_qos, PM_QOS_BUS_THROUGHPUT, PM_QOS_BUS_THROUGHPUT_DEFAULT_VALUE);
@@ -545,8 +610,10 @@ static int gaming_control_init(void)
 }
 
 
-static void gaming_control_exit(void)
+static void __exit gaming_control_exit(void)
 {
+	cancel_delayed_work_sync(&customs_delayed_work);
+
 	pm_qos_remove_request(&gaming_control_min_int_qos);
 	pm_qos_remove_request(&gaming_control_min_mif_qos);
 	pm_qos_remove_request(&gaming_control_min_little_qos);
