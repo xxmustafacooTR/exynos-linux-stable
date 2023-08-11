@@ -72,45 +72,44 @@ clean() {
 
 patch_kernelsu() {
 		printf "Enabling KernelSU\n"
-		sed -i 's/# CONFIG_KSU is not set/CONFIG_KSU=y/g' "$CUR_DIR"/.config
-		echo '# CONFIG_KSU_DEBUG is not set' >> "$CUR_DIR"/.config
+		sed -i 's/# CONFIG_KSU is not set/CONFIG_KSU=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		KERNEL_NAME="$KERNEL_NAME-ksu"
 }
 
 patch_wifi() {
 		printf "Patching Wifi to Old Driver\n"
-		sed -i 's/CONFIG_BCMDHD_101_16=y/# CONFIG_BCMDHD_101_16 is not set/g' "$CUR_DIR"/.config
-		sed -i 's/# CONFIG_BCMDHD_100_15 is not set/CONFIG_BCMDHD_100_15=y/g' "$CUR_DIR"/.config
+		sed -i 's/CONFIG_BCMDHD_101_16=y/# CONFIG_BCMDHD_101_16 is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_BCMDHD_100_15 is not set/CONFIG_BCMDHD_100_15=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		KERNEL_NAME="Kernel-a11"
 }
 
 patch_stock() {
 		printf "Patching Cached Defconfig For Stock Rom\n"
-		sed -i 's/CONFIG_SECURITY_SELINUX_NEVER_ENFORCE=y/# CONFIG_SECURITY_SELINUX_NEVER_ENFORCE is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_HALL_NEW_NODE=y/# CONFIG_HALL_NEW_NODE is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_NETFILTER_XT_MATCH_OWNER=y/# CONFIG_NETFILTER_XT_MATCH_OWNER is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_NETFILTER_XT_MATCH_L2TP=y/# CONFIG_NETFILTER_XT_MATCH_L2TP is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_L2TP=y/# CONFIG_L2TP is not set/g' "$CUR_DIR"/.config
-		sed -i 's/# CONFIG_NET_SCH_NETEM is not set/CONFIG_NET_SCH_NETEM=y/g' "$CUR_DIR"/.config
-		sed -i 's/# CONFIG_NET_CLS_CGROUP is not set/CONFIG_NET_CLS_CGROUP=y/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_NET_CLS_BPF=y/# CONFIG_NET_CLS_BPF is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_VSOCKETS=y/# CONFIG_VSOCKETS is not set/g' "$CUR_DIR"/.config
-		sed -i 's/# CONFIG_CGROUP_NET_CLASSID is not set/CONFIG_CGROUP_NET_CLASSID=y/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_CUSTOM_FORCETOUCH=y/# CONFIG_CUSTOM_FORCETOUCH is not set/g' "$CUR_DIR"/.config
+		sed -i 's/CONFIG_SECURITY_SELINUX_NEVER_ENFORCE=y/# CONFIG_SECURITY_SELINUX_NEVER_ENFORCE is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_HALL_NEW_NODE=y/# CONFIG_HALL_NEW_NODE is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_NETFILTER_XT_MATCH_OWNER=y/# CONFIG_NETFILTER_XT_MATCH_OWNER is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_NETFILTER_XT_MATCH_L2TP=y/# CONFIG_NETFILTER_XT_MATCH_L2TP is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_L2TP=y/# CONFIG_L2TP is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_NET_SCH_NETEM is not set/CONFIG_NET_SCH_NETEM=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_NET_CLS_CGROUP is not set/CONFIG_NET_CLS_CGROUP=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_NET_CLS_BPF=y/# CONFIG_NET_CLS_BPF is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_VSOCKETS=y/# CONFIG_VSOCKETS is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_CGROUP_NET_CLASSID is not set/CONFIG_CGROUP_NET_CLASSID=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_CUSTOM_FORCETOUCH=y/# CONFIG_CUSTOM_FORCETOUCH is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_NETFILTER_XT_MATCH_ONESHOT is not set/CONFIG_NETFILTER_XT_MATCH_ONESHOT=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		patch_wifi
-		echo "" >> "$CUR_DIR"/.config
-		echo "CONFIG_TCP_CONG_LIA=y" >> "$CUR_DIR"/.config
-		echo "CONFIG_TCP_CONG_OLIA=y" >> "$CUR_DIR"/.config
-		echo "CONFIG_NETFILTER_XT_MATCH_QTAGUID=y" >> "$CUR_DIR"/.config
-		echo "CONFIG_NETFILTER_XT_MATCH_ONESHOT=y" >> "$CUR_DIR"/.config
+		echo "" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		echo "CONFIG_TCP_CONG_LIA=y" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		echo "CONFIG_TCP_CONG_OLIA=y" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		echo "CONFIG_NETFILTER_XT_MATCH_QTAGUID=y" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		KERNEL_NAME="Kernel-stock"
 }
 
 patch_aosp() {
 		printf "Patching Cached Defconfig For AOSP Base\n"
-		sed -i 's/CONFIG_USB_ANDROID_SAMSUNG_MTP=y/# CONFIG_USB_ANDROID_SAMSUNG_MTP is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS=y/# CONFIG_EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK=y/# CONFIG_ZRAM_LRU_WRITEBACK is not set/g' "$CUR_DIR"/.config
-		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=5120/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=1024/g' "$CUR_DIR"/.config
+		sed -i 's/CONFIG_USB_ANDROID_SAMSUNG_MTP=y/# CONFIG_USB_ANDROID_SAMSUNG_MTP is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS=y/# CONFIG_EXYNOS_DECON_MDNIE_LITE_TUNE_RESTRICTIONS is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK=y/# CONFIG_ZRAM_LRU_WRITEBACK is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=5120/CONFIG_ZRAM_LRU_WRITEBACK_LIMIT=1024/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		KERNEL_NAME="Kernel-aosp"
 }

@@ -10,7 +10,6 @@ cat $CUR_DIR/arch/arm64/configs/exynos9810-starxlte_defconfig >> $CUR_DIR/arch/a
 echo "" >> $CUR_DIR/arch/arm64/configs/exynos9810_temp_defconfig
 cat $CUR_DIR/arch/arm64/configs/exynos9810-star2lte_defconfig >> $CUR_DIR/arch/arm64/configs/exynos9810_temp_defconfig
 
-make exynos9810_temp_defconfig -j$(nproc --all)
 if [ ! -z "$1" ]
 then  
   if [ "$1" == "stock" ]; then
@@ -30,6 +29,7 @@ else
   dts_ext4
 fi
 
+make exynos9810_temp_defconfig -j$(nproc --all)
 make -j$(nproc --all)
 
 printf $KERNEL_NAME
