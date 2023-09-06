@@ -1817,7 +1817,7 @@ static int exynos_ss_combine_pmsg(char *buffer, size_t count, unsigned int level
 			time_to_tm(logger.tv_sec, 0, &tmBuf);
 
 			logbuf_len = snprintf(logbuf, ESS_LOGGER_HEADER_SIZE,
-					"\n[%5lu.%06lu][%d:%16s] %02d-%02d %02d:%02d:%02d.%03d %5d %5d  ",
+					"\n[%5lu.%06lu][%d:%16s] %02d-%02d %02d:%02d:%02d.%03d %5d %5d ",
 					(unsigned long)tv_kernel, rem_nsec / 1000,
 					raw_smp_processor_id(), current->comm,
 					tmBuf.tm_mon + 1, tmBuf.tm_mday,
