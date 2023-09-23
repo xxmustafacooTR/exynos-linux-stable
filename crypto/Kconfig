@@ -1762,6 +1762,36 @@ config CRYPTO_USER_API_AEAD
 config CRYPTO_HASH_INFO
 	bool
 
+config CRYPTO_POST_DEFERRED_INIT
+	bool "FIPS POST via deferred_module_init"
+	default n
+	help
+	  This is FIPS 140-2 selftest timing indication,
+	  i.e. tcrypt_mod_init. FIPS requires automatic
+	  selftest without user's intervention.
+	  Only one CONFIG should be selected from following.
+	  POST_DEFERRED_INIT / POST_LATE_INIT_SYNC / POST_LATE_INIT / none
+
+config CRYPTO_POST_LATE_INIT_SYNC
+	bool "FIPS POST via late_initcall_sync"
+	default n
+	help
+	  This is FIPS 140-2 selftest timing indication,
+	  i.e. tcrypt_mod_init. FIPS requires automatic
+	  selftest without user's intervention.
+	  Only one CONFIG should be selected from following.
+	  POST_DEFERRED_INIT / POST_LATE_INIT_SYNC / POST_LATE_INIT / none
+
+config CRYPTO_POST_LATE_INIT
+	bool "FIPS POST via late_initcall"
+	default n
+	help
+	  This is FIPS 140-2 selftest timing indication,
+	  i.e. tcrypt_mod_init. FIPS requires automatic
+	  selftest without user's intervention.
+	  Only one CONFIG should be selected from following.
+	  POST_DEFERRED_INIT / POST_LATE_INIT_SYNC / POST_LATE_INIT / none
+
 source "drivers/crypto/Kconfig"
 source crypto/asymmetric_keys/Kconfig
 source certs/Kconfig
