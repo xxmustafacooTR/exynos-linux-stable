@@ -845,6 +845,12 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-isl-arg=--no-schedule-serialize-sccs
 endif
 
+ifdef CONFIG_LLVM_MLGO_REGISTER
+# Enable MLGO for register allocation. default, release, development
+KBUILD_CFLAGS	+= -mllvm -regalloc-enable-advisor=release \
+		   -mllvm -enable-local-reassign
+endif
+
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 KBUILD_CFLAGS += -O2
 KBUILD_LDFLAGS += -O2
