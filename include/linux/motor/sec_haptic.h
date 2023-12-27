@@ -69,17 +69,19 @@ struct sec_haptic_drvdata {
 	int ratio;
 	int normal_ratio;
 	int overdrive_ratio;
+	int high_temp_ratio;
+	int temperature;
 	int multi_frequency;
 	int packet_size;
 	int packet_cnt;
 	int freq_num;
+	const char *vib_type;
 	u16 max_timeout;
 	u32 period;
 	u32 intensity;
 	u32 timeout;
 	u32 max_duty;
 	u32 duty;
-	u32 *multi_freq_duty;
 	u32 *multi_freq_period;
 
 	int (*set_intensity)(void *data, u32 duty);

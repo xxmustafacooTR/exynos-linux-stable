@@ -42,18 +42,35 @@ struct max77865_haptic_pdata {
 	u16 reg2;
 	bool overdrive_state;
 	int gpio;
-	char *regulator_name;
+	const char *regulator_name;
 	unsigned int pwm_id;
+	const char *vib_type;
 
 	/* for multi-frequency */
 	int multi_frequency;
 	int freq_num;
-	u32 *multi_freq_duty;
 	u32 *multi_freq_period;
 	int normal_ratio;
 	int overdrive_ratio;
+	int high_temp_ratio;
+	int temperature;
 };
 #endif
+
+struct max77865_vibrator_pdata {
+	int gpio;
+	char *regulator_name;
+	struct pwm_device *pwm;
+	const char *motor_type;
+
+	int freq;
+	/* for multi-frequency */
+	int freq_nums;
+	u32 *freq_array;
+	u32 *ratio_array; /* not used now */
+	int normal_ratio;
+	int overdrive_ratio;
+};
 
 struct max77865_regulator_data {
 	int id;
@@ -66,10 +83,12 @@ struct max77865_platform_data {
 	int irq_base;
 	int irq_gpio;
 	bool wakeup;
+	bool extra_fw_enable;
 	struct muic_platform_data *muic_pdata;
 
 	int num_regulators;
 	struct max77865_regulator_data *regulators;
+	struct max77865_vibrator_pdata *vibrator_data;
 #if defined(CONFIG_MOTOR_DRV_MAX77865)
 	struct max77865_haptic_pdata *haptic_data;
 #endif

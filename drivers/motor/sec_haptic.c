@@ -17,24 +17,48 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sec_sysfs.h>
-#include <linux/sec_haptic.h>
+#include <linux/motor/sec_haptic.h>
 #if defined(CONFIG_SSP_MOTOR_CALLBACK)
 #include <linux/ssp_motorcallback.h>
+#endif
+#ifdef CONFIG_BATTERY_SAMSUNG
+#include "../battery_v2/include/sec_charging_common.h"
 #endif
 
 static struct sec_haptic_drvdata *pddata;
 
+#ifdef CONFIG_BATTERY_SAMSUNG
+static int sec_get_temperature_duty_ratio(struct sec_haptic_drvdata *ddata)
+{
+	union power_supply_propval value = {0, };
+	int ret = ddata->ratio;
+
+	psy_do_property("battery", get, POWER_SUPPLY_PROP_TEMP, value);
+	if (value.intval >= ddata->temperature)
+		ret = ddata->high_temp_ratio;
+	pr_info("%s temp:%d duty:%d\n", __func__, value.intval, ret);
+	return ret;
+}
+#endif
+
 static int sec_haptic_set_frequency(struct sec_haptic_drvdata *ddata,
 	int num)
 {
+	int duty_ratio = ddata->ratio;
+
+#ifdef CONFIG_BATTERY_SAMSUNG
+	if (ddata->high_temp_ratio)
+		duty_ratio = sec_get_temperature_duty_ratio(ddata);
+#endif
+
 	if (num >= 0 && num < ddata->multi_frequency) {
 		ddata->period = ddata->multi_freq_period[num];
-		ddata->duty = ddata->max_duty = ddata->multi_freq_duty[num];
+		ddata->duty = ddata->max_duty = (ddata->period * duty_ratio) / 100;
 		ddata->intensity = MAX_INTENSITY;
 		ddata->freq_num = num;
 	} else if (num >= HAPTIC_ENGINE_FREQ_MIN && num <= HAPTIC_ENGINE_FREQ_MAX) {
 		ddata->period = MULTI_FREQ_DIVIDER / num;
-		ddata->duty = ddata->max_duty = (ddata->period * ddata->ratio) / 100;
+		ddata->duty = ddata->max_duty = (ddata->period * duty_ratio) / 100;
 		ddata->intensity = MAX_INTENSITY;
 		ddata->freq_num = num;
 	} else {
@@ -238,7 +262,7 @@ static ssize_t duty_store(struct device *dev,
 		dev_err(dev, "fail to get duty.\n");
 		return count;
 	}
-	ddata->duty = ddata->max_duty = ddata->multi_freq_duty[0] = duty;
+	ddata->duty = ddata->max_duty = duty;
 	ddata->intensity = MAX_INTENSITY;
 
 	return count;
@@ -576,6 +600,7 @@ int sec_haptic_register(struct sec_haptic_drvdata *ddata)
 		goto err_sysfs3;
 	}
 
+	ddata->ratio = ddata->normal_ratio;
 	pddata = ddata;
 
 	return ret;

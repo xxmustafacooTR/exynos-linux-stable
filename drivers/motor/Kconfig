@@ -29,3 +29,10 @@ config SEC_HAPTIC
 	  To enable this driver, SEC_SYSFS should be enabled and
 	  motor driver calls this driver.
 
+config SEC_HAPTIC_TEST
+	bool "KUnit test for sec_haptic_test"
+	default n
+	help
+	  If you want to enable this, please say yes in kunitconfig.
+	  To run test cases for SEC_HAPTIC,
+	  SEC_HAPTIC_TEST should be enabled.
