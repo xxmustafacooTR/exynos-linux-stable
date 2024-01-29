@@ -201,6 +201,9 @@ obj-$(CONFIG_GPS_BCMxxxxx)	+= gps/
 # Motor
 obj-y	+= motor/
 
+# Vibrator
+obj-y += vibrator/
+
 # CCIC
 obj-y	+= ccic/
 

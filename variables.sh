@@ -97,6 +97,12 @@ patch_stock() {
 		sed -i 's/# CONFIG_CGROUP_NET_CLASSID is not set/CONFIG_CGROUP_NET_CLASSID=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		sed -i 's/CONFIG_CUSTOM_FORCETOUCH=y/# CONFIG_CUSTOM_FORCETOUCH is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		sed -i 's/# CONFIG_NETFILTER_XT_MATCH_ONESHOT is not set/CONFIG_NETFILTER_XT_MATCH_ONESHOT=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_SEC_VIB_NOTIFIER=y/# CONFIG_SEC_VIB_NOTIFIER is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_SEC_VIBRATOR=y/# CONFIG_SEC_VIBRATOR is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_MAX77705_VIBRATOR=y/# CONFIG_MAX77705_VIBRATOR is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_SEC_HAPTIC is not set/CONFIG_SEC_HAPTIC=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_MOTOR_DRV_MAX77705 is not set/CONFIG_MOTOR_DRV_MAX77705=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_MOTOR_DRV_MAX77865 is not set/CONFIG_MOTOR_DRV_MAX77865=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		patch_wifi
 		echo "" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		echo "CONFIG_TCP_CONG_LIA=y" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
