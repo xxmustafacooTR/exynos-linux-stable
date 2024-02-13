@@ -29,6 +29,8 @@
 #include <linux/of_gpio.h>
 #include <linux/sec_sysfs.h>
 #include <linux/usb/manager/usb_typec_manager_notifier.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
 
 #include "wacom.h"
 

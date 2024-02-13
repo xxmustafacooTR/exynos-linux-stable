@@ -14,10 +14,10 @@
 #ifndef EXYNOS_SNAPSHOT_H
 #define EXYNOS_SNAPSHOT_H
 
-#ifdef CONFIG_EXYNOS_SNAPSHOT
 #include <asm/ptrace.h>
 #include <linux/bug.h>
 
+#ifdef CONFIG_EXYNOS_SNAPSHOT
 /* mandatory */
 extern void exynos_ss_task(int cpu, void *v_task);
 extern void exynos_ss_work(void *worker, void *v_task, void *fn, int en);
@@ -222,7 +222,7 @@ extern void exynos_ss_get_softlockup_info(unsigned int cpu, void *info);
 #define exynos_ss_set_hardlockup(a)	do { } while (0)
 #define exynos_ss_get_hardlockup()	do { } while (0)
 #define exynos_ss_get_item_size(a)	do { } while (0)
-#define exynos_ss_get_item_paddr(a)	do { } while (0)
+#define exynos_ss_uart(a,b,c)		do { } while(0)
 #define exynos_ss_check_crash_key(a, b)	do { } while (0)
 #define exynos_ss_dm(a, b, c, d, e)	do { } while (0)
 #define exynos_ss_panic_handler_safe(a)	do { } while (0)
@@ -232,13 +232,16 @@ extern void exynos_ss_get_softlockup_info(unsigned int cpu, void *info);
 #define exynos_ss_hook_hardlockup_exit() do { } while (0)
 #define exynos_ss_get_hardlockup_info(a, b)	do { } while (0)
 #define exynos_ss_get_softlockup_info(a, b)	do { } while (0)
+#define s3c2410wdt_keepalive_emergency(a, b)	do { } while (0)
 #define s3c2410wdt_set_emergency_reset(a, b)	do { } while (0)
+static inline unsigned int exynos_ss_get_item_paddr(char *name) { return 0; }
+static inline void exynos_ss_save_log(int cpu, unsigned long where) {}
 
-static int exynos_ss_get_debug_level(void)
+static inline int exynos_ss_get_debug_level(void)
 {
 	return 1;
 }
-static int exynos_ss_get_debug_level_reg(void)
+static inline int exynos_ss_get_debug_level_reg(void)
 {
 	return 1;
 }

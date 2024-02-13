@@ -10,8 +10,8 @@
  * published by the Free Software Foundation.
  */
 
-#define DEBUG
-/* #define BATTERY_LOG_MESSAGE */
+//#define DEBUG
+//#define BATTERY_LOG_MESSAGE
 
 #include <linux/mfd/max77705-private.h>
 #include <linux/of_gpio.h>

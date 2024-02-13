@@ -886,21 +886,21 @@ void DPU_EVENT_SHOW(struct seq_file *s, struct decon_device *decon);
 int decon_create_debugfs(struct decon_device *decon);
 void decon_destroy_debugfs(struct decon_device *decon);
 #else /*!*/
-#define DPU_EVENT_START(...) do { } while(0)
-#define DPU_EVENT_LOG(...) do { } while(0)
-#define DPU_EVENT_LOG_WINCON(...) do { } while(0)
-#define DPU_EVENT_LOG_CMD(...) do { } while(0)
-#define DPU_EVENT_LOG_CURSOR(...) do { } while (0)
-#define DPU_EVENT_LOG_UPDATE_REGION(...) do { } while(0)
-#define DPU_EVENT_LOG_WINUP_FLAGS(...) do { } while(0)
-#define DPU_EVENT_LOG_APPLY_REGION(...) do { } while(0)
-#define DPU_EVENT_SHOW(...) do { } while(0)
+#define DPU_EVENT_START(...)
+#define DPU_EVENT_LOG(...)
+#define DPU_EVENT_LOG_WINCON(...)
+#define DPU_EVENT_LOG_CMD(...)
+#define DPU_EVENT_LOG_CURSOR(...)
+#define DPU_EVENT_LOG_UPDATE_REGION(...)
+#define DPU_EVENT_LOG_WINUP_FLAGS(...)
+#define DPU_EVENT_LOG_APPLY_REGION(...)
+#define DPU_EVENT_SHOW(...)
 #define decon_create_debugfs(...) 0
-#define decon_destroy_debugfs(...) do { } while(0)
+#define decon_destroy_debugfs(...)
 #endif
 
 
-#define REQ_DSI_DUMP	1
+#define REQ_DSI_DUMP	0
 #define IGN_DSI_DUMP	0
 
 /* HDR information of panel */

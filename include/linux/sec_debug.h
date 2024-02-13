@@ -39,6 +39,8 @@ extern char *verbose_reg(int cpu_type, int reg_name, unsigned long reg_val);
 extern void sec_getlog_supply_kernel(void *klog_buf);
 extern void sec_getlog_supply_platform(unsigned char *buffer, const char *name);
 extern void sec_gaf_supply_rqinfo(unsigned short curr_offset, unsigned short rq_offset);
+static inline char *verbose_reg(int cpu_type, int reg_name, unsigned long reg_val) { return 0; }
+static inline int sec_debug_enter_upload(void) { return 0; }
 #else
 #define id_get_asb_ver()			(-1)
 #define id_get_product_line()			(-1)
@@ -54,6 +56,9 @@ extern void sec_gaf_supply_rqinfo(unsigned short curr_offset, unsigned short rq_
 #define sec_getlog_supply_platform(a, b)	do { } while (0)
 
 #define sec_gaf_supply_rqinfo(a, b)		do { } while (0)
+
+static inline char *verbose_reg(int cpu_type, int reg_name, unsigned long reg_val) { return 0; }
+static inline int sec_debug_enter_upload(void) { return 0; }
 #endif /* CONFIG_SEC_DEBUG */
 
 #ifdef CONFIG_SEC_DEBUG
@@ -126,6 +131,7 @@ extern void sec_gaf_supply_rqinfo(unsigned short curr_offset, unsigned short rq_
 #define	MASK_IND		(0b1)
 
 #define FIELD_VAL(r, f)	(((r) >> (SHIFT_##f)) & (MASK_##f))
+#endif
 
 enum sec_debug_lsi_reg_t {
 	FEMERR0SR,
@@ -149,8 +155,6 @@ enum sec_debug_arm_reg_t {
 	ERR1ADDR,
 	ERR1MISC0,
 };
-
-#endif
 
 #ifdef CONFIG_SEC_DEBUG_RESET_REASON
 
@@ -309,6 +313,8 @@ extern int volt_vst_cal_bdata;
 #define SEC_DEBUG_SHARED_MAGIC2 0x14F014F0
 #define SEC_DEBUG_SHARED_MAGIC3 0x00010001
 
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+
 struct sec_debug_ksyms {
 	uint32_t magic;
 	uint32_t kallsyms_all;
@@ -351,8 +357,6 @@ struct sec_debug_shared_info {
 };
 
 extern void sec_debug_set_kallsyms_info(struct sec_debug_ksyms *ksyms, int magic);
-
-#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
 
 extern struct exynos_chipid_info exynos_soc_info;
 extern unsigned int get_smpl_warn_number(void);

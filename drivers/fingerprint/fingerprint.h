@@ -20,7 +20,7 @@
 #include "fingerprint_sysfs.h"
 
 /* fingerprint debug timer */
-#define FPSENSOR_DEBUG_TIMER_SEC (10 * HZ)
+//#define FPSENSOR_DEBUG_TIMER_SEC (10 * HZ)
 
 /* For Sensor Type Check */
 enum {
