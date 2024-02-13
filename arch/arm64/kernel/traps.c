@@ -50,6 +50,8 @@
 #include <linux/sec_debug.h>
 #endif
 
+static inline void print_ppmpu_protection(struct pt_regs *regs) {}
+
 static const char *handler[] = {
 	"Synchronous Abort",
 	"IRQ",

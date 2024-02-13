@@ -439,6 +439,7 @@ END(vectors)
 	b	bad_mode
 	.endm
 
+#ifdef CONFIG_SEC_DEBUG
 /*
  * wdt reset for i-cache preservation
  * local irq disable is assumed for wdt reset
@@ -532,6 +533,7 @@ END(vectors)
 	ldp x2, x3, [sp,#0x10]
 	add sp, sp, #0x20
 	.endm
+#endif
 
 el0_sync_invalid:
 	inv_entry 0, BAD_SYNC
@@ -645,7 +647,9 @@ el1_sync:
 skip:
 	ldp	x0, x1, [sp]
 	add	sp, sp, #0x10
+#ifdef CONFIG_SEC_DEBUG
 	wdt_reset_for_icache 1
+#endif
 	kernel_entry 1
 	mov	x9, #0
 	str_l	x9, __tlb_conflict_cnt, x8
@@ -762,7 +766,9 @@ el1_preempt:
  */
 	.align	6
 el0_sync:
+#ifdef CONFIG_SEC_DEBUG
 	wdt_reset_for_icache 0
+#endif
 	kernel_entry 0
 	mrs	x25, esr_el1			// read the syndrome register
 	lsr	x24, x25, #ESR_ELx_EC_SHIFT	// exception class

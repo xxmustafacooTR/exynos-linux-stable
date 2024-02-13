@@ -45,8 +45,8 @@
 /* #define ENABLE_MIF_400 */
 #define ENABLE_DTP
 #define ENABLE_FLITE_OVERFLOW_STOP
-#define ENABLE_DBG_FS
-#define ENABLE_DBG_STATE
+//#define ENABLE_DBG_FS
+//#define ENABLE_DBG_STATE
 #define FIXED_SENSOR_DEBUG
 #define ENABLE_RESERVED_MEM
 #define ENABLE_DYNAMIC_MEM
@@ -89,7 +89,7 @@
 #endif
 
 /* BUG_ON | FIMC_BUG Macro control */
-#define USE_FIMC_BUG
+//#define USE_FIMC_BUG
 
 /*
  * =================================================================================================
@@ -105,15 +105,15 @@ extern int debug_psv;
 extern int debug_irq;
 extern int debug_sensor;
 
-#define DEBUG_LOG_MEMORY
+//#define DEBUG_LOG_MEMORY
 /* #define DEBUG_HW_SIZE */
 #define DBG_STREAM_ID 0x3F
 /* #define DBG_JITTER */
-#define FW_PANIC_ENABLE
+//#define FW_PANIC_ENABLE
 /* #define SENSOR_PANIC_ENABLE */
 #define OVERFLOW_PANIC_ENABLE_ISCHAIN
 #define OVERFLOW_PANIC_ENABLE_CSIS
-#define ENABLE_KERNEL_LOG_DUMP
+//#define ENABLE_KERNEL_LOG_DUMP
 /* #define FIXED_FPS_DEBUG */
 /* #define FIXED_TDNR_NOISE_INDEX */
 
@@ -130,7 +130,7 @@ extern int debug_sensor;
 /* #define DBG_META_DUMP */
 #define DBG_HAL_DEAD_PANIC_DELAY (500) /* ms */
 #define DBG_DMA_DUMP_PATH	"/data"
-#define DBG_DMA_DUMP_INTEVAL	33	/* unit : frame */
+#define DBG_DMA_DUMP_INTEVAL	33 /* unit : frame */
 #define DBG_DMA_DUMP_VID_COND(vid)	((vid == FIMC_IS_VIDEO_SS0VC0_NUM) || \
 					(vid == FIMC_IS_VIDEO_SS1VC0_NUM) || \
 					(vid == FIMC_IS_VIDEO_M0P_NUM))
@@ -648,6 +648,8 @@ extern int debug_sensor;
 #define FIMC_BUG_VOID(condition)								\
 	BUG_ON(condition);
 #define FIMC_BUG_NULL(condition)								\
+	BUG_ON(condition);
+#define FIMC_BUG_FALSE(condition)								\
 	BUG_ON(condition);
 #endif
 

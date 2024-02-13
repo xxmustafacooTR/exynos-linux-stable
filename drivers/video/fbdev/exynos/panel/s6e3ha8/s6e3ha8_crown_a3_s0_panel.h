@@ -1782,12 +1782,14 @@ static void *crown_a3_s0_dump_cmdtbl[] = {
 	&KEYINFO(crown_a3_s0_level1_key_enable),
 	&KEYINFO(crown_a3_s0_level2_key_enable),
 	&KEYINFO(crown_a3_s0_level3_key_enable),
+#ifdef CONFIG_DISPLAY_USE_INFO
 	&s6e3ha8_dmptbl[DUMP_RDDPM],
 	&s6e3ha8_dmptbl[DUMP_RDDSM],
 	&s6e3ha8_dmptbl[DUMP_ERR],
 	&s6e3ha8_dmptbl[DUMP_ERR_FG],
 	&s6e3ha8_dmptbl[DUMP_DSI_ERR],
 	&s6e3ha8_dmptbl[DUMP_SELF_DIAG],
+#endif
 	&KEYINFO(crown_a3_s0_level3_key_disable),
 	&KEYINFO(crown_a3_s0_level2_key_disable),
 	&KEYINFO(crown_a3_s0_level1_key_disable),
@@ -1885,8 +1887,10 @@ struct common_panel_info s6e3ha8_crown_a3_s0_preliminary_panel_info = {
 	.nr_rditbl = ARRAY_SIZE(s6e3ha8_rditbl),
 	.restbl = s6e3ha8_restbl,
 	.nr_restbl = ARRAY_SIZE(s6e3ha8_restbl),
+#ifdef CONFIG_DISPLAY_USE_INFO
 	.dumpinfo = s6e3ha8_dmptbl,
 	.nr_dumpinfo = ARRAY_SIZE(s6e3ha8_dmptbl),
+#endif
 #ifdef CONFIG_EXYNOS_DECON_MDNIE_LITE
 	.mdnie_tune = &s6e3ha8_crown_a3_s0_mdnie_tune,
 #endif
@@ -1923,8 +1927,10 @@ struct common_panel_info s6e3ha8_crown_a3_s0_default_panel_info = {
 	.nr_rditbl = ARRAY_SIZE(s6e3ha8_rditbl),
 	.restbl = s6e3ha8_restbl,
 	.nr_restbl = ARRAY_SIZE(s6e3ha8_restbl),
+#ifdef CONFIG_DISPLAY_USE_INFO
 	.dumpinfo = s6e3ha8_dmptbl,
 	.nr_dumpinfo = ARRAY_SIZE(s6e3ha8_dmptbl),
+#endif
 #ifdef CONFIG_EXYNOS_DECON_MDNIE_LITE
 	.mdnie_tune = &s6e3ha8_crown_a3_s0_mdnie_tune,
 #endif

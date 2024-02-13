@@ -38,9 +38,7 @@ struct tsp_dump_callbacks dump_callbacks;
 #if defined(CONFIG_SEC_SIPC_MODEM_IF)
 #include <soc/samsung/exynos-modem-ctrl.h>
 #endif
-#ifdef CONFIG_SEC_DEBUG
 #include <linux/sec_debug.h>
-#endif /* CONFIG_SEC_DEBUG */
 #include "exynos-ss-local.h"
 
 #include <linux/nmi.h>

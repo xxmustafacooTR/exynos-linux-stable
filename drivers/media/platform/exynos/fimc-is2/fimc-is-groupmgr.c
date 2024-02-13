@@ -1052,7 +1052,7 @@ static int fimc_is_group_task_stop(struct fimc_is_groupmgr *groupmgr,
 
 	if (!list_empty(&gtask->smp_resource.wait_list)) {
 		warn("gtask(%d) is not empty", gtask->id);
-		fimc_is_kernel_log_dump(false);
+		/* fimc_is_kernel_log_dump(false); */
 		up(&gtask->smp_resource);
 	}
 
