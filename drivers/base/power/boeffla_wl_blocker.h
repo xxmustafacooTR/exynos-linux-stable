@@ -16,7 +16,7 @@
 
 #define BOEFFLA_WL_BLOCKER_VERSION	"1.1.0"
 
-#define LIST_WL_DEFAULT				"mmc0_detect;16030000.decon_f;wlan_txfl_wake;wlan_rx_wake;bbd_wake_lock;ssp_sensorhub_wake_lock;wlan_wake;wlan_ctrl_wake;ssp_wake_lock;ssp_comm_wake_lock"
+#define LIST_WL_DEFAULT				"mmc0_detect;16030000.decon_f;wlan_txfl_wake;wlan_rx_wake;ssp_sensorhub_wake_lock;wlan_wake;wlan_ctrl_wake;ssp_wake_lock;ssp_comm_wake_lock"
 
 #define LENGTH_LIST_WL				2048
 #define LENGTH_LIST_WL_DEFAULT		(sizeof(LIST_WL_DEFAULT))
