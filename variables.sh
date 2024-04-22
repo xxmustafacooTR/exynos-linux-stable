@@ -103,6 +103,8 @@ patch_stock() {
 		sed -i 's/# CONFIG_SEC_HAPTIC is not set/CONFIG_SEC_HAPTIC=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		sed -i 's/# CONFIG_MOTOR_DRV_MAX77705 is not set/CONFIG_MOTOR_DRV_MAX77705=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		sed -i 's/# CONFIG_MOTOR_DRV_MAX77865 is not set/CONFIG_MOTOR_DRV_MAX77865=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/# CONFIG_MALI_BIFROST_R38P2 is not set/CONFIG_MALI_BIFROST_R38P2=y/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
+		sed -i 's/CONFIG_MALI_BIFROST_R49P0=y/# CONFIG_MALI_BIFROST_R49P0 is not set/g' "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		patch_wifi
 		echo "" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
 		echo "CONFIG_TCP_CONG_LIA=y" >> "$CUR_DIR"/arch/arm64/configs/exynos9810_temp_defconfig
