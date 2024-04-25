@@ -595,7 +595,8 @@ static inline int sugov_fast_start(struct cpufreq_policy *policy, unsigned int c
  *********************************************************************/
 
 /* Special Values of .frequency field */
-#define CPUFREQ_ENTRY_INVALID	~0u
+//#define CPUFREQ_ENTRY_INVALID	~0u
+#define CPUFREQ_ENTRY_INVALID	0
 #define CPUFREQ_TABLE_END	~1u
 /* Special Values of .flags field */
 #define CPUFREQ_BOOST_FREQ	(1 << 0)
