@@ -749,6 +749,7 @@ struct sec_ts_data {
 	int cover_type;
 	u8 cover_cmd;
 	u16 rect_data[4];
+	u16 aod_active_area[3];
 
 	int tspid_val;
 	int tspicid_val;
@@ -1007,4 +1008,5 @@ extern int tui_force_close(uint32_t arg);
 void sec_ts_ioctl_init(struct sec_ts_data *ts);
 void sec_ts_ioctl_remove(struct sec_ts_data *ts);
 
+int get_aod_active_area(struct sec_ts_data *ts);
 #endif

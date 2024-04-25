@@ -1539,6 +1539,38 @@ static ssize_t read_support_feature(struct device *dev,
 	return snprintf(buf, SEC_CMD_BUF_SIZE, "%d", feature);
 }
 
+int get_aod_active_area(struct sec_ts_data *ts)
+{
+	u8 data[8] = {SEC_TS_CMD_SPONGE_GET_INFO, };
+	int ret, i;
+
+	ret = ts->sec_ts_read_sponge(ts, data, 6);
+	if (ret < 0) {
+		input_err(true, &ts->client->dev, "%s: Failed to read rect\n", __func__);
+		return ret;
+	}
+
+	for (i = 0; i < 3; i++)
+		ts->aod_active_area[i] = (data[i * 2 + 1] & 0xFF) << 8 | (data[i * 2] & 0xFF);
+
+	input_info(true, &ts->client->dev, "%s: top:%d, edge:%d, bottom:%d\n",
+			__func__, ts->aod_active_area[0], ts->aod_active_area[1], ts->aod_active_area[2]);
+
+	return ret;
+}
+
+static ssize_t aod_active_area(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sec_cmd_data *sec = dev_get_drvdata(dev);
+	struct sec_ts_data *ts = container_of(sec, struct sec_ts_data, sec);
+
+	input_info(true, &ts->client->dev, "%s: top:%d, edge:%d, bottom:%d\n",
+			__func__, ts->aod_active_area[0], ts->aod_active_area[1], ts->aod_active_area[2]);
+
+	return snprintf(buf, SEC_CMD_BUF_SIZE, "%d,%d,%d", ts->aod_active_area[0], ts->aod_active_area[1], ts->aod_active_area[2]);
+}
+
 static DEVICE_ATTR(ito_check, 0444, read_ito_check_show, NULL);
 static DEVICE_ATTR(raw_check, 0444, read_raw_check_show, NULL);
 static DEVICE_ATTR(multi_count, 0664, read_multi_count_show, clear_multi_count_store);
@@ -1571,6 +1603,7 @@ static DEVICE_ATTR(cfoffset_strength, 0444, get_pressure_cfoffset_strength_all, 
 #endif
 static DEVICE_ATTR(prox_power_off, 0664, prox_power_off_show, prox_power_off_store);
 static DEVICE_ATTR(support_feature, 0444, read_support_feature, NULL);
+static DEVICE_ATTR(aod_active_area, 0444, aod_active_area, NULL);
 
 static struct attribute *cmd_attributes[] = {
 	&dev_attr_scrub_pos.attr,
@@ -1606,6 +1639,7 @@ static struct attribute *cmd_attributes[] = {
 #endif
 	&dev_attr_prox_power_off.attr,
 	&dev_attr_support_feature.attr,
+	&dev_attr_aod_active_area.attr,
 	NULL,
 };
 

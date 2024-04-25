@@ -2559,6 +2559,8 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 #endif
 
+	get_aod_active_area(ts);
+
 	device_init_wakeup(&client->dev, true);
 
 	schedule_delayed_work(&ts->work_read_info, msecs_to_jiffies(50));

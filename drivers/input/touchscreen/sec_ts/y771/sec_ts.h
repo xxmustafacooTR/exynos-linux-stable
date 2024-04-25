@@ -776,6 +776,7 @@ struct sec_ts_data {
 	int cover_type;
 	u8 cover_cmd;
 	u16 rect_data[4];
+	u16 aod_active_area[3];
 
 	int tspid_val;
 	int tspicid_val;
@@ -1077,4 +1078,5 @@ int sec_ts_check_firmware_version(struct sec_ts_data *ts, const u8 *fw_info);
 extern void epen_disable_mode(int mode);
 #endif
 
+int get_aod_active_area(struct sec_ts_data *ts);
 #endif
