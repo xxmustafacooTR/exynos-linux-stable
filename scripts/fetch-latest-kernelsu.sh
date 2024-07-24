@@ -4,7 +4,7 @@ exec 9>.kernelsu-fetch-lock
 flock -n 9 || exit 0
 [[ $(( $(date +%s) - $(stat -c %Y "drivers/kernelsu/.check" 2>/dev/null || echo 0) )) -gt 86400 ]] || exit 0
 
-AUTHOR="tiann"
+AUTHOR="xxmustafacooTR"
 REPO="KernelSU"
 VERSION=`curl -s -I -k "https://api.github.com/repos/$AUTHOR/$REPO/commits?per_page=1" | sed -n '/^[Ll]ink:/ s/.*"next".*page=\([0-9]*\).*"last".*/\1/p'`
 
