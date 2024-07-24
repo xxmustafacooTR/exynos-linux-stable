@@ -77,8 +77,7 @@ void *bpf_map_area_alloc(size_t size, int numa_node)
 			return area;
 	}
 
-	return __vmalloc_node_flags_caller(size, numa_node, GFP_KERNEL | flags,
-					   __builtin_return_address(0));
+	return __vmalloc_node_flags(size, numa_node, GFP_KERNEL | flags);
 }
 
 void bpf_map_area_free(void *area)
