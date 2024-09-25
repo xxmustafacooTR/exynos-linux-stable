@@ -78,6 +78,10 @@ config MALI_BIFROST_R38P2
 	depends on MALI_THEX
 	bool "Bifrost r38p2 driver for Android T"
 
+config MALI_BIFROST_R51P0
+	depends on MALI_THEX
+	bool "Bifrost r51p0 driver"
+
 endchoice
 
 if MALI_THEX_R5P0
@@ -112,4 +116,7 @@ source "drivers/gpu/arm/bv_r38p1/Kconfig"
 endif
 if MALI_BIFROST_R38P2
 source "drivers/gpu/arm/bv_r38p2/Kconfig"
+endif
+if MALI_BIFROST_R51P0
+source "drivers/gpu/arm/bv_r51p0/Kconfig"
 endif
