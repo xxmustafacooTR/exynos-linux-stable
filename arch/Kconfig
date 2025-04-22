@@ -493,6 +493,7 @@ config THIN_ARCHIVES
 
 config LD_DEAD_CODE_DATA_ELIMINATION
 	bool
+	default y
 	help
 	  Select this if the architecture wants to do dead code and
 	  data elimination with the linker by compiling with
@@ -532,7 +533,7 @@ config THINLTO
 config UNIFIEDLTO
 	bool "Use clang UnifiedLTO Bitcode Frontend (EXPERIMENTAL)"
 	depends on LTO_CLANG
-	default n
+	default y
 	help
 	  Use UnifiedLTO Bitcode Frontend to optimize Link Time Optimization.
 

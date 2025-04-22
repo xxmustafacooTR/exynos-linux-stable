@@ -853,7 +853,10 @@ KBUILD_CFLAGS	+= -mllvm -aggressive-ext-opt \
            -mllvm -enable-unroll-and-jam \
            -mllvm -extra-vectorizer-passes \
            -mllvm -unroll-runtime-multi-exit \
-           -mllvm -hot-cold-split=true
+           -mllvm -hot-cold-split=true \
+		   -mllvm -vectorizer-maximize-bandwidth \
+		   -mllvm -enable-ext-tsp-block-placement=1 \
+		   -mllvm -enable-dfa-jump-thread=1
 
 ifdef CONFIG_LLVM_POLLY
 KBUILD_CFLAGS	+= -mllvm -polly \
@@ -871,12 +874,12 @@ KBUILD_CFLAGS	+= -mllvm -polly \
            -mllvm -polly-loopfusion-greedy \
            -mllvm -polly-num-threads=0 \
            -mllvm -polly-omp-backend=LLVM \
-           -mllvm -polly-parallel \
            -mllvm -polly-postopts \
            -mllvm -polly-reschedule \
            -mllvm -polly-scheduling-chunksize=1 \
            -mllvm -polly-scheduling=dynamic \
-           -mllvm -polly-tiling
+           -mllvm -polly-tiling \
+		   -mllvm -polly-parallel
 endif
 
 ifdef CONFIG_LLVM_MLGO_REGISTER
@@ -899,6 +902,11 @@ KBUILD_LDFLAGS += -Ofast -ffast-math -funsafe-math-optimizations
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
 KBUILD_LDFLAGS += -Os
+endif
+
+ifeq ($(cc-name),clang)
+KBUILD_CFLAGS += -mharden-sls=none -funroll-loops -fsplit-machine-functions -freciprocal-math -fno-unique-section-names -fno-trapping-math -fno-semantic-interposition -fno-math-errno -ffp-contract=fast -fexcess-precision=fast -falign-functions=32
+KBUILD_LDFLAGS += --sort-common --as-needed -z now
 endif
 
 KBUILD_CFLAGS += $(call cc-ifversion, -lt, 0409, \
